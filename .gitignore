@@ -1,0 +1,65 @@
+# zfrog - Output directory
+/output/
+
+# Runtime state. Every pattern is anchored to the repo root: an unanchored
+# `workflows/` or `analysis/` also matches `.github/workflows/` and
+# `src/zfrog/analysis/`, which would silently keep source out of the repo.
+# sessions/ holds cookie values — never commit it.
+/versions/
+/sessions/
+/search.db
+/schedules.json
+/workflows/
+/metrics.db
+/audit.log
+/api_keys.json
+/marketplace/
+/integrations/
+/templates/
+/users.json
+/orgs.json
+/annotations/
+/domains/
+/workers.json
+/analysis/
+/finetune/
+/totp.json
+/arweave-wallet.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environment
+venv/
+.venv/
+
+# Environment files
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Docker
+.dockerignore

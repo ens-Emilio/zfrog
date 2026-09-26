@@ -1,0 +1,50 @@
+# zfrog worker Deployment (image placeholder, built from Dockerfile.worker).
+#
+# NOTE: the operator does NOT use this Deployment to run crawls. It creates one
+# short-lived batch/v1 Job per ZfrogJob instead (see operator.yaml), so each
+# crawl gets its own pod, its own resource limits and its own exit status.
+# This Deployment only exists as the shared reference for the worker image,
+# environment and resources that `build_job_manifest` mirrors into those Jobs;
+# scale it to 0 if you do not also run the queue-based worker.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zfrog-worker
+  namespace: default
+  labels:
+    app: zfrog-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: zfrog-worker
+  template:
+    metadata:
+      labels:
+        app: zfrog-worker
+    spec:
+      containers:
+        - name: worker
+          image: zfrog-worker:latest
+          imagePullPolicy: IfNotPresent
+          command: ["celery", "-A", "zfrog.queue", "worker", "-l", "info", "-c", "2"]
+          env:
+            - name: ZFROG_REDIS_URL
+              value: redis://redis:6379/0
+            - name: ZFROG_OUTPUT_DIR
+              value: /app/output
+            - name: PYTHONUNBUFFERED
+              value: "1"
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+          volumeMounts:
+            - name: output
+              mountPath: /app/output
+      volumes:
+        - name: output
+          emptyDir: {}

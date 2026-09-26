@@ -1,0 +1,17 @@
+# Sample ZfrogJob. The operator creates a Job named `example-mirror-job` for it
+# and reports the phase back under .status:
+#
+#   kubectl apply -f deploy/k8s/example-job.yaml
+#   kubectl get zfrogjobs
+apiVersion: zfrog.io/v1alpha1
+kind: ZfrogJob
+metadata:
+  name: example-mirror
+  namespace: default
+spec:
+  url: https://example.com
+  mode: mirror
+  maxDepth: 2
+  followLinks: true
+  respectRobots: true
+  ttlSecondsAfterFinished: 600

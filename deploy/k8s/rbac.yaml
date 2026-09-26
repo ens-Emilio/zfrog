@@ -1,0 +1,47 @@
+# RBAC for the zfrog operator: it watches ZfrogJobs, writes their status and
+# owns the batch/v1 Jobs it creates for them.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: zfrog-operator
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: zfrog-operator
+rules:
+  - apiGroups:
+      - zfrog.io
+    resources:
+      - zfrogjobs
+      - zfrogjobs/status
+    verbs:
+      - get
+      - list
+      - watch
+      - patch
+      - update
+  - apiGroups:
+      - batch
+    resources:
+      - jobs
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: zfrog-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: zfrog-operator
+subjects:
+  - kind: ServiceAccount
+    name: zfrog-operator
+    namespace: default

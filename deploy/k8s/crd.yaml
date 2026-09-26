@@ -1,0 +1,99 @@
+# ZfrogJob — a declarative crawl/scrape request handled by the zfrog operator.
+# The operator turns each ZfrogJob into a batch/v1 Job (see operator.yaml) and
+# mirrors the Job phase back into .status.
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: zfrogjobs.zfrog.io
+spec:
+  group: zfrog.io
+  scope: Namespaced
+  names:
+    plural: zfrogjobs
+    singular: zfrogjob
+    kind: ZfrogJob
+    shortNames:
+      - zkj
+    categories:
+      - all
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: URL
+          type: string
+          description: Target URL of the job
+          jsonPath: .spec.url
+        - name: Mode
+          type: string
+          description: Engine mode
+          jsonPath: .spec.mode
+        - name: Phase
+          type: string
+          description: Current phase reported by the operator
+          jsonPath: .status.phase
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required:
+                - url
+                - mode
+              properties:
+                url:
+                  type: string
+                  minLength: 1
+                  description: URL to crawl, scrape or analyse
+                mode:
+                  type: string
+                  description: Engine mode used for the job
+                  enum:
+                    - mirror
+                    - scrape
+                    - singlepage
+                    - extract
+                    - analyze
+                    - compare
+                    - ask
+                    - pdf
+                    - summarize
+                maxDepth:
+                  type: integer
+                  format: int32
+                  minimum: 0
+                  default: 1
+                  description: Maximum crawl depth
+                followLinks:
+                  type: boolean
+                  default: true
+                  description: Follow links discovered during the crawl
+                respectRobots:
+                  type: boolean
+                  default: true
+                  description: Honour robots.txt
+                ttlSecondsAfterFinished:
+                  type: integer
+                  format: int32
+                  minimum: 0
+                  description: Delete the child Job this many seconds after it finishes
+            status:
+              type: object
+              properties:
+                phase:
+                  type: string
+                  enum:
+                    - Pending
+                    - Running
+                    - Succeeded
+                    - Failed
+                jobName:
+                  type: string
+                message:
+                  type: string
+                completedAt:
+                  type: string

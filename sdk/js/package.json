@@ -1,0 +1,21 @@
+{
+  "name": "zfrog-sdk",
+  "version": "0.2.0",
+  "description": "Official JavaScript/TypeScript client for the Zfrog REST API",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "test": "bun test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "Apache-2.0"
+}

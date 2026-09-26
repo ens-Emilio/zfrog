@@ -1,0 +1,27 @@
+#!/bin/sh
+# Zfrog launcher.
+#
+# Runs the CLI using the project virtualenv so `./zfrog <cmd>` works without
+# activating the venv first.
+set -e
+
+ROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+VENV="$ROOT/.venv"
+PYTHON=${ZFROG_PYTHON:-$VENV/bin/python}
+
+if [ ! -x "$PYTHON" ]; then
+    cat >&2 <<EOF
+zfrog: no virtualenv found at $VENV
+
+Set it up once with:
+  cd $ROOT
+  python -m venv .venv
+  .venv/bin/pip install -e '.[dev]'
+  .venv/bin/playwright install chromium
+
+Or point ZFROG_PYTHON at an existing interpreter.
+EOF
+    exit 1
+fi
+
+exec "$PYTHON" -m zfrog "$@"

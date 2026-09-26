@@ -1,0 +1,120 @@
+# Design Reference Engine — Docker Compose (Produção)
+#
+# Uso:
+#   cp .env.example .env      # ajuste as variáveis
+#   docker compose -f docker-compose.prod.yml up -d
+#   docker compose -f docker-compose.prod.yml logs -f api
+#   docker compose -f docker-compose.prod.yml down
+#
+# Serviços:
+#   - valkey:  Filas Celery, streams, estado compartilhado (fork open source do Redis)
+#   - api:     FastAPI + Uvicorn (porta 8000)
+#   - worker:  Celery worker para jobs
+#   - dashboard: Next.js (porta 3000)
+#
+# Estado: TUDO que o Zfrog guarda fica no volume `zfrog-data`, montado em /app/data
+# e apontado por ZFROG_DATA_DIR. Sem isso cada store usaria um caminho relativo ao
+# diretório de trabalho (dentro da camada gravável do container) e um restart
+# perderia chaves de API, usuários, organizações, sessões e o histórico de versões.
+#
+# Atenção: o `api` roda com --workers 2. O estado que não pode ser por processo
+# (jobs, webhooks, login SSO) vai para o valkey, então os workers se enxergam.
+
+services:
+  valkey:
+    image: valkey/valkey:8-alpine
+    # Não publique 6379 no host: o valkey não tem autenticação aqui e ficaria
+    # acessível de fora. Descomente apenas se precisar inspecionar de dentro.
+    # ports:
+    #   - "127.0.0.1:6379:6379"
+    volumes:
+      - valkey-data:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: >
+      uvicorn zfrog.api:app --host 0.0.0.0 --port 8000
+      --workers ${API_WORKERS:-2} --proxy-headers
+    ports:
+      # Escute em 127.0.0.1 e deixe um proxy (nginx/Caddy) terminar o TLS, ou troque
+      # por "8000:8000" sabendo que a API fica exposta sem TLS.
+      - "${API_BIND:-127.0.0.1}:8000:8000"
+    volumes:
+      - zfrog-data:/app/data
+      - ./ai_config.yaml:/app/ai_config.yaml:ro
+    environment:
+      - ZFROG_DATA_DIR=/app/data
+      - ZFROG_REDIS_URL=redis://valkey:6379/0
+      - ZFROG_AI_MODEL=${ZFROG_AI_MODEL:-ollama/qwen2.5}
+      # Ligue a autenticação antes de expor a API. Com ela desligada (o default,
+      # pensado para uso local) qualquer um que alcance a porta cria jobs, publica
+      # no Arweave e lê os clones.
+      - ZFROG_AUTH_ENABLED=${ZFROG_AUTH_ENABLED:-true}
+      # Restrinja ao domínio do dashboard em vez de "*".
+      - ZFROG_CORS_ORIGINS=${ZFROG_CORS_ORIGINS:-http://localhost:3000}
+    depends_on:
+      valkey:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5).status == 200 else 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: ${API_MEMORY_LIMIT:-2g}
+          cpus: "${API_CPU_LIMIT:-1.0}"
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: >
+      celery -A zfrog.queue worker -l info -c ${WORKER_CONCURRENCY:-2}
+    volumes:
+      - zfrog-data:/app/data
+      - ./ai_config.yaml:/app/ai_config.yaml:ro
+    environment:
+      - ZFROG_DATA_DIR=/app/data
+      - ZFROG_REDIS_URL=redis://valkey:6379/0
+      - ZFROG_AI_MODEL=${ZFROG_AI_MODEL:-ollama/qwen2.5}
+    depends_on:
+      valkey:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      replicas: ${WORKER_REPLICAS:-1}
+      resources:
+        limits:
+          memory: ${WORKER_MEMORY_LIMIT:-2g}
+          cpus: "${WORKER_CPU_LIMIT:-1.0}"
+
+  dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+      args:
+        # O Next embute NEXT_PUBLIC_* no bundle em build time, então o valor precisa
+        # ser a URL que o NAVEGADOR alcança (não o nome do serviço na rede interna).
+        NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:8000}
+    ports:
+      - "${DASHBOARD_BIND:-127.0.0.1}:3000:3000"
+    depends_on:
+      api:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  valkey-data:
+  zfrog-data:

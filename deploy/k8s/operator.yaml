@@ -1,0 +1,55 @@
+# The zfrog operator: reconciles ZfrogJob custom resources into batch/v1 Jobs.
+# Image placeholder — build with `docker build -f Dockerfile.worker -t zfrog-worker:latest .`
+# and push it to a registry your cluster can pull from before applying this file.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zfrog-operator
+  namespace: default
+  labels:
+    app: zfrog-operator
+spec:
+  replicas: 1
+  # The operator is a singleton: two instances would fight over the same Jobs.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: zfrog-operator
+  template:
+    metadata:
+      labels:
+        app: zfrog-operator
+    spec:
+      serviceAccountName: zfrog-operator
+      containers:
+        - name: operator
+          image: zfrog-worker:latest
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "zfrog.k8s.operator"]
+          env:
+            - name: ZFROG_K8S_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            # Image used for the child Jobs the operator creates.
+            - name: ZFROG_K8S_WORKER_IMAGE
+              value: zfrog-worker:latest
+            - name: PYTHONUNBUFFERED
+              value: "1"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          livenessProbe:
+            # The operator has no HTTP port; prove the interpreter and package
+            # are still healthy by importing the operator module.
+            exec:
+              command: ["python", "-c", "import zfrog.k8s.operator"]
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3

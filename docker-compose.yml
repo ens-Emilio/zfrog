@@ -1,0 +1,61 @@
+# Design Reference Engine — Docker Compose (desenvolvimento / uso local)
+#
+# Uso:
+#   docker compose up -d
+#   docker compose logs -f api
+#   docker compose down
+#
+# Para produção use docker-compose.prod.yml (workers, healthcheck da API, limites
+# de recurso, CORS restrito e autenticação ligada).
+#
+# Estado: o volume `zfrog-data` é montado em /app/data e apontado por
+# ZFROG_DATA_DIR, então chaves, usuários, sessões e o histórico de versões
+# sobrevivem a um `docker compose down`. Sem isso cada store escreveria dentro da
+# camada gravável do container e um restart perderia tudo.
+
+services:
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: celery -A zfrog.queue worker -l info -c 2
+    volumes:
+      - zfrog-data:/app/data
+    environment:
+      - ZFROG_DATA_DIR=/app/data
+      - ZFROG_REDIS_URL=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: uvicorn zfrog.api:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - zfrog-data:/app/data
+    environment:
+      - ZFROG_DATA_DIR=/app/data
+      - ZFROG_REDIS_URL=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  redis-data:
+  zfrog-data:
