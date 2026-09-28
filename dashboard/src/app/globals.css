@@ -1,3 +1,16 @@
+/* Ordem das camadas, declarada antes de qualquer @import.
+ *
+ * Sem esta linha a ordem é a de primeira aparição, e `od-layout` — que vem de
+ * ds-tokens.css, importado depois do Tailwind — acabava por último, ou seja, com
+ * prioridade máxima: as primitivas de estrutura venciam os utilitários do Tailwind
+ * e qualquer `od-field` + `flex` ficava com `display: block`. A intenção é o
+ * oposto: estrutura é o piso, utilitário do produto manda.
+ *
+ * `properties` e `theme` vêm do Tailwind e precisam manter a posição relativa que
+ * ele define; `od-layout` entra na frente de tudo.
+ */
+@layer od-layout, properties, theme, base, components, utilities;
+
 @import "tailwindcss";
 @import "./ds-tokens.css";
 @import "./ds-components.css";
