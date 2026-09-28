@@ -1,6 +1,5 @@
-"use client"
 import * as React from "react"
-import { cn } from "@/lib/utils"
+import { AlertTriangle, ChevronDown } from "lucide-react"
 
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string
@@ -10,57 +9,115 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
   rightIcon?: React.ReactNode
 }
 
+/**
+ * The `.field` + `.input` pair of the design system, with label, hint and error.
+ *
+ * The wrapper is a `<label>` rather than a `<div>` when a label is given, so the
+ * control is associated implicitly. A `<label>` with `for` would need a generated
+ * id, and an id that has to be threaded through every caller is the kind of thing
+ * that silently goes missing on one field — implicit association cannot drift.
+ */
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(
   ({ className, label, hint, error, leftIcon, rightIcon, type = "text", ...props }, ref) => {
+    const Wrapper = (label ? "label" : "div") as "label"
     return (
-      <div className="flex flex-col gap-1.5 w-full">
-        {label && <label className="text-[12.5px] font-medium text-foreground/80">{label}</label>}
-        <div className="relative flex items-center">
-          {leftIcon && <span className="absolute left-3 text-muted-foreground">{leftIcon}</span>}
+      <Wrapper className="field">
+        {label && <span className="label">{label}</span>}
+        <span className="relative flex items-center">
+          {leftIcon && <span className="pointer-events-none absolute left-3 text-[var(--text-3)]">{leftIcon}</span>}
           <input
             type={type}
             ref={ref}
-            className={cn(
-              "flex h-10 w-full rounded-[12px] border border-input bg-background px-3 py-2 text-[14px] transition-all",
-              "placeholder:text-muted-foreground/60",
-              "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-0 focus:border-ring",
-              "disabled:cursor-not-allowed disabled:opacity-50",
-              leftIcon ? "pl-10" : "",
-              rightIcon ? "pr-10" : "",
-              error ? "border-destructive focus:ring-destructive" : "",
-              className || ""
-            )}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={hint || error ? `${props.id ?? props.name ?? "field"}-help` : undefined}
+            className={[leftIcon ? "pl-10" : "", rightIcon ? "pr-10" : "", "input", className]
+              .filter(Boolean)
+              .join(" ")}
             {...props}
           />
-          {rightIcon && <span className="absolute right-3 text-muted-foreground">{rightIcon}</span>}
-        </div>
-        {hint && !error && <span className="text-[11.5px] text-muted-foreground">{hint}</span>}
-        {error && <span className="text-[11.5px] text-destructive">{error}</span>}
-      </div>
+          {rightIcon && <span className="pointer-events-none absolute right-3 text-[var(--text-3)]">{rightIcon}</span>}
+        </span>
+        {hint && !error && (
+          <span className="hint" id={`${props.id ?? props.name ?? "field"}-help`}>
+            {hint}
+          </span>
+        )}
+        {error && (
+          <span className="error-text" id={`${props.id ?? props.name ?? "field"}-help`} role="alert">
+            <AlertTriangle className="ic ic-sm" aria-hidden="true" />
+            {error}
+          </span>
+        )}
+      </Wrapper>
     )
   }
 )
 Input.displayName = "Input"
 
+/** The `.select` plus its chevron; the wrapper is a `<label>` for the same reason. */
 export const Select = React.forwardRef<
   HTMLSelectElement,
-  React.SelectHTMLAttributes<HTMLSelectElement> & { label?: string }
->(({ className, label, children, ...props }, ref) => {
+  React.SelectHTMLAttributes<HTMLSelectElement> & { label?: string; hint?: string }
+>(({ className, label, hint, children, ...props }, ref) => {
+  const Wrapper = (label ? "label" : "div") as "label"
   return (
-    <div className="flex flex-col gap-1.5 w-full">
-      {label && <label className="text-[12.5px] font-medium text-foreground/80">{label}</label>}
-      <select
-        ref={ref}
-        className={cn(
-          "flex h-10 w-full rounded-[12px] border border-input bg-background px-3 py-2 text-[14px]",
-          "focus:outline-none focus:ring-2 focus:ring-ring",
-          className
-        )}
-        {...props}
-      >
-        {children}
-      </select>
-    </div>
+    <Wrapper className="field">
+      {label && <span className="label">{label}</span>}
+      <span className="select-wrap">
+        <select ref={ref} className={["select", className].filter(Boolean).join(" ")} {...props}>
+          {children}
+        </select>
+        <ChevronDown className="ic" aria-hidden="true" />
+      </span>
+      {hint && <span className="hint">{hint}</span>}
+    </Wrapper>
   )
 })
 Select.displayName = "Select"
+
+/** The `.textarea` (mono, for JSON and lists of proxies). */
+export const Textarea = React.forwardRef<
+  HTMLTextAreaElement,
+  React.TextareaHTMLAttributes<HTMLTextAreaElement> & { label?: string; hint?: string }
+>(({ className, label, hint, ...props }, ref) => {
+  const Wrapper = (label ? "label" : "div") as "label"
+  return (
+    <Wrapper className="field">
+      {label && <span className="label">{label}</span>}
+      <textarea ref={ref} className={["textarea", className].filter(Boolean).join(" ")} {...props} />
+      {hint && <span className="hint">{hint}</span>}
+    </Wrapper>
+  )
+})
+Textarea.displayName = "Textarea"
+
+/**
+ * The `.switch` of the design system, for a single boolean.
+ *
+ * The whole row is the `<label>`, so the visible text names the checkbox.
+ */
+export function Switch({
+  checked,
+  onChange,
+  label,
+  hint,
+}: {
+  checked: boolean
+  onChange: (value: boolean) => void
+  label: string
+  hint?: string
+}) {
+  return (
+    <label className="row-between">
+      <span className="field" style={{ ["--od-gap" as string]: "2px" }}>
+        <span className="label">{label}</span>
+        {hint && <span className="hint">{hint}</span>}
+      </span>
+      <span className="switch">
+        <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
+        <span className="track" />
+        <span className="thumb" />
+      </span>
+    </label>
+  )
+}

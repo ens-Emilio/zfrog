@@ -2,28 +2,17 @@
 import { useEffect, useState } from "react"
 import { api, Annotation, AnnotationCounts } from "@/lib/api"
 import { Topbar } from "@/components/Navbar"
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { StatCard } from "@/components/ui/stat-card"
-import { timeAgo } from "@/lib/utils"
-import {
-  MessageSquare,
-  MessageSquarePlus,
-  CornerDownRight,
-  Send,
-  CheckCircle2,
-  RotateCcw,
-  Trash2,
-  RefreshCw,
-  FileText,
-  Copy,
-  Check,
-  AlertTriangle,
-  Inbox,
-  User,
-  Tag,
-} from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Chip } from "@/components/ui/ds"
+import { EmptyState } from "@/components/ui/empty"
+import { Modal } from "@/components/ui/modal"
+import { Skeleton } from "@/components/ui/skeleton"
+import { StatCard, StatStrip } from "@/components/ui/stat-card"
+import { useToast } from "@/components/ToastRegion"
+import { Icon } from "@/lib/icons"
+import { formatStamp, timeAgo } from "@/lib/utils"
 
 /**
  * Comentários deixados nas páginas de uma cópia, para revisar o material antes
@@ -67,7 +56,52 @@ function countAnnotations(notes: Annotation[]): AnnotationCounts {
   return { total: notes.length, open, resolved, by_author, by_tag }
 }
 
+/** Falha de leitura ou de ação: o rótulo diz o que aconteceu e há como tentar de novo. */
+function ErrorBlock({ title, message, onRetry }: { title: string; message: string; onRetry?: () => void }) {
+  return (
+    <div className="card stack-sm" style={{ borderColor: "var(--danger)" }}>
+      <span className="badge badge-danger">
+        <span className="dot" aria-hidden="true" />
+        Erro
+      </span>
+      <h3 className="card-title">{title}</h3>
+      <p className="card-sub">{message}</p>
+      {onRetry && (
+        <div>
+          <Button variant="secondary" size="sm" className="od-touch" onClick={onRetry}>
+            <Icon name="i-refresh" size="sm" />
+            Tentar de novo
+          </Button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Enquanto a lista chega, cartões com a mesma silhueta dos cartões de comentário. */
+function CardsSkeleton() {
+  return (
+    <div className="grid-cards" aria-hidden="true">
+      {[0, 1, 2].map((row) => (
+        <div key={row} className="card stack-sm">
+          <div className="od-row-top" style={{ ["--od-gap" as string]: "12px" }}>
+            <Skeleton className="h-10 w-10" />
+            <div className="od-fill od-stack" style={{ ["--od-gap" as string]: "6px" }}>
+              <Skeleton className="h-3.5 w-28" />
+              <Skeleton className="h-3 w-40" />
+            </div>
+          </div>
+          <Skeleton className="h-3.5 w-full" />
+          <Skeleton className="h-3.5 w-4/5" />
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default function RevisaoPage() {
+  const toast = useToast()
+
   const [jobId, setJobId] = useState("")
   const [appliedJob, setAppliedJob] = useState("")
   const [filter, setFilter] = useState<ResolvedFilter>("all")
@@ -98,6 +132,8 @@ export default function RevisaoPage() {
   const [exportError, setExportError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
 
+  const [confirming, setConfirming] = useState<Annotation | null>(null)
+
   const fetchAnnotations = async (targetJob: string) => {
     setLoading(true)
     try {
@@ -120,7 +156,7 @@ export default function RevisaoPage() {
   const handleLoad = () => {
     setAppliedJob(jobId.trim())
     setReplyTo(null)
-    fetchAnnotations(jobId)
+    void fetchAnnotations(jobId)
   }
 
   const replaceAnnotation = (updated: Annotation) => {
@@ -131,7 +167,9 @@ export default function RevisaoPage() {
     setBusyId(note.id)
     setActionError(null)
     try {
-      replaceAnnotation(await api.resolveAnnotation(note.id, !note.resolved))
+      const updated = await api.resolveAnnotation(note.id, !note.resolved)
+      replaceAnnotation(updated)
+      toast(updated.resolved ? "Comentário marcado como resolvido." : "Comentário reaberto.")
     } catch (e) {
       setActionError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -140,13 +178,13 @@ export default function RevisaoPage() {
   }
 
   const handleDelete = async (note: Annotation) => {
-    if (!confirm("Excluir este comentário e as respostas dele? Não dá para desfazer.")) return
     setBusyId(note.id)
     setActionError(null)
     try {
       await api.deleteAnnotation(note.id)
       setAnnotations((current) => current.filter((item) => item.id !== note.id))
       if (replyTo === note.id) setReplyTo(null)
+      toast("Comentário excluído.")
     } catch (e) {
       setActionError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -165,6 +203,7 @@ export default function RevisaoPage() {
       )
       setReplyText("")
       setReplyTo(null)
+      toast("Resposta publicada.")
     } catch (e) {
       setActionError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -192,6 +231,7 @@ export default function RevisaoPage() {
       setNewText("")
       setNewSelector("")
       setNewTags("")
+      toast("Comentário salvo.")
       if (!appliedJob || appliedJob === note.job_id) await fetchAnnotations(appliedJob)
     } catch (e) {
       setCreateError(e instanceof Error ? e.message : String(e))
@@ -237,280 +277,265 @@ export default function RevisaoPage() {
   const tags = Object.entries(counts.by_tag).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
 
   return (
-    <div className="space-y-6 max-w-[1100px] animate-[slide-in_0.3s_ease]">
+    <div className="view-grid">
       <Topbar
         title="Revisão"
-        description="Comentários deixados nas páginas de uma cópia: quem escreveu, em qual página, o que precisa mudar e o que já foi resolvido. Serve para revisar o material antes de publicar."
+        description="Comentários deixados nas páginas de uma cópia: quem escreveu, em qual página, o que precisa mudar e o que já foi resolvido."
         action={
-          <Button onClick={() => fetchAnnotations(appliedJob)} loading={loading} size="sm" variant="outline">
-            <RefreshCw className="h-4 w-4" /> Atualizar
+          <Button
+            variant="secondary"
+            size="sm"
+            className="od-touch"
+            loading={loading}
+            onClick={() => void fetchAnnotations(appliedJob)}
+          >
+            <Icon name="i-refresh" size="sm" />
+            Atualizar
           </Button>
         }
       />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MessageSquare className="h-4 w-4" /> Procurar comentários
-          </CardTitle>
-          <CardDescription>
+      <section className="card stack-md">
+        <div className="od-field" style={{ ["--od-gap" as string]: "2px" }}>
+          <h2 className="card-title">Procurar comentários</h2>
+          <p className="card-sub">
             Informe o id de uma cópia para ver só os comentários dela. Em branco, aparecem os comentários de todas as
             cópias.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
-            <div className="flex-1">
-              <Input
-                label="Id da cópia"
-                placeholder="ex.: a1b2c3d4"
-                value={jobId}
-                onChange={(e) => setJobId(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleLoad()}
-                leftIcon={<FileText className="h-4 w-4" />}
-                hint="O id aparece em Execuções, no endereço de cada cópia."
-              />
-            </div>
-            <Button onClick={handleLoad} loading={loading}>
-              <MessageSquare className="h-4 w-4" /> Carregar
-            </Button>
-          </div>
+          </p>
+        </div>
 
-          <div className="flex flex-wrap gap-2">
-            {FILTERS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => setFilter(option.value)}
-                aria-pressed={filter === option.value}
-                className={`rounded-[10px] border px-3 py-1.5 text-[12.5px] font-medium transition-all ${
-                  filter === option.value
-                    ? "border-primary bg-primary/5 ring-1 ring-primary/20"
-                    : "text-muted-foreground hover:bg-accent"
-                }`}
-              >
-                {option.label}
-              </button>
-            ))}
+        <div className="od-row" style={{ ["--od-gap" as string]: "12px", alignItems: "flex-end", flexWrap: "wrap" }}>
+          <div className="od-fill">
+            <Input
+              label="Id da cópia"
+              placeholder="ex.: a1b2c3d4"
+              value={jobId}
+              onChange={(e) => setJobId(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleLoad()}
+              hint="O id aparece em Execuções, no endereço de cada cópia."
+            />
           </div>
-        </CardContent>
-      </Card>
+          <Button className="od-touch" loading={loading} onClick={handleLoad}>
+            <Icon name="i-search" />
+            Carregar
+          </Button>
+        </div>
+
+        <div className="filter-rail">
+          {FILTERS.map((option) => (
+            <Chip key={option.value} active={filter === option.value} onClick={() => setFilter(option.value)}>
+              {option.label}
+            </Chip>
+          ))}
+        </div>
+      </section>
 
       {error && (
-        <Card className="border-destructive/20 bg-destructive/5">
-          <CardContent className="p-4 text-[13px] text-destructive">
-            <p className="font-medium">Não foi possível carregar os comentários.</p>
-            <p className="mt-1">{error}</p>
-            <p className="mt-1 text-muted-foreground">
-              Confira se o sistema está no ar e clique em <strong className="text-foreground/80">Atualizar</strong>.
-            </p>
-          </CardContent>
-        </Card>
+        <ErrorBlock
+          title="Não foi possível carregar os comentários."
+          message={error}
+          onRetry={() => void fetchAnnotations(appliedJob)}
+        />
       )}
 
       {actionError && (
-        <Card className="border-destructive/20 bg-destructive/5">
-          <CardContent className="p-4 text-[13px] text-destructive">
-            <p className="font-medium">A ação não deu certo.</p>
-            <p className="mt-1">{actionError}</p>
-          </CardContent>
-        </Card>
+        <ErrorBlock title="A ação não deu certo." message={actionError} />
       )}
 
       {!error && counts.total > 0 && (
         <>
-          <div className="grid grid-cols-3 gap-3">
+          <StatStrip>
             <StatCard
               label="Comentários"
               value={counts.total}
-              icon={<MessageSquare className="h-4 w-4" />}
               trend={appliedJob ? "nesta cópia" : "no total"}
             />
-            <StatCard
-              label="Abertos"
-              value={counts.open}
-              icon={<AlertTriangle className="h-4 w-4" />}
-              trend="a tratar"
-              className={counts.open > 0 ? "ring-1 ring-amber-500/20" : undefined}
-            />
-            <StatCard
-              label="Resolvidos"
-              value={counts.resolved}
-              icon={<CheckCircle2 className="h-4 w-4" />}
-              trend="já tratados"
-              className="ring-1 ring-emerald-500/20"
-            />
-          </div>
+            <StatCard label="Abertos" value={counts.open} trend="a tratar" />
+            <StatCard label="Resolvidos" value={counts.resolved} trend="já tratados" />
+            <StatCard label="Pessoas" value={authors.length} trend="quem comentou" />
+          </StatStrip>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="h-4 w-4" /> Quem comentou
-              </CardTitle>
-              <CardDescription>Quantos comentários cada pessoa deixou nesta cópia.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex flex-wrap gap-2">
-                {authors.map(([author, count]) => (
-                  <span
-                    key={author}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1 text-[12.5px]"
-                  >
-                    {author}
-                    <span className="font-semibold tabular-nums">{count}</span>
-                  </span>
+          <section className="card stack-md">
+            <div className="od-field" style={{ ["--od-gap" as string]: "2px" }}>
+              <h2 className="card-title">Quem comentou</h2>
+              <p className="card-sub">Quantos comentários cada pessoa deixou nesta cópia.</p>
+            </div>
+
+            <div className="od-cluster">
+              {authors.map(([author, count]) => (
+                <Badge key={author} variant="neutral">
+                  {author} · {count}
+                </Badge>
+              ))}
+            </div>
+
+            {tags.length > 0 && (
+              <div className="od-cluster">
+                {tags.map(([tag, count]) => (
+                  <Badge key={tag} variant="accent">
+                    {tag} · {count}
+                  </Badge>
                 ))}
               </div>
-
-              {tags.length > 0 && (
-                <div className="flex flex-wrap items-center gap-2 pt-1">
-                  <Tag className="h-3.5 w-3.5 text-muted-foreground" />
-                  {tags.map(([tag, count]) => (
-                    <span
-                      key={tag}
-                      className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[12px] text-muted-foreground"
-                    >
-                      {tag}
-                      <span className="font-semibold tabular-nums">{count}</span>
-                    </span>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+            )}
+          </section>
         </>
       )}
 
-      {!loading && !error && visible.length === 0 && (
-        <Card className="border-dashed">
-          <CardContent className="p-12 text-center">
-            <div className="h-12 w-12 rounded-[14px] bg-secondary flex items-center justify-center mx-auto mb-4">
-              <Inbox className="h-6 w-6 text-muted-foreground" />
-            </div>
-            <h3 className="text-[15px] font-semibold">
-              {counts.total > 0
-                ? "Nada com esse filtro"
-                : appliedJob
-                  ? "Nenhum comentário nesta cópia"
-                  : "Nenhum comentário ainda"}
-            </h3>
-            <p className="text-[13px] text-muted-foreground mt-1 max-w-md mx-auto">
-              {counts.total > 0
-                ? "Troque o filtro para ver os outros comentários desta cópia."
-                : "Use o formulário Novo comentário abaixo para apontar o que precisa mudar em uma página da cópia."}
-            </p>
-          </CardContent>
-        </Card>
-      )}
+      {loading && annotations.length === 0 && !error && <CardsSkeleton />}
 
-      {loading && annotations.length === 0 && !error && (
-        <Card>
-          <CardContent className="p-10 text-center">
-            <MessageSquare className="h-6 w-6 mx-auto text-muted-foreground/40 mb-2 animate-pulse" />
-            <p className="text-[13px] text-muted-foreground">Carregando os comentários…</p>
-          </CardContent>
-        </Card>
+      {!loading && !error && visible.length === 0 && (
+        <EmptyState
+          icon={<Icon name="i-message" size="lg" />}
+          title={
+            counts.total > 0
+              ? "Nada com esse filtro"
+              : appliedJob
+                ? "Nenhum comentário nesta cópia"
+                : "Nenhum comentário ainda"
+          }
+          description={
+            counts.total > 0
+              ? "Troque o filtro para ver os outros comentários desta cópia."
+              : "Use o formulário Novo comentário abaixo para apontar o que precisa mudar em uma página da cópia."
+          }
+        />
       )}
 
       {visible.length > 0 && (
-        <div className="space-y-3">
-          <p className="text-[12.5px] text-muted-foreground">
-            {visible.length} comentário(s) {filter === "all" ? "nesta cópia" : "com esse filtro"}.
+        <section className="stack-md">
+          <p className="list-meta">
+            <span>
+              {visible.length} comentário(s) {filter === "all" ? "nesta cópia" : "com esse filtro"}
+            </span>
+            {appliedJob && <span className="mono">cópia {appliedJob}</span>}
           </p>
 
-          {visible.map((note) => (
-            <Card key={note.id}>
-              <CardHeader>
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <CardTitle className="font-mono text-[13px] break-all">{note.path}</CardTitle>
-                    <CardDescription className="flex flex-wrap items-center gap-3 mt-1">
-                      <span className="inline-flex items-center gap-1">
-                        <User className="h-3 w-3" /> {note.author || "sem autor"}
-                      </span>
-                      <span title={new Date(note.created_at).toLocaleString("pt-BR")}>
-                        {timeAgo(note.created_at)}
-                      </span>
-                      {note.updated_at && note.updated_at !== note.created_at && (
-                        <span
-                          className="text-muted-foreground/80"
-                          title={new Date(note.updated_at).toLocaleString("pt-BR")}
-                        >
-                          editado {timeAgo(note.updated_at)}
-                        </span>
-                      )}
-                      <span className="font-mono text-[11.5px]">{note.job_id}</span>
-                    </CardDescription>
-                  </div>
-                  <span
-                    className={`shrink-0 inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium ring-1 ring-inset whitespace-nowrap ${
-                      note.resolved
-                        ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 ring-emerald-500/20"
-                        : "bg-amber-500/10 text-amber-600 dark:text-amber-400 ring-amber-500/20"
-                    }`}
-                  >
-                    {note.resolved ? (
-                      <CheckCircle2 className="h-3 w-3" />
-                    ) : (
-                      <AlertTriangle className="h-3 w-3" />
-                    )}
-                    {note.resolved ? "Resolvido" : "Aberto"}
+          <div className="grid-cards">
+            {visible.map((note) => (
+              <article key={note.id} className="card stack-sm">
+                <div className="od-row-top" style={{ ["--od-gap" as string]: "12px" }}>
+                  <span className="job-favicon" aria-hidden="true">
+                    {note.author.trim() ? note.author.trim().charAt(0).toUpperCase() : "?"}
                   </span>
+                  <div className="od-fill od-stack" style={{ ["--od-gap" as string]: "2px" }}>
+                    <span className="job-url">{note.author || "sem autor"}</span>
+                    <span className="hint">
+                      {timeAgo(note.created_at)} · {note.path}
+                    </span>
+                  </div>
+                  <Badge variant={note.resolved ? "success" : "warning"}>
+                    <span className="dot" aria-hidden="true" />
+                    {note.resolved ? "Resolvido" : "Aberto"}
+                  </Badge>
                 </div>
-              </CardHeader>
 
-              <CardContent className="space-y-3">
+                <p className="card-sub whitespace-pre-wrap break-words">{note.text}</p>
+
                 {note.selector && (
-                  <p className="text-[12px] text-muted-foreground">
-                    Onde: <span className="font-mono text-foreground/80">{note.selector}</span>
+                  <p className="hint">
+                    Onde: <span className="mono">{note.selector}</span>
                   </p>
                 )}
 
-                <p className="text-[13.5px] whitespace-pre-wrap break-words">{note.text}</p>
+                <p className="hint">
+                  <span title={formatStamp(note.created_at)}>criado em {formatStamp(note.created_at)}</span>
+                  {note.updated_at && note.updated_at !== note.created_at && (
+                    <>
+                      {" · "}
+                      <span title={formatStamp(note.updated_at)}>editado em {formatStamp(note.updated_at)}</span>
+                    </>
+                  )}
+                  {" · "}
+                  <span className="mono">cópia {note.job_id}</span>
+                </p>
 
                 {note.tags.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <Tag className="h-3 w-3 text-muted-foreground" />
+                  <div className="od-cluster">
                     {note.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="inline-flex items-center rounded-full bg-secondary px-2.5 py-0.5 text-[11.5px] text-secondary-foreground"
-                      >
+                      <Badge key={tag} variant="neutral">
                         {tag}
-                      </span>
+                      </Badge>
                     ))}
                   </div>
                 )}
 
                 {note.replies.length > 0 && (
-                  <div className="rounded-[12px] border bg-muted/20 divide-y divide-border/60">
+                  <div
+                    className="stack-sm"
+                    style={{
+                      borderLeft: "2px solid var(--glass-border-strong)",
+                      paddingLeft: "var(--sp-3)",
+                    }}
+                  >
                     {note.replies.map((reply) => (
-                      <div key={reply.id} className="flex gap-2 p-3">
-                        <CornerDownRight className="h-3.5 w-3.5 shrink-0 mt-0.5 text-muted-foreground" />
-                        <div className="min-w-0">
-                          <p className="text-[12px] text-muted-foreground flex flex-wrap items-center gap-2">
-                            <span className="font-medium text-foreground/80">{reply.author || "sem autor"}</span>
-                            <span title={new Date(reply.created_at).toLocaleString("pt-BR")}>
-                              {timeAgo(reply.created_at)}
-                            </span>
-                          </p>
-                          <p className="text-[13px] mt-1 whitespace-pre-wrap break-words">{reply.text}</p>
-                        </div>
+                      <div key={reply.id} className="od-field" style={{ ["--od-gap" as string]: "2px" }}>
+                        <span className="job-sub">
+                          <span>{reply.author || "sem autor"}</span>
+                          <span aria-hidden="true">·</span>
+                          <span title={formatStamp(reply.created_at)}>{timeAgo(reply.created_at)}</span>
+                        </span>
+                        <p className="card-sub whitespace-pre-wrap break-words">{reply.text}</p>
                       </div>
                     ))}
                   </div>
                 )}
 
-                {replyTo === note.id ? (
-                  <div className="rounded-[12px] border p-3 space-y-2 bg-muted/20">
-                    <textarea
-                      className="w-full min-h-[72px] rounded-[12px] border border-input bg-background px-3 py-2 text-[13.5px] focus:outline-none focus:ring-2 focus:ring-ring"
-                      placeholder="Escreva a resposta"
-                      value={replyText}
-                      onChange={(e) => setReplyText(e.target.value)}
-                    />
-                    <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
-                      <div className="flex-1">
+                <div className="od-row" style={{ ["--od-gap" as string]: "8px", flexWrap: "wrap" }}>
+                  <Button
+                    size="sm"
+                    className="od-touch"
+                    aria-expanded={replyTo === note.id}
+                    disabled={busyId !== null && busyId !== note.id}
+                    onClick={() => {
+                      const opening = replyTo !== note.id
+                      setReplyTo(opening ? note.id : null)
+                      setReplyText("")
+                    }}
+                  >
+                    <Icon name="i-message" size="sm" />
+                    Responder
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="od-touch"
+                    loading={busyId === note.id}
+                    disabled={busyId !== null && busyId !== note.id}
+                    onClick={() => void handleResolve(note)}
+                  >
+                    <Icon name={note.resolved ? "i-rotate" : "i-check-circle"} size="sm" />
+                    {note.resolved ? "Reabrir" : "Resolver"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="od-touch"
+                    disabled={busyId !== null && busyId !== note.id}
+                    onClick={() => setConfirming(note)}
+                  >
+                    <Icon name="i-trash" size="sm" />
+                    Excluir
+                  </Button>
+                  {note.replies.length > 0 && <span className="hint">{note.replies.length} resposta(s)</span>}
+                </div>
+
+                {replyTo === note.id && (
+                  <div className="stack-sm">
+                    <label className="field">
+                      <span className="label">Resposta</span>
+                      <textarea
+                        className="textarea"
+                        placeholder="Escreva a resposta"
+                        value={replyText}
+                        onChange={(e) => setReplyText(e.target.value)}
+                      />
+                    </label>
+                    <div
+                      className="od-row"
+                      style={{ ["--od-gap" as string]: "8px", alignItems: "flex-end", flexWrap: "wrap" }}
+                    >
+                      <div className="od-fill">
                         <Input
                           label="Seu nome"
                           placeholder="ex.: Ana"
@@ -520,15 +545,18 @@ export default function RevisaoPage() {
                       </div>
                       <Button
                         size="sm"
+                        className="od-touch"
                         loading={busyId === note.id}
                         disabled={!replyText.trim()}
-                        onClick={() => handleReply(note)}
+                        onClick={() => void handleReply(note)}
                       >
-                        <Send className="h-3.5 w-3.5" /> Enviar resposta
+                        <Icon name="i-check" size="sm" />
+                        Enviar resposta
                       </Button>
                       <Button
                         size="sm"
                         variant="ghost"
+                        className="od-touch"
                         onClick={() => {
                           setReplyTo(null)
                           setReplyText("")
@@ -538,180 +566,155 @@ export default function RevisaoPage() {
                       </Button>
                     </div>
                   </div>
-                ) : (
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={busyId !== null && busyId !== note.id}
-                      onClick={() => {
-                        setReplyTo(note.id)
-                        setReplyText("")
-                      }}
-                    >
-                      <CornerDownRight className="h-3.5 w-3.5" /> Responder
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      loading={busyId === note.id}
-                      disabled={busyId !== null && busyId !== note.id}
-                      onClick={() => handleResolve(note)}
-                    >
-                      {note.resolved ? (
-                        <>
-                          <RotateCcw className="h-3.5 w-3.5" /> Reabrir
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle2 className="h-3.5 w-3.5" /> Resolver
-                        </>
-                      )}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={busyId !== null && busyId !== note.id}
-                      onClick={() => handleDelete(note)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" /> Excluir
-                    </Button>
-                    {note.replies.length > 0 && (
-                      <span className="text-[11.5px] text-muted-foreground ml-1">
-                        {note.replies.length} resposta(s)
-                      </span>
-                    )}
-                  </div>
                 )}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+              </article>
+            ))}
+          </div>
+        </section>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MessageSquarePlus className="h-4 w-4" /> Novo comentário
-          </CardTitle>
-          <CardDescription>
+      <section className="card stack-md">
+        <div className="od-field" style={{ ["--od-gap" as string]: "2px" }}>
+          <h2 className="card-title">Novo comentário</h2>
+          <p className="card-sub">
             Aponte o que precisa mudar em uma página da cópia. O caminho é o mesmo que aparece na lista de arquivos
             baixados; o seletor é opcional e serve para marcar um trecho específico da página.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="grid sm:grid-cols-2 gap-3">
-            <Input
-              label="Id da cópia"
-              placeholder="ex.: a1b2c3d4"
-              value={newJob}
-              onChange={(e) => setNewJob(e.target.value)}
-            />
-            <Input
-              label="Caminho da página"
-              placeholder="ex.: index.html"
-              value={newPath}
-              onChange={(e) => setNewPath(e.target.value)}
-            />
-            <Input
-              label="Seletor (opcional)"
-              placeholder="ex.: #preco"
-              value={newSelector}
-              onChange={(e) => setNewSelector(e.target.value)}
-              hint="Marca um trecho específico da página. Em branco, o comentário vale para a página toda."
-            />
-            <Input
-              label="Seu nome"
-              placeholder="ex.: Ana"
-              value={newAuthor}
-              onChange={(e) => setNewAuthor(e.target.value)}
-            />
-          </div>
+          </p>
+        </div>
 
-          <label className="flex flex-col gap-1.5">
-            <span className="text-[12.5px] font-medium text-foreground/80">Comentário</span>
-            <textarea
-              className="w-full min-h-[96px] rounded-[12px] border border-input bg-background px-3 py-2 text-[14px] focus:outline-none focus:ring-2 focus:ring-ring"
-              placeholder="ex.: o telefone do rodapé está errado"
-              value={newText}
-              onChange={(e) => setNewText(e.target.value)}
-            />
-          </label>
-
+        <div className="od-grid" style={{ ["--od-cols" as string]: 2, ["--od-gap" as string]: "16px" }}>
           <Input
-            label="Etiquetas (opcional)"
-            placeholder="ex.: preço, texto, urgente"
-            value={newTags}
-            onChange={(e) => setNewTags(e.target.value)}
-            hint="Separe por vírgula. Ajuda a agrupar os comentários depois."
+            label="Id da cópia"
+            placeholder="ex.: a1b2c3d4"
+            value={newJob}
+            onChange={(e) => setNewJob(e.target.value)}
           />
+          <Input
+            label="Caminho da página"
+            placeholder="ex.: index.html"
+            value={newPath}
+            onChange={(e) => setNewPath(e.target.value)}
+          />
+          <Input
+            label="Seletor (opcional)"
+            placeholder="ex.: #preco"
+            value={newSelector}
+            onChange={(e) => setNewSelector(e.target.value)}
+            hint="Marca um trecho específico da página. Em branco, o comentário vale para a página toda."
+          />
+          <Input
+            label="Seu nome"
+            placeholder="ex.: Ana"
+            value={newAuthor}
+            onChange={(e) => setNewAuthor(e.target.value)}
+          />
+        </div>
 
-          {createError && (
-            <div className="rounded-[12px] bg-destructive/10 border border-destructive/20 p-3 text-[13px] text-destructive">
-              <p className="font-medium">Não foi possível salvar o comentário.</p>
-              <p className="mt-1">{createError}</p>
-            </div>
-          )}
+        <label className="field">
+          <span className="label">Comentário</span>
+          <textarea
+            className="textarea"
+            placeholder="ex.: o telefone do rodapé está errado"
+            value={newText}
+            onChange={(e) => setNewText(e.target.value)}
+          />
+        </label>
 
-          {created && (
-            <div className="rounded-[12px] bg-emerald-500/10 border border-emerald-500/20 p-3 text-[13px] text-emerald-700 dark:text-emerald-400">
-              <p className="flex items-center gap-1.5 font-medium">
-                <Check className="h-3.5 w-3.5" /> Comentário salvo em {created.path}.
-              </p>
-              <p className="mt-1 break-all font-mono text-[12px]">id {created.id}</p>
-            </div>
-          )}
+        <Input
+          label="Etiquetas (opcional)"
+          placeholder="ex.: preço, texto, urgente"
+          value={newTags}
+          onChange={(e) => setNewTags(e.target.value)}
+          hint="Separe por vírgula. Ajuda a agrupar os comentários depois."
+        />
 
-          <Button onClick={handleCreate} loading={creating} disabled={!canCreate}>
-            <MessageSquarePlus className="h-4 w-4" /> Salvar comentário
+        {createError && (
+          <div className="od-stack" style={{ ["--od-gap" as string]: "4px" }}>
+            <span className="error-text">
+              <Icon name="i-alert" size="sm" />
+              Não foi possível salvar o comentário.
+            </span>
+            <span className="hint">{createError}</span>
+          </div>
+        )}
+
+        {created && (
+          <div className="od-stack" style={{ ["--od-gap" as string]: "4px" }}>
+            <span className="badge badge-success">
+              <span className="dot" aria-hidden="true" />
+              Comentário salvo em {created.path}
+            </span>
+            <span className="hint mono">id {created.id}</span>
+          </div>
+        )}
+
+        <div>
+          <Button className="od-touch" loading={creating} disabled={!canCreate} onClick={() => void handleCreate()}>
+            <Icon name="i-plus" />
+            Salvar comentário
           </Button>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-4 w-4" /> Exportar Markdown
-          </CardTitle>
-          <CardDescription>
+      <section className="card stack-md">
+        <div className="od-field" style={{ ["--od-gap" as string]: "2px" }}>
+          <h2 className="card-title">Exportar Markdown</h2>
+          <p className="card-sub">
             Gera um documento com todos os comentários de uma cópia, para colar em uma tarefa ou enviar para alguém.
             {exportTarget ? (
               <>
                 {" "}
-                Vai exportar a cópia <span className="font-mono text-foreground/80">{exportTarget}</span>.
+                Vai exportar a cópia <span className="mono">{exportTarget}</span>.
               </>
             ) : (
               " Informe o id de uma cópia acima para poder exportar."
             )}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <Button onClick={handleExport} loading={exporting} disabled={!exportTarget}>
-              <FileText className="h-4 w-4" /> Exportar Markdown
-            </Button>
-            {markdown !== null && (
-              <Button variant="outline" size="sm" onClick={handleCopy}>
-                {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                {copied ? "copiado" : "copiar"}
-              </Button>
-            )}
-          </div>
+          </p>
+        </div>
 
-          {exportError && (
-            <div className="rounded-[12px] bg-destructive/10 border border-destructive/20 p-3 text-[13px] text-destructive">
-              <p className="font-medium">Não foi possível exportar os comentários.</p>
-              <p className="mt-1">{exportError}</p>
-            </div>
-          )}
-
+        <div className="od-row" style={{ ["--od-gap" as string]: "8px", flexWrap: "wrap" }}>
+          <Button className="od-touch" loading={exporting} disabled={!exportTarget} onClick={() => void handleExport()}>
+            <Icon name="i-file-down" />
+            Exportar Markdown
+          </Button>
           {markdown !== null && (
-            <pre className="max-h-[420px] overflow-auto rounded-[12px] border bg-muted/30 p-4 text-[12px] font-mono whitespace-pre-wrap break-words">
-              {markdown}
-            </pre>
+            <Button variant="secondary" size="sm" className="od-touch" onClick={() => void handleCopy()}>
+              <Icon name={copied ? "i-check" : "i-copy"} size="sm" />
+              {copied ? "copiado" : "copiar"}
+            </Button>
           )}
-        </CardContent>
-      </Card>
+        </div>
+
+        {exportError && (
+          <div className="od-stack" style={{ ["--od-gap" as string]: "4px" }}>
+            <span className="error-text">
+              <Icon name="i-alert" size="sm" />
+              Não foi possível exportar os comentários.
+            </span>
+            <span className="hint">{exportError}</span>
+          </div>
+        )}
+
+        {markdown !== null && (
+          <pre className="console whitespace-pre-wrap break-words" tabIndex={0} aria-label="Markdown exportado">
+            {markdown}
+          </pre>
+        )}
+      </section>
+
+      <Modal
+        open={confirming !== null}
+        title="Excluir este comentário?"
+        body="As respostas dele também são apagadas. Não dá para desfazer."
+        confirmLabel="Excluir"
+        danger
+        onConfirm={() => {
+          const note = confirming
+          setConfirming(null)
+          if (note) void handleDelete(note)
+        }}
+        onClose={() => setConfirming(null)}
+      />
     </div>
   )
 }

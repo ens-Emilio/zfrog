@@ -1,33 +1,37 @@
-"use client"
-import { cn } from "@/lib/utils"
-
+/**
+ * A `.stat` cell of the design system.
+ *
+ * Trend lines are informational, never the only carrier of meaning: the label above
+ * and the trend text below both read on their own.
+ */
 export function StatCard({
   label,
   value,
   icon,
   trend,
+  trendDirection,
   className,
 }: {
   label: string
   value: string | number
   icon?: React.ReactNode
   trend?: string
+  trendDirection?: "up" | "down"
   className?: string
 }) {
   return (
-    <div className={cn("rounded-[16px] border bg-card p-4 flex flex-col gap-3", className)}>
-      <div className="flex items-start justify-between">
-        <span className="text-[11.5px] font-medium uppercase tracking-widest text-muted-foreground">{label}</span>
-        {icon && (
-          <div className="h-8 w-8 rounded-[10px] bg-secondary flex items-center justify-center text-muted-foreground">
-            {icon}
-          </div>
-        )}
-      </div>
-      <div className="flex items-baseline gap-2">
-        <span className="text-[28px] font-semibold tracking-tight leading-none">{value}</span>
-        {trend && <span className="text-[12px] text-muted-foreground">{trend}</span>}
-      </div>
+    <div className={className ? `stat ${className}` : "stat"}>
+      <span className="stat-value flex items-center gap-2">
+        {value}
+        {icon}
+      </span>
+      <span className="stat-label">{label}</span>
+      {trend && <span className={`stat-trend ${trendDirection ?? ""}`}>{trend}</span>}
     </div>
   )
+}
+
+/** A row of `.stat` cells; `columns={5}` matches the job detail strip. */
+export function StatStrip({ columns = 4, children }: { columns?: 4 | 5; children: React.ReactNode }) {
+  return <div className={columns === 5 ? "stat-strip cols-5" : "stat-strip"}>{children}</div>
 }

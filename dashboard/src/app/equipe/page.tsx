@@ -2,9 +2,13 @@
 import { useEffect, useState } from "react"
 import { api, AppUser, Organization } from "@/lib/api"
 import { Topbar } from "@/components/Navbar"
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input, Select } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
+import { EmptyState } from "@/components/ui/empty"
+import { Modal } from "@/components/ui/modal"
+import { useToast } from "@/components/ToastRegion"
 import {
   Users,
   Building2,
@@ -16,6 +20,7 @@ import {
   ShieldAlert,
   AlertTriangle,
   UsersRound,
+  UserCog,
 } from "lucide-react"
 
 /**
@@ -40,7 +45,16 @@ const ROLE_HELP: Record<string, string> = {
   admin: "Faz tudo, inclusive mexer em usuários, organizações e chaves.",
 }
 
+/** A cor do papel no protótipo: admin em destaque, operator em info, resto neutro. */
+function roleVariant(role: string): "accent" | "info" | "neutral" {
+  if (role === "admin") return "accent"
+  if (role === "operator") return "info"
+  return "neutral"
+}
+
 export default function EquipePage() {
+  const toast = useToast()
+
   const [users, setUsers] = useState<AppUser[]>([])
   const [usersLoading, setUsersLoading] = useState(true)
   const [usersError, setUsersError] = useState<string | null>(null)
@@ -58,6 +72,7 @@ export default function EquipePage() {
   const [userFormError, setUserFormError] = useState<string | null>(null)
   const [credentials, setCredentials] = useState<{ user: AppUser; password: string } | null>(null)
   const [passwordCopied, setPasswordCopied] = useState(false)
+  const [inviteOpen, setInviteOpen] = useState(false)
 
   const [orgName, setOrgName] = useState("")
   const [orgOwner, setOrgOwner] = useState("")
@@ -69,6 +84,7 @@ export default function EquipePage() {
   const [memberRole, setMemberRole] = useState("viewer")
   const [memberBusy, setMemberBusy] = useState(false)
   const [memberError, setMemberError] = useState<string | null>(null)
+  const [confirmingMember, setConfirmingMember] = useState(false)
 
   const fetchUsers = async () => {
     setUsersLoading(true)
@@ -126,9 +142,12 @@ export default function EquipePage() {
       setName("")
       setPassword("")
       setOrgsCsv("")
+      setInviteOpen(false)
       await fetchUsers()
+      toast("Pessoa convidada.")
     } catch (e) {
       setUserFormError(e instanceof Error ? e.message : String(e))
+      toast("Não foi possível convidar a pessoa.", "err")
     } finally {
       setCreatingUser(false)
     }
@@ -154,8 +173,10 @@ export default function EquipePage() {
       setOrgName("")
       setOrgOwner("")
       await fetchOrgs()
+      toast("Organização criada.")
     } catch (e) {
       setOrgFormError(e instanceof Error ? e.message : String(e))
+      toast("Não foi possível criar a organização.", "err")
     } finally {
       setCreatingOrg(false)
     }
@@ -170,8 +191,11 @@ export default function EquipePage() {
       setOrgs((current) => current.map((org) => (org.id === updated.id ? updated : org)))
       setMemberUser("")
       setMemberFor(null)
+      setConfirmingMember(false)
+      toast("Membro adicionado.")
     } catch (e) {
       setMemberError(e instanceof Error ? e.message : String(e))
+      toast("Não foi possível adicionar o membro.", "err")
     } finally {
       setMemberBusy(false)
     }
@@ -180,21 +204,21 @@ export default function EquipePage() {
   const memberOrg = orgs.find((org) => org.id === memberFor) ?? null
 
   return (
-    <div className="space-y-6 max-w-[1100px] animate-[slide-in_0.3s_ease]">
+    <div className="view-grid">
       <Topbar
         title="Equipe"
         description="Quem pode entrar no sistema, com qual papel, e a que organização cada pessoa pertence."
         action={
           <Button
+            variant="outline"
+            size="sm"
             onClick={() => {
-              fetchUsers()
-              fetchOrgs()
+              void fetchUsers()
+              void fetchOrgs()
             }}
             loading={usersLoading || orgsLoading}
-            size="sm"
-            variant="outline"
           >
-            <RefreshCw className="h-4 w-4" /> Atualizar
+            <RefreshCw className="ic ic-sm" aria-hidden="true" /> Atualizar
           </Button>
         }
       />
@@ -208,123 +232,145 @@ export default function EquipePage() {
         ))}
       </datalist>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-4 w-4" /> Usuários
-          </CardTitle>
-          <CardDescription>
-            Cada pessoa tem um e-mail, um papel e uma ou mais organizações. A senha local só é usada quando não há
-            login da empresa (SSO).
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {usersError && (
-            <div className="rounded-[12px] bg-destructive/10 border border-destructive/20 p-3 text-[13px] text-destructive">
-              <p className="font-medium">Não foi possível carregar os usuários.</p>
-              <p className="mt-1">{usersError}</p>
-              <p className="mt-1 text-muted-foreground">
-                Confira se o sistema está no ar e clique em <strong className="text-foreground/80">Atualizar</strong>.
-              </p>
-            </div>
-          )}
+      <section className="card" aria-labelledby="membros-organizacao">
+        <h2 id="membros-organizacao" className="card-title" style={{ marginBottom: "var(--sp-3)" }}>
+          Membros da organização
+        </h2>
 
-          {!usersError && users.length === 0 && (
-            <div className="rounded-[12px] border border-dashed p-10 text-center">
-              <Users className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
-              <p className="text-[13px] font-medium">
-                {usersLoading ? "Carregando os usuários…" : "Nenhum usuário cadastrado"}
-              </p>
-              <p className="text-[12.5px] text-muted-foreground mt-1 max-w-md mx-auto">
-                {usersLoading
-                  ? "Um instante."
-                  : "Crie o primeiro usuário no formulário abaixo. Ele já pode entrar com o e-mail e a senha que você definir."}
-              </p>
+        {usersError && (
+          <div className="stack-sm">
+            <p className="error-text" role="alert">
+              <AlertTriangle className="ic ic-sm" aria-hidden="true" />
+              Não foi possível carregar os membros: {usersError}
+            </p>
+            <div>
+              <Button variant="outline" size="sm" onClick={() => void fetchUsers()}>
+                <RefreshCw className="ic ic-sm" aria-hidden="true" /> Tentar de novo
+              </Button>
             </div>
-          )}
+          </div>
+        )}
 
-          {users.length > 0 && (
-            <div className="overflow-x-auto rounded-[12px] border">
-              <table className="w-full text-left">
+        {!usersError && usersLoading && (
+          <div className="stack-sm">
+            {[0, 1, 2].map((index) => (
+              <Skeleton key={index} className="h-[44px] w-full" />
+            ))}
+          </div>
+        )}
+
+        {!usersError && !usersLoading && users.length === 0 && (
+          <EmptyState
+            icon={<Users className="ic ic-lg" aria-hidden="true" />}
+            title="Nenhum membro ainda"
+            description="Convide a primeira pessoa para a organização. Ela entra com o e-mail e a senha que você definir."
+            action={{ label: "Convidar pessoa", onClick: () => setInviteOpen(true) }}
+          />
+        )}
+
+        {!usersError && !usersLoading && users.length > 0 && (
+          <>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-13)", minWidth: "520px" }}>
                 <thead>
-                  <tr className="border-b bg-muted/30 text-[11px] uppercase tracking-widest text-muted-foreground">
-                    <th className="px-4 py-3 font-medium">Id</th>
-                    <th className="px-4 py-3 font-medium">E-mail</th>
-                    <th className="px-4 py-3 font-medium">Nome</th>
-                    <th className="px-4 py-3 font-medium">Papel</th>
-                    <th className="px-4 py-3 font-medium">Organizações</th>
-                    <th className="px-4 py-3 font-medium">Situação</th>
+                  <tr style={{ textAlign: "left", color: "var(--text-3)" }}>
+                    <th style={{ padding: "10px 12px", borderBottom: "1px solid var(--glass-border)", fontWeight: 600 }}>
+                      Nome
+                    </th>
+                    <th style={{ padding: "10px 12px", borderBottom: "1px solid var(--glass-border)", fontWeight: 600 }}>
+                      E-mail
+                    </th>
+                    <th style={{ padding: "10px 12px", borderBottom: "1px solid var(--glass-border)", fontWeight: 600 }}>
+                      Papel
+                    </th>
+                    <th style={{ padding: "10px 12px", borderBottom: "1px solid var(--glass-border)" }} />
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border/60">
+                <tbody>
                   {users.map((user) => (
-                    <tr key={user.id} className="hover:bg-accent/50">
-                      <td className="px-4 py-3 text-[12px] font-mono text-muted-foreground">{user.id}</td>
-                      <td className="px-4 py-3 text-[12.5px] break-all">
+                    <tr key={user.id}>
+                      <td style={{ padding: "10px 12px", borderBottom: "1px solid var(--glass-border)" }}>
+                        <strong>
+                          {user.name || user.email}
+                          {!user.enabled && (
+                            <span className="hint" style={{ marginLeft: "8px" }}>
+                              Desativado
+                            </span>
+                          )}
+                        </strong>
+                      </td>
+                      <td
+                        className="mono"
+                        style={{ padding: "10px 12px", borderBottom: "1px solid var(--glass-border)" }}
+                      >
                         {user.email}
                         {user.sso_subject && (
-                          <span className="ml-2 text-[11px] text-muted-foreground">via SSO</span>
+                          <span className="hint" style={{ marginLeft: "8px" }}>
+                            via SSO
+                          </span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-[12.5px]">{user.name || "—"}</td>
-                      <td className="px-4 py-3 text-[12.5px] whitespace-nowrap" title={ROLE_HELP[user.role]}>
-                        {ROLE_LABELS[user.role] ?? user.role}
+                      <td style={{ padding: "10px 12px", borderBottom: "1px solid var(--glass-border)" }}>
+                        <Badge variant={roleVariant(user.role)} title={ROLE_HELP[user.role]}>
+                          {ROLE_LABELS[user.role] ?? user.role}
+                        </Badge>
                       </td>
-                      <td className="px-4 py-3 text-[12px]">
-                        {user.orgs.length === 0 ? (
-                          <span className="text-muted-foreground">—</span>
-                        ) : (
-                          <div className="flex flex-wrap gap-1">
-                            {user.orgs.map((org) => (
-                              <span key={org} className="rounded-full bg-secondary px-2 py-0.5 font-mono">
-                                {org}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium ring-1 ring-inset whitespace-nowrap ${
-                            user.enabled
-                              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 ring-emerald-500/20"
-                              : "bg-zinc-500/10 text-zinc-500 ring-zinc-500/20"
-                          }`}
+                      <td
+                        style={{
+                          padding: "10px 12px",
+                          borderBottom: "1px solid var(--glass-border)",
+                          textAlign: "right",
+                        }}
+                      >
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          aria-label={`Gerenciar ${user.name || user.email}`}
+                          onClick={() => {
+                            setMemberUser(user.id)
+                            setMemberRole(user.role && ROLE_ORDER.includes(user.role) ? user.role : "viewer")
+                            setMemberError(null)
+                            setInviteOpen(false)
+                          }}
                         >
-                          <span
-                            className={`h-1.5 w-1.5 rounded-full ${user.enabled ? "bg-emerald-500" : "bg-zinc-400"}`}
-                          />
-                          {user.enabled ? "Ativo" : "Desativado"}
-                        </span>
+                          <UserCog className="ic ic-sm" aria-hidden="true" /> Gerenciar
+                        </Button>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          )}
+            <div className="od-row" style={{ ["--od-gap" as string]: "12px", marginTop: "var(--sp-4)" }}>
+              <Button variant="primary" size="sm" onClick={() => setInviteOpen((open) => !open)}>
+                <UserPlus className="ic ic-sm" aria-hidden="true" /> Convidar pessoa
+              </Button>
+            </div>
+          </>
+        )}
 
-          <div className="border-t pt-4 space-y-3">
-            <p className="text-[13px] font-semibold flex items-center gap-2">
-              <UserPlus className="h-4 w-4" /> Novo usuário
+        {inviteOpen && (
+          <div className="stack-sm" style={{ marginTop: "var(--sp-4)" }}>
+            <p className="section-title" style={{ fontSize: "var(--fs-14)", fontWeight: 600 }}>
+              Convidar pessoa
             </p>
 
-            <div className="grid sm:grid-cols-2 gap-3">
+            <div className="od-grid" style={{ ["--od-cols" as string]: 2, ["--od-gap" as string]: "16px" }}>
               <Input
                 label="E-mail"
                 placeholder="ex.: ana@empresa.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(event) => setEmail(event.target.value)}
                 hint="É com ele que a pessoa entra no sistema."
               />
               <Input
                 label="Nome"
                 placeholder="ex.: Ana Souza"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(event) => setName(event.target.value)}
                 hint="Opcional, só para identificar a pessoa na tela."
               />
-              <Select label="Papel" value={role} onChange={(e) => setRole(e.target.value)}>
+              <Select label="Papel" value={role} onChange={(event) => setRole(event.target.value)}>
                 {ROLE_ORDER.map((value) => (
                   <option key={value} value={value}>
                     {ROLE_LABELS[value]}
@@ -336,7 +382,7 @@ export default function EquipePage() {
                 type="password"
                 placeholder="deixe em branco para entrar só por SSO"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(event) => setPassword(event.target.value)}
                 hint={ROLE_HELP[role]}
               />
             </div>
@@ -345,262 +391,322 @@ export default function EquipePage() {
               label="Organizações (opcional)"
               placeholder="ex.: default, marketing"
               value={orgsCsv}
-              onChange={(e) => setOrgsCsv(e.target.value)}
+              onChange={(event) => setOrgsCsv(event.target.value)}
               hint="Separe por vírgula. Em branco, a pessoa não entra em nenhuma organização ainda."
             />
 
             {userFormError && (
-              <div className="rounded-[12px] bg-destructive/10 border border-destructive/20 p-3 text-[13px] text-destructive">
-                <p className="font-medium">Não foi possível criar o usuário.</p>
-                <p className="mt-1">{userFormError}</p>
-              </div>
+              <p className="error-text" role="alert">
+                <AlertTriangle className="ic ic-sm" aria-hidden="true" />
+                Não foi possível convidar: {userFormError}
+              </p>
             )}
 
-            {credentials &&
-              (credentials.password ? (
-                <div className="rounded-[12px] bg-amber-500/10 border border-amber-500/20 p-4 text-[13px]">
-                  <p className="flex items-center gap-1.5 font-medium text-amber-700 dark:text-amber-400">
-                    <KeyRound className="h-4 w-4" /> Senha de {credentials.user.email}
-                  </p>
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <code className="rounded-[8px] border bg-background px-3 py-1.5 font-mono text-[15px] break-all">
-                      {credentials.password}
-                    </code>
-                    <Button size="sm" variant="outline" onClick={handleCopyPassword}>
-                      {passwordCopied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                      {passwordCopied ? "copiado" : "copiar"}
-                    </Button>
-                  </div>
-                  <p className="mt-2 flex items-start gap-1.5 text-amber-700 dark:text-amber-400">
-                    <ShieldAlert className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                    Guarde agora: esta senha aparece uma única vez e não pode ser recuperada depois. Se perder, será
-                    preciso criar outra.
-                  </p>
-                  <p className="mt-2 text-muted-foreground">
-                    Id do usuário: <span className="font-mono text-foreground/80">{credentials.user.id}</span>
-                  </p>
-                </div>
-              ) : (
-                <div className="rounded-[12px] border bg-secondary/40 p-4 text-[13px]">
-                  <p className="flex items-center gap-1.5 font-medium">
-                    <KeyRound className="h-4 w-4" /> {credentials.user.email} foi criado sem senha
-                  </p>
-                  <p className="mt-1 text-muted-foreground">
-                    Sem senha local: a pessoa entra só pelo login da empresa (SSO). Não há senha para guardar.
-                  </p>
-                  <p className="mt-2 text-muted-foreground">
-                    Id do usuário: <span className="font-mono text-foreground/80">{credentials.user.id}</span>
-                  </p>
-                </div>
-              ))}
-
-            <Button onClick={handleCreateUser} loading={creatingUser} disabled={!email.trim()}>
-              <UserPlus className="h-4 w-4" /> Criar usuário
-            </Button>
+            <div className="od-cluster" style={{ ["--od-gap" as string]: "8px" }}>
+              <Button variant="primary" size="sm" onClick={handleCreateUser} loading={creatingUser} disabled={!email.trim()}>
+                <UserPlus className="ic ic-sm" aria-hidden="true" /> Convidar
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setInviteOpen(false)}>
+                Cancelar
+              </Button>
+            </div>
           </div>
-        </CardContent>
-      </Card>
+        )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Building2 className="h-4 w-4" /> Organizações
-          </CardTitle>
-          <CardDescription>
-            Uma organização é a fronteira dos dados: cada uma tem os próprios clones, versões, agendamentos e índice de
-            busca, e nada de uma aparece na outra.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {orgsError && (
-            <div className="rounded-[12px] bg-destructive/10 border border-destructive/20 p-3 text-[13px] text-destructive">
-              <p className="font-medium">Não foi possível carregar as organizações.</p>
-              <p className="mt-1">{orgsError}</p>
-              <p className="mt-1 text-muted-foreground">
-                Confira se o sistema está no ar e clique em <strong className="text-foreground/80">Atualizar</strong>.
+        {credentials &&
+          (credentials.password ? (
+            <div className="card" style={{ marginTop: "var(--sp-4)", borderColor: "var(--warning)" }}>
+              <p className="od-row" style={{ ["--od-gap" as string]: "6px", fontWeight: 600 }}>
+                <KeyRound className="ic ic-sm" aria-hidden="true" /> Senha de {credentials.user.email}
+              </p>
+              <div className="od-cluster" style={{ ["--od-gap" as string]: "8px", marginTop: "var(--sp-2)" }}>
+                <code className="mono" style={{ overflowWrap: "anywhere" }}>
+                  {credentials.password}
+                </code>
+                <Button variant="outline" size="sm" onClick={handleCopyPassword}>
+                  {passwordCopied ? (
+                    <Check className="ic ic-sm" aria-hidden="true" />
+                  ) : (
+                    <Copy className="ic ic-sm" aria-hidden="true" />
+                  )}
+                  {passwordCopied ? "copiado" : "copiar"}
+                </Button>
+              </div>
+              <p className="hint od-row" style={{ ["--od-gap" as string]: "6px", marginTop: "var(--sp-2)" }}>
+                <ShieldAlert className="ic ic-sm" aria-hidden="true" />
+                <span>
+                  Guarde agora: esta senha aparece uma única vez e não pode ser recuperada depois. Se perder, será
+                  preciso criar outra.
+                </span>
+              </p>
+              <p className="hint" style={{ marginTop: "var(--sp-2)" }}>
+                Id do usuário: <span className="mono">{credentials.user.id}</span>
               </p>
             </div>
-          )}
-
-          {!orgsError && orgs.length === 0 && (
-            <div className="rounded-[12px] border border-dashed p-10 text-center">
-              <Building2 className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
-              <p className="text-[13px] font-medium">
-                {orgsLoading ? "Carregando as organizações…" : "Nenhuma organização cadastrada"}
+          ) : (
+            <div className="card" style={{ marginTop: "var(--sp-4)" }}>
+              <p className="od-row" style={{ ["--od-gap" as string]: "6px", fontWeight: 600 }}>
+                <KeyRound className="ic ic-sm" aria-hidden="true" /> {credentials.user.email} foi criado sem senha
               </p>
-              <p className="text-[12.5px] text-muted-foreground mt-1 max-w-md mx-auto">
-                {orgsLoading
-                  ? "Um instante."
-                  : "Crie a primeira no formulário abaixo, indicando o id de um usuário como dono."}
+              <p className="hint" style={{ marginTop: "var(--sp-2)" }}>
+                Sem senha local: a pessoa entra só pelo login da empresa (SSO). Não há senha para guardar.
+              </p>
+              <p className="hint" style={{ marginTop: "var(--sp-2)" }}>
+                Id do usuário: <span className="mono">{credentials.user.id}</span>
               </p>
             </div>
-          )}
+          ))}
+      </section>
 
-          {orgs.length > 0 && (
-            <div className="overflow-x-auto rounded-[12px] border">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="border-b bg-muted/30 text-[11px] uppercase tracking-widest text-muted-foreground">
-                    <th className="px-4 py-3 font-medium">Id</th>
-                    <th className="px-4 py-3 font-medium">Nome</th>
-                    <th className="px-4 py-3 font-medium">Dono</th>
-                    <th className="px-4 py-3 font-medium">Membros</th>
-                    <th className="px-4 py-3 font-medium">Dados</th>
-                    <th className="px-4 py-3 font-medium" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/60">
-                  {orgs.map((org) => (
-                    <tr key={org.id} className="hover:bg-accent/50">
-                      <td className="px-4 py-3 text-[12px] font-mono text-muted-foreground">{org.id}</td>
-                      <td className="px-4 py-3 text-[12.5px] font-medium">{org.name}</td>
-                      <td className="px-4 py-3 text-[12px] font-mono text-muted-foreground">{org.owner || "—"}</td>
-                      <td className="px-4 py-3 text-[12.5px] tabular-nums">{Object.keys(org.members).length}</td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium ring-1 ring-inset whitespace-nowrap ${
-                            org.has_data
-                              ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 ring-blue-500/20"
-                              : "bg-zinc-500/10 text-zinc-500 ring-zinc-500/20"
-                          }`}
-                        >
-                          {org.has_data ? "Com dados" : "Sem dados"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setMemberFor(memberFor === org.id ? null : org.id)
-                            setMemberUser("")
-                            setMemberError(null)
-                          }}
-                        >
-                          <UsersRound className="h-3.5 w-3.5" /> Adicionar membro
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+      <section className="card" aria-labelledby="organizacoes">
+        <h2 id="organizacoes" className="card-title" style={{ marginBottom: "var(--sp-3)" }}>
+          Organizações
+        </h2>
+        <p className="card-sub" style={{ marginBottom: "var(--sp-3)" }}>
+          Uma organização é a fronteira dos dados: cada uma tem os próprios clones, versões, agendamentos e índice de
+          busca, e nada de uma aparece na outra.
+        </p>
+
+        {orgsError && (
+          <div className="stack-sm">
+            <p className="error-text" role="alert">
+              <AlertTriangle className="ic ic-sm" aria-hidden="true" />
+              Não foi possível carregar as organizações: {orgsError}
+            </p>
+            <div>
+              <Button variant="outline" size="sm" onClick={() => void fetchOrgs()}>
+                <RefreshCw className="ic ic-sm" aria-hidden="true" /> Tentar de novo
+              </Button>
             </div>
-          )}
+          </div>
+        )}
 
-          {memberOrg && (
-            <div className="rounded-[12px] border bg-muted/20 p-4 space-y-3">
-              <p className="text-[13px] font-semibold">
-                Adicionar membro em <span className="font-mono">{memberOrg.id}</span>
-              </p>
+        {!orgsError && orgsLoading && (
+          <div className="stack-sm">
+            {[0, 1].map((index) => (
+              <Skeleton key={index} className="h-[44px] w-full" />
+            ))}
+          </div>
+        )}
 
-              {Object.keys(memberOrg.members).length > 0 && (
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-[12px] text-muted-foreground">Já fazem parte:</span>
-                  {Object.entries(memberOrg.members).map(([id, memberRole]) => (
-                    <span
-                      key={id}
-                      className="rounded-full bg-secondary px-2 py-0.5 text-[11.5px] font-mono"
-                      title={ROLE_LABELS[memberRole] ?? memberRole}
+        {!orgsError && !orgsLoading && orgs.length === 0 && (
+          <EmptyState
+            icon={<Building2 className="ic ic-lg" aria-hidden="true" />}
+            title="Nenhuma organização cadastrada"
+            description="Crie a primeira no formulário abaixo, indicando o id de um usuário como dono."
+          />
+        )}
+
+        {!orgsError && !orgsLoading && orgs.length > 0 && (
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-13)", minWidth: "520px" }}>
+              <thead>
+                <tr style={{ textAlign: "left", color: "var(--text-3)" }}>
+                  <th style={{ padding: "10px 12px", borderBottom: "1px solid var(--glass-border)", fontWeight: 600 }}>
+                    Nome
+                  </th>
+                  <th style={{ padding: "10px 12px", borderBottom: "1px solid var(--glass-border)", fontWeight: 600 }}>
+                    Dono
+                  </th>
+                  <th style={{ padding: "10px 12px", borderBottom: "1px solid var(--glass-border)", fontWeight: 600 }}>
+                    Membros
+                  </th>
+                  <th style={{ padding: "10px 12px", borderBottom: "1px solid var(--glass-border)", fontWeight: 600 }}>
+                    Dados
+                  </th>
+                  <th style={{ padding: "10px 12px", borderBottom: "1px solid var(--glass-border)" }} />
+                </tr>
+              </thead>
+              <tbody>
+                {orgs.map((org) => (
+                  <tr key={org.id}>
+                    <td style={{ padding: "10px 12px", borderBottom: "1px solid var(--glass-border)" }}>
+                      <strong>{org.name}</strong>
+                      <span className="hint mono" style={{ display: "block" }}>
+                        {org.id}
+                      </span>
+                    </td>
+                    <td
+                      className="mono"
+                      style={{ padding: "10px 12px", borderBottom: "1px solid var(--glass-border)" }}
                     >
-                      {id}
-                    </span>
-                  ))}
-                </div>
-              )}
+                      {org.owner || "—"}
+                    </td>
+                    <td
+                      style={{
+                        padding: "10px 12px",
+                        borderBottom: "1px solid var(--glass-border)",
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
+                      {Object.keys(org.members).length}
+                    </td>
+                    <td style={{ padding: "10px 12px", borderBottom: "1px solid var(--glass-border)" }}>
+                      <Badge variant={org.has_data ? "info" : "neutral"}>
+                        {org.has_data ? "Com dados" : "Sem dados"}
+                      </Badge>
+                    </td>
+                    <td
+                      style={{
+                        padding: "10px 12px",
+                        borderBottom: "1px solid var(--glass-border)",
+                        textAlign: "right",
+                      }}
+                    >
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setMemberFor(memberFor === org.id ? null : org.id)
+                          setMemberUser("")
+                          setMemberError(null)
+                        }}
+                      >
+                        <UsersRound className="ic ic-sm" aria-hidden="true" /> Gerenciar
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
-              <div className="grid sm:grid-cols-2 gap-3">
-                <Input
-                  label="Id do usuário"
-                  placeholder="ex.: 3f9a1c22b7d4e001"
-                  list="equipe-user-ids"
-                  value={memberUser}
-                  onChange={(e) => setMemberUser(e.target.value)}
-                  hint="O id aparece na tabela de usuários acima."
-                />
-                <Select label="Papel" value={memberRole} onChange={(e) => setMemberRole(e.target.value)}>
-                  {ROLE_ORDER.map((value) => (
-                    <option key={value} value={value}>
-                      {ROLE_LABELS[value]}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-
-              {memberError && (
-                <div className="rounded-[12px] bg-destructive/10 border border-destructive/20 p-3 text-[13px] text-destructive">
-                  <p className="font-medium">Não foi possível adicionar o membro.</p>
-                  <p className="mt-1">{memberError}</p>
-                </div>
-              )}
-
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  size="sm"
-                  loading={memberBusy}
-                  disabled={!memberUser.trim()}
-                  onClick={() => handleAddMember(memberOrg.id)}
-                >
-                  <UsersRound className="h-3.5 w-3.5" /> Adicionar
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    setMemberFor(null)
-                    setMemberError(null)
-                  }}
-                >
-                  Cancelar
-                </Button>
-              </div>
-            </div>
-          )}
-
-          <div className="border-t pt-4 space-y-3">
-            <p className="text-[13px] font-semibold flex items-center gap-2">
-              <Building2 className="h-4 w-4" /> Nova organização
+        {memberOrg && (
+          <div className="card" style={{ marginTop: "var(--sp-4)" }}>
+            <p style={{ fontWeight: 600 }}>
+              Adicionar membro em <span className="mono">{memberOrg.id}</span>
             </p>
 
-            <div className="grid sm:grid-cols-2 gap-3">
-              <Input
-                label="Nome"
-                placeholder="ex.: Marketing"
-                value={orgName}
-                onChange={(e) => setOrgName(e.target.value)}
-                hint="O id da organização é gerado a partir deste nome."
-              />
-              <Input
-                label="Id do dono"
-                placeholder="ex.: 3f9a1c22b7d4e001"
-                list="equipe-user-ids"
-                value={orgOwner}
-                onChange={(e) => setOrgOwner(e.target.value)}
-                hint="O dono entra automaticamente como administrador da organização."
-              />
-            </div>
-
-            {orgFormError && (
-              <div className="rounded-[12px] bg-destructive/10 border border-destructive/20 p-3 text-[13px] text-destructive">
-                <p className="font-medium">Não foi possível criar a organização.</p>
-                <p className="mt-1">{orgFormError}</p>
+            {Object.keys(memberOrg.members).length > 0 && (
+              <div className="od-cluster" style={{ ["--od-gap" as string]: "6px", marginTop: "var(--sp-2)" }}>
+                <span className="hint">Já fazem parte:</span>
+                {Object.entries(memberOrg.members).map(([id, memberRole]) => (
+                  <span key={id} className="chip" title={ROLE_LABELS[memberRole] ?? memberRole}>
+                    <span className="mono">{id}</span>
+                  </span>
+                ))}
               </div>
             )}
 
-            <div className="flex items-start gap-1.5 text-[12px] text-muted-foreground">
-              <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-              <span>O id do dono precisa ser o de um usuário que já existe na tabela acima.</span>
+            <div className="od-grid" style={{ ["--od-cols" as string]: 2, ["--od-gap" as string]: "16px", marginTop: "var(--sp-3)" }}>
+              <Input
+                label="Id do usuário"
+                placeholder="ex.: 3f9a1c22b7d4e001"
+                list="equipe-user-ids"
+                value={memberUser}
+                onChange={(event) => setMemberUser(event.target.value)}
+                hint={
+                  memberUser.trim()
+                    ? `Quem entra: ${users.find((user) => user.id === memberUser.trim())?.email ?? "id ainda fora da lista de usuários"}.`
+                    : "O id aparece na tabela de membros acima."
+                }
+              />
+              <Select label="Papel" value={memberRole} onChange={(event) => setMemberRole(event.target.value)}>
+                {ROLE_ORDER.map((value) => (
+                  <option key={value} value={value}>
+                    {ROLE_LABELS[value]}
+                  </option>
+                ))}
+              </Select>
             </div>
 
+            {memberError && (
+              <p className="error-text" role="alert">
+                <AlertTriangle className="ic ic-sm" aria-hidden="true" />
+                Não foi possível adicionar o membro: {memberError}
+              </p>
+            )}
+
+            <div className="od-cluster" style={{ ["--od-gap" as string]: "8px", marginTop: "var(--sp-2)" }}>
+              <Button
+                variant="primary"
+                size="sm"
+                loading={memberBusy}
+                disabled={!memberUser.trim()}
+                onClick={() => setConfirmingMember(true)}
+              >
+                <UsersRound className="ic ic-sm" aria-hidden="true" /> Adicionar
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setMemberFor(null)
+                  setMemberError(null)
+                }}
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        )}
+
+        <div className="stack-sm" style={{ marginTop: "var(--sp-4)" }}>
+          <p style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: "8px" }}>
+            <Building2 className="ic ic-sm" aria-hidden="true" /> Nova organização
+          </p>
+
+          <div className="od-grid" style={{ ["--od-cols" as string]: 2, ["--od-gap" as string]: "16px" }}>
+            <Input
+              label="Nome"
+              placeholder="ex.: Marketing"
+              value={orgName}
+              onChange={(event) => setOrgName(event.target.value)}
+              hint="O id da organização é gerado a partir deste nome."
+            />
+            <Input
+              label="Id do dono"
+              placeholder="ex.: 3f9a1c22b7d4e001"
+              list="equipe-user-ids"
+              value={orgOwner}
+              onChange={(event) => setOrgOwner(event.target.value)}
+              hint="O dono entra automaticamente como administrador da organização."
+            />
+          </div>
+
+          {orgFormError && (
+            <p className="error-text" role="alert">
+              <AlertTriangle className="ic ic-sm" aria-hidden="true" />
+              Não foi possível criar a organização: {orgFormError}
+            </p>
+          )}
+
+          <p className="hint od-row" style={{ ["--od-gap" as string]: "6px" }}>
+            <AlertTriangle className="ic ic-sm" aria-hidden="true" />
+            <span>O id do dono precisa ser o de um usuário que já existe na tabela acima.</span>
+          </p>
+
+          <div>
             <Button
+              variant="primary"
+              size="sm"
               onClick={handleCreateOrg}
               loading={creatingOrg}
               disabled={!orgName.trim() || !orgOwner.trim()}
             >
-              <Building2 className="h-4 w-4" /> Criar organização
+              <Building2 className="ic ic-sm" aria-hidden="true" /> Criar organização
             </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
+
+      <Modal
+        open={confirmingMember}
+        title="Adicionar este membro?"
+        body={
+          memberOrg
+            ? `${memberUser.trim() || "O usuário"} entra em ${memberOrg.name} como ${ROLE_LABELS[memberRole] ?? memberRole}.`
+            : ""
+        }
+        confirmLabel="Adicionar"
+        onConfirm={() => {
+          if (memberOrg) void handleAddMember(memberOrg.id)
+        }}
+        onClose={() => {
+          if (!memberBusy) setConfirmingMember(false)
+        }}
+      />
     </div>
   )
 }

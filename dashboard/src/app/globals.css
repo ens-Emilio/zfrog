@@ -1,123 +1,68 @@
 @import "tailwindcss";
+@import "./ds-tokens.css";
+@import "./ds-components.css";
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
+  /* Tailwind utilities apontando para os tokens do design system (Pond Glass). */
+  --color-background: var(--bg-0);
+  --color-foreground: var(--text-1);
+  --color-card: var(--bg-2);
+  --color-card-foreground: var(--text-1);
+  --color-popover: var(--bg-2);
+  --color-popover-foreground: var(--text-1);
+  --color-primary: var(--accent);
+  --color-primary-foreground: var(--accent-ink);
+  --color-secondary: var(--glass);
+  --color-secondary-foreground: var(--text-1);
+  --color-muted: var(--glass);
+  --color-muted-foreground: var(--text-2);
+  --color-accent: var(--glass);
+  --color-accent-foreground: var(--text-1);
+  --color-destructive: var(--danger);
+  --color-destructive-foreground: var(--text-1);
+  --color-border: var(--glass-border);
+  --color-input: var(--glass-border);
+  --color-ring: var(--accent-line);
   --color-success: var(--success);
   --color-warning: var(--warning);
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-}
+  --color-frog-400: var(--frog-400);
+  --color-frog-500: var(--frog-500);
+  --color-pond-400: var(--pond-400);
+  --color-pond-500: var(--pond-500);
 
-:root {
-  /* Base - Warm minimal light */
-  --background: oklch(0.985 0.002 106);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.55 0.24 264); /* violet */
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.55 0.24 264);
-  --radius: 0.75rem;
-  --success: oklch(0.6 0.15 145);
-  --warning: oklch(0.75 0.15 65);
-  --chart-1: oklch(0.55 0.24 264);
-  --chart-2: oklch(0.6 0.15 145);
-  --chart-3: oklch(0.75 0.15 65);
-  --chart-4: oklch(0.577 0.245 27.325);
-}
+  --font-display: var(--font-space-grotesk), "Segoe UI", system-ui, sans-serif;
+  --font-sans: var(--font-inter), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, "SFMono-Regular", Menlo, monospace;
 
-.dark {
-  --background: oklch(0.08 0 0); /* near black with warm tint */
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.12 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.12 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.62 0.22 264);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.18 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.18 0 0);
-  --muted-foreground: oklch(0.65 0 0);
-  --accent: oklch(0.18 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.65 0.2 27);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.22 0 0);
-  --input: oklch(0.22 0 0);
-  --ring: oklch(0.62 0.22 264);
-  --success: oklch(0.65 0.15 145);
-  --warning: oklch(0.8 0.15 65);
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-control);
+  --radius-lg: var(--r-card);
+  --radius-xl: var(--r-lg);
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
+  /* Tailwind preflight deixa border-width em 0; o design system declara borda onde
+     precisa, então nada a corrigir aqui além de manter a fonte do corpo. */
   body {
-    @apply bg-background text-foreground antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  @apply bg-transparent;
-}
-::-webkit-scrollbar-thumb {
-  @apply bg-border rounded-full;
-}
-::-webkit-scrollbar-thumb:hover {
-  @apply bg-muted-foreground/30;
+@layer components {
+  /* The design system puts the topbar above `.views`; the panel renders it inside
+     the page so each route can supply its own actions, so it is pulled back out to
+     full-bleed and made sticky in the same spot. */
+  .topbar-inline {
+    margin: calc(-1 * var(--sp-6)) calc(-1 * var(--sp-6)) 0;
+    margin-bottom: 0;
+  }
+  @media (max-width: 1023px) {
+    .topbar-inline {
+      margin: calc(-1 * var(--sp-4)) calc(-1 * var(--sp-4)) 0;
+    }
+  }
 }
 
-/* Animations */
-@keyframes shimmer {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
-}
-@keyframes pulse-subtle {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.8; }
-}
 @keyframes slide-in {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
@@ -125,4 +70,8 @@
 @keyframes scale-in {
   from { opacity: 0; transform: scale(0.96); }
   to { opacity: 1; transform: scale(1); }
+}
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
 }

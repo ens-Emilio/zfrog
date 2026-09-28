@@ -1,242 +1,415 @@
 "use client"
-import { useEffect, useState } from "react"
-import Link from "next/link"
-import { api, AppConfig } from "@/lib/api"
+import { useCallback, useEffect, useState } from "react"
+import { api, type AppConfig } from "@/lib/api"
 import { Topbar } from "@/components/Navbar"
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { DetailRow } from "@/components/DetailRow"
+import { Switch } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Database, Sliders, Globe, Shield, Save, Check, Gauge } from "lucide-react"
+import { Modal } from "@/components/ui/modal"
+import { Icon } from "@/lib/icons"
+import { useMotion, useTheme } from "@/lib/prefs"
+import { useToast } from "@/components/ToastRegion"
+
+/**
+ * Everything the server does not expose a write endpoint for lives here, in the
+ * browser. The labels say so, so nobody expects these to change the worker.
+ */
+const LOCAL_KEY = "zfrog-config-local"
+
+interface LocalPrefs {
+  threads: number
+  timeout: number
+  userAgent: string
+  proxies: string
+  headers: string
+  robots: boolean
+}
+
+const DEFAULTS: LocalPrefs = {
+  threads: 8,
+  timeout: 30,
+  userAgent: "Mozilla/5.0 (compatible; zfrog/1.0)",
+  proxies: "",
+  headers: "",
+  robots: true,
+}
+
+function readLocal(): LocalPrefs | null {
+  try {
+    const raw = localStorage.getItem(LOCAL_KEY)
+    if (!raw) return null
+    return { ...DEFAULTS, ...(JSON.parse(raw) as Partial<LocalPrefs>) }
+  } catch {
+    // Storage disabled or a hand-edited value: fall back to the defaults.
+    return null
+  }
+}
+
+function writeLocal(prefs: LocalPrefs) {
+  try {
+    localStorage.setItem(LOCAL_KEY, JSON.stringify(prefs))
+  } catch {
+    /* storage disabled: the fields still apply for this session */
+  }
+}
+
+function clearLocal() {
+  try {
+    localStorage.removeItem(LOCAL_KEY)
+  } catch {
+    /* storage disabled */
+  }
+}
 
 export default function ConfigPage() {
+  const toast = useToast()
+  const [theme, toggleTheme] = useTheme()
+  const [motion, setMotion] = useMotion()
+
   const [config, setConfig] = useState<AppConfig | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [rps, setRps] = useState("")
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
-  const [saveError, setSaveError] = useState<string | null>(null)
 
-  const fetchConfig = async () => {
+  const [rps, setRps] = useState(4)
+  const [threads, setThreads] = useState(String(DEFAULTS.threads))
+  const [timeoutSec, setTimeoutSec] = useState(String(DEFAULTS.timeout))
+  const [userAgent, setUserAgent] = useState(DEFAULTS.userAgent)
+  const [proxies, setProxies] = useState(DEFAULTS.proxies)
+  const [headers, setHeaders] = useState(DEFAULTS.headers)
+  const [robots, setRobots] = useState(DEFAULTS.robots)
+
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [headersError, setHeadersError] = useState<string | null>(null)
+  const [confirmReset, setConfirmReset] = useState(false)
+
+  const fetchConfig = useCallback(async () => {
     setLoading(true)
+    setError(null)
     try {
       const data = await api.getConfig()
       setConfig(data)
-      if (data.rate_limit_rps) setRps(String(data.rate_limit_rps))
-      setError(null)
+      setRps(Math.min(16, Math.max(1, data.rate_limit_rps)))
+      // Stored browser preferences win; otherwise the server's own values seed them.
+      const stored = readLocal()
+      setThreads(String(stored?.threads ?? data.worker_concurrency))
+      setTimeoutSec(String(stored?.timeout ?? data.http_timeout_read))
+      setUserAgent(stored?.userAgent ?? DEFAULTS.userAgent)
+      setProxies(stored?.proxies ?? "")
+      setHeaders(stored?.headers ?? "")
+      setRobots(stored?.robots ?? true)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
       setLoading(false)
     }
-  }
-
-  useEffect(() => {
-    setTimeout(fetchConfig, 0)
   }, [])
 
+  useEffect(() => {
+    void fetchConfig()
+  }, [fetchConfig])
+
   const handleSave = async () => {
-    const val = parseFloat(rps)
     setSaveError(null)
-    if (isNaN(val) || val <= 0) {
-      setSaveError("Informe um número maior que zero.")
-      return
+    setHeadersError(null)
+
+    const trimmedHeaders = headers.trim()
+    if (trimmedHeaders) {
+      try {
+        JSON.parse(trimmedHeaders)
+      } catch {
+        setHeadersError("Não é um JSON válido. Confira as aspas e as vírgulas.")
+        return
+      }
     }
+
     setSaving(true)
     try {
-      await api.updateRateLimit(val)
-      setSaved(true)
-      setTimeout(() => setSaved(false), 3000)
-      fetchConfig()
+      const result = await api.updateRateLimit(rps)
+      writeLocal({
+        threads: Number(threads) || DEFAULTS.threads,
+        timeout: Number(timeoutSec) || DEFAULTS.timeout,
+        userAgent,
+        proxies,
+        headers,
+        robots,
+      })
+      setConfig((current) => (current ? { ...current, rate_limit_rps: result.rate_limit_rps } : current))
+      setRps(Math.min(16, Math.max(1, result.rate_limit_rps)))
+      toast("Configurações salvas.")
     } catch (e) {
-      setSaveError(e instanceof Error ? e.message : String(e))
+      const message = e instanceof Error ? e.message : String(e)
+      setSaveError(message)
+      toast("Não foi possível salvar.", "err")
     } finally {
       setSaving(false)
     }
   }
 
-  const speedVerdict = (() => {
-    const v = parseFloat(rps)
-    if (isNaN(v)) return null
-    if (v <= 1) return "Bem devagar e discreto. Recomendado para sites com proteção."
-    if (v <= 3) return "Equilíbrio entre velocidade e discrição. Bom para a maioria dos sites."
-    if (v <= 10) return "Rápido. Use apenas em sites próprios ou que você tem permissão."
-    return "Muito rápido. Alto risco de bloqueio pelo site."
-  })()
+  const handleReset = () => {
+    const next: LocalPrefs = {
+      ...DEFAULTS,
+      threads: config?.worker_concurrency ?? DEFAULTS.threads,
+      timeout: config?.http_timeout_read ?? DEFAULTS.timeout,
+    }
+    setRps(Math.min(16, Math.max(1, config?.rate_limit_rps ?? 4)))
+    setThreads(String(next.threads))
+    setTimeoutSec(String(next.timeout))
+    setUserAgent(next.userAgent)
+    setProxies(next.proxies)
+    setHeaders(next.headers)
+    setRobots(next.robots)
+    setHeadersError(null)
+    clearLocal()
+    setConfirmReset(false)
+    toast("Padrões restaurados. Salve para aplicar no servidor.")
+  }
 
   return (
-    <div className="space-y-6 max-w-[900px] animate-[slide-in_0.3s_ease]">
+    <div className="view-grid">
       <Topbar
         title="Configurações"
-        description="Como o Zfrog se comporta ao baixar. As mudanças valem imediatamente, sem reiniciar."
+        description="Como o zfrog se comporta no servidor e neste navegador."
+        action={
+          <Button variant="secondary" onClick={() => void fetchConfig()} disabled={loading}>
+            <Icon name="i-refresh" size="sm" />
+            Recarregar
+          </Button>
+        }
       />
 
-      {loading ? (
-        <div className="space-y-3">
-          <Skeleton className="h-64 w-full" />
-          <Skeleton className="h-32 w-full" />
-        </div>
-      ) : error ? (
-        <Card className="border-destructive/20 bg-destructive/5">
-          <CardContent className="p-4 text-[13px] text-destructive">
-            <p className="font-medium">Não foi possível carregar as configurações.</p>
-            <p className="mt-1">{error}</p>
-          </CardContent>
-        </Card>
-      ) : config ? (
+      {loading && (
         <>
-          <div className="grid md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Database className="h-4 w-4" /> Onde os arquivos ficam
-                </CardTitle>
-                <CardDescription>Armazenamento e organização</CardDescription>
-              </CardHeader>
-              <CardContent className="px-5">
-                <DetailRow
-                  label="Pasta de saída"
-                  value={<span className="font-mono text-[12px]">{config.output_dir}</span>}
-                  hint="Cada extração cria uma subpasta com o próprio identificador dentro dela."
-                />
-                <DetailRow
-                  label="Extrações simultâneas"
-                  value={config.max_concurrent_jobs}
-                  hint="Quantos downloads podem rodar ao mesmo tempo. Números altos consomem mais memória."
-                />
-                <DetailRow
-                  label="Processos paralelos"
-                  value={config.worker_concurrency}
-                  hint="Quantos trabalhos o servidor executa em paralelo. Aumente se tiver CPU sobrando."
-                />
-                <DetailRow
-                  label="Servidor de filas"
-                  value={<span className="font-mono text-[12px]">{config.redis_url}</span>}
-                  hint="Serviço que organiza a fila de extrações. Precisa estar no ar para vários downloads ao mesmo tempo."
-                />
-              </CardContent>
-            </Card>
+          {[0, 1, 2].map((i) => (
+            <div className="card" key={i}>
+              <Skeleton style={{ height: 20, width: 220, marginBottom: 12 }} />
+              <Skeleton style={{ height: 14, width: "60%", marginBottom: 20 }} />
+              <Skeleton style={{ height: 44, width: "100%", marginBottom: 12 }} />
+              <Skeleton style={{ height: 44, width: "100%" }} />
+            </div>
+          ))}
+        </>
+      )}
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Globe className="h-4 w-4" /> Como se conectar
-                </CardTitle>
-                <CardDescription>Rede, identidade e limites de tempo</CardDescription>
-              </CardHeader>
-              <CardContent className="px-5">
-                <DetailRow
-                  label="Intermediário (proxy)"
-                  value={
-                    config.proxy_url ? <span className="font-mono text-[12px]">{config.proxy_url}</span> : "Nenhum"
-                  }
-                  hint="Endereço opcional que esconde sua conexão de origem. Deixe vazio para conectar direto."
+      {!loading && error && (
+        <div className="card">
+          <h3 className="card-title" style={{ marginBottom: "var(--sp-2)" }}>
+            Não foi possível carregar as configurações
+          </h3>
+          <p className="card-sub" style={{ marginBottom: "var(--sp-4)" }}>
+            {error}
+          </p>
+          <Button onClick={() => void fetchConfig()}>
+            <Icon name="i-refresh" size="sm" />
+            Tentar de novo
+          </Button>
+        </div>
+      )}
+
+      {!loading && !error && config && (
+        <>
+          <div className="card">
+            <h3 className="card-title" style={{ marginBottom: "var(--sp-2)" }}>
+              Limites operacionais
+            </h3>
+            <p className="card-sub" style={{ marginBottom: "var(--sp-5)" }}>
+              Equilíbrio entre velocidade e gentileza com os sites visitados.
+            </p>
+
+            <div className="od-row" style={{ ["--od-gap" as string]: "12px", justifyContent: "space-between" }}>
+              <span className="label">Concorrência máxima do servidor</span>
+              <span className="mono" style={{ color: "var(--text-2)" }}>
+                {config.max_concurrent_jobs}
+              </span>
+            </div>
+            <span className="hint">Definida no servidor. O ritmo você ajusta abaixo.</span>
+
+            <div className="od-field" style={{ ["--od-gap" as string]: "8px", marginTop: "var(--sp-5)" }}>
+              <span className="od-row" style={{ ["--od-gap" as string]: "12px", justifyContent: "space-between" }}>
+                <label className="label" htmlFor="cfg-rps">
+                  Requisições por segundo
+                </label>
+                <span className="mono" style={{ color: "var(--accent-strong)" }}>
+                  {rps}
+                </span>
+              </span>
+              <input
+                className="range"
+                id="cfg-rps"
+                type="range"
+                min={1}
+                max={16}
+                value={rps}
+                aria-valuetext={`${rps} requisições por segundo`}
+                onChange={(event) => setRps(Number(event.target.value))}
+              />
+              <span className="hint">
+                Quantas requisições o zfrog envia por segundo. Vale no servidor assim que você salva.
+              </span>
+            </div>
+
+            <div
+              className="od-grid"
+              style={{ ["--od-cols" as string]: 2, ["--od-gap" as string]: "16px", marginTop: "var(--sp-5)" }}
+            >
+              <div className="od-field" style={{ ["--od-gap" as string]: "6px" }}>
+                <label className="label" htmlFor="cfg-threads">
+                  Threads do worker
+                </label>
+                <input
+                  className="input"
+                  id="cfg-threads"
+                  type="number"
+                  min={1}
+                  max={32}
+                  value={threads}
+                  onChange={(event) => setThreads(event.target.value)}
                 />
-                <DetailRow
-                  label="Velocidade"
-                  value={`${config.rate_limit_rps} pedidos/s`}
-                  hint="Quantos pedidos por segundo o Zfrog envia ao site. Ajuste abaixo."
+                <span className="hint">Preferência local: o servidor ainda usa {config.worker_concurrency}.</span>
+              </div>
+              <div className="od-field" style={{ ["--od-gap" as string]: "6px" }}>
+                <label className="label" htmlFor="cfg-timeout">
+                  Timeout por requisição (s)
+                </label>
+                <input
+                  className="input"
+                  id="cfg-timeout"
+                  type="number"
+                  min={5}
+                  max={120}
+                  value={timeoutSec}
+                  onChange={(event) => setTimeoutSec(event.target.value)}
                 />
-                <DetailRow
-                  label="Espera para conectar"
-                  value={`${config.http_timeout_connect}s`}
-                  hint="Tempo máximo para estabelecer a conexão antes de desistir."
-                />
-                <DetailRow
-                  label="Espera para ler"
-                  value={`${config.http_timeout_read}s`}
-                  hint="Tempo máximo esperando a resposta de um site lento."
-                />
-              </CardContent>
-            </Card>
+                <span className="hint">Preferência local: o servidor ainda usa {config.http_timeout_read}s.</span>
+              </div>
+            </div>
           </div>
 
-          <Card className="overflow-hidden border-primary/20">
-            <div className="h-[1px] bg-gradient-to-r from-primary/0 via-primary/50 to-primary/0" />
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Sliders className="h-4 w-4" /> Velocidade dos pedidos
-              </CardTitle>
-              <CardDescription>
-                O ajuste mais importante para não ser bloqueado. Vale na hora, sem reiniciar.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex gap-3 items-end flex-wrap">
-                <div className="flex-1 min-w-[200px] max-w-[240px]">
-                  <Input
-                    label="Pedidos por segundo"
-                    type="number"
-                    min={0.1}
-                    step={0.1}
-                    value={rps}
-                    onChange={(e) => setRps(e.target.value)}
-                    hint="Use 0.5 a 2 em sites com proteção."
-                    error={saveError ?? undefined}
-                  />
-                </div>
-                <Button onClick={handleSave} loading={saving} className="mb-[18px]">
-                  <Save className="h-4 w-4" />
-                  Salvar
-                </Button>
-                {saved && (
-                  <span className="mb-[22px] inline-flex items-center gap-1.5 text-[12.5px] text-emerald-600 font-medium animate-[scale-in_0.2s_ease]">
-                    <Check className="h-4 w-4" /> Velocidade atualizada
+          <div className="card">
+            <h3 className="card-title" style={{ marginBottom: "var(--sp-2)" }}>
+              Rede &amp; identidade
+            </h3>
+            <p className="card-sub" style={{ marginBottom: "var(--sp-5)" }}>
+              Como o zfrog se apresenta aos sites. Estas preferências ficam neste navegador.
+            </p>
+
+            <div className="od-field" style={{ ["--od-gap" as string]: "6px" }}>
+              <label className="label" htmlFor="cfg-ua">
+                User-Agent padrão
+              </label>
+              <input
+                className="input input-mono"
+                id="cfg-ua"
+                value={userAgent}
+                onChange={(event) => setUserAgent(event.target.value)}
+              />
+              <span className="hint">Preferência local (localStorage): ainda não é enviada ao servidor.</span>
+            </div>
+
+            <div
+              className="od-grid"
+              style={{ ["--od-cols" as string]: 2, ["--od-gap" as string]: "16px", marginTop: "var(--sp-5)" }}
+            >
+              <div className="od-field" style={{ ["--od-gap" as string]: "6px" }}>
+                <label className="label" htmlFor="cfg-proxy">
+                  Proxies (um por linha)
+                </label>
+                <textarea
+                  className="textarea"
+                  id="cfg-proxy"
+                  placeholder={"http://proxy1:8080\nhttp://proxy2:8080"}
+                  value={proxies}
+                  onChange={(event) => setProxies(event.target.value)}
+                />
+                <span className="hint">
+                  Preferência local (localStorage). O servidor já usa {config.proxy_url ? "um proxy" : "conexão direta"}.
+                </span>
+              </div>
+              <div className="od-field" style={{ ["--od-gap" as string]: "6px" }}>
+                <label className="label" htmlFor="cfg-headers">
+                  Cabeçalhos extras (JSON)
+                </label>
+                <textarea
+                  className="textarea"
+                  id="cfg-headers"
+                  placeholder={'{"Accept-Language": "pt-BR"}'}
+                  aria-invalid={headersError ? true : undefined}
+                  aria-describedby={headersError ? "cfg-headers-error" : undefined}
+                  value={headers}
+                  onChange={(event) => {
+                    setHeaders(event.target.value)
+                    if (headersError) setHeadersError(null)
+                  }}
+                />
+                {headersError ? (
+                  <span className="error-text" id="cfg-headers-error">
+                    {headersError}
                   </span>
+                ) : (
+                  <span className="hint">Preferência local (localStorage): ainda não é enviada ao servidor.</span>
                 )}
               </div>
+            </div>
 
-              <div className="flex items-center gap-2">
-                <input
-                  type="range"
-                  min={0.5}
-                  max={20}
-                  step={0.5}
-                  value={parseFloat(rps) || 1}
-                  onChange={(e) => setRps(e.target.value)}
-                  className="flex-1 accent-primary max-w-[320px]"
-                />
-                <span className="text-[12px] text-muted-foreground whitespace-nowrap">{rps || "—"} pedidos/s</span>
-              </div>
+            <div style={{ marginTop: "var(--sp-5)" }}>
+              <Switch
+                label="Respeitar robots.txt"
+                hint="Recomendado: mantém a extração dentro das regras do site. Preferência local (localStorage)."
+                checked={robots}
+                onChange={setRobots}
+              />
+            </div>
+          </div>
 
-              {speedVerdict && (
-                <div className="flex items-start gap-2.5 rounded-[10px] bg-secondary p-3">
-                  <Gauge className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-                  <p className="text-[12px] text-muted-foreground leading-relaxed">{speedVerdict}</p>
-                </div>
-              )}
+          <div className="card">
+            <h3 className="card-title" style={{ marginBottom: "var(--sp-2)" }}>
+              Aparência
+            </h3>
+            <p className="card-sub" style={{ marginBottom: "var(--sp-5)" }}>
+              Preferências visuais deste navegador. Aplicam na hora e continuam depois de recarregar.
+            </p>
+            <div style={{ marginBottom: "var(--sp-4)" }}>
+              <Switch
+                label="Tema escuro"
+                hint="Desligue para o tema claro."
+                checked={theme === "dark"}
+                onChange={() => toggleTheme()}
+              />
+            </div>
+            <Switch
+              label="Reduzir animações"
+              hint="Segue também a preferência do sistema."
+              checked={motion === "reduced"}
+              onChange={(value) => setMotion(value ? "reduced" : "full")}
+            />
+          </div>
 
-              <div className="rounded-[10px] bg-secondary p-3 flex gap-2.5">
-                <Shield className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-                <p className="text-[12px] text-muted-foreground leading-relaxed">
-                  Pedidos rápidos demais fazem o site identificar o Zfrog como robô e bloquear o acesso. Se receber
-                  erros de bloqueio, reduza este valor. Saiba mais no{" "}
-                  <Link href="/ajuda" className="text-primary underline">
-                    guia
-                  </Link>
-                  .
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          {saveError && (
+            <p className="error-text" role="alert">
+              {saveError}
+            </p>
+          )}
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-[13px]">Dados brutos do servidor</CardTitle>
-              <CardDescription>
-                Os mesmos valores acima, para conferência ou suporte.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <pre className="text-[11.5px] font-mono bg-secondary rounded-[12px] p-4 overflow-auto max-h-[320px] border">
-                {JSON.stringify(config, null, 2)}
-              </pre>
-            </CardContent>
-          </Card>
+          <div className="od-row" style={{ ["--od-gap" as string]: "12px", flexWrap: "wrap" }}>
+            <Button className="od-touch" onClick={() => void handleSave()} loading={saving}>
+              {!saving && <Icon name="i-check" size="sm" />}
+              Salvar configurações
+            </Button>
+            <Button variant="secondary" className="od-touch" onClick={() => setConfirmReset(true)} disabled={saving}>
+              Restaurar padrões
+            </Button>
+          </div>
         </>
-      ) : null}
+      )}
+
+      <Modal
+        open={confirmReset}
+        title="Restaurar os padrões?"
+        body="Os campos de rede, threads e timeout voltam ao padrão e as preferências locais são apagadas. O tema e o movimento escolhidos são mantidos."
+        confirmLabel="Restaurar"
+        onConfirm={handleReset}
+        onClose={() => setConfirmReset(false)}
+      />
     </div>
   )
 }

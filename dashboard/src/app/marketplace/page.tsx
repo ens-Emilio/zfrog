@@ -1,25 +1,17 @@
 "use client"
 import { useEffect, useState } from "react"
-import { api, MarketplaceAsset, MarketplaceInstall } from "@/lib/api"
+import { api, MarketplaceAsset, MarketplaceIndex, MarketplaceInstall } from "@/lib/api"
 import { Topbar } from "@/components/Navbar"
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { cn } from "@/lib/utils"
-import {
-  Store,
-  Search,
-  Star,
-  Download,
-  Trash2,
-  RefreshCw,
-  Check,
-  AlertTriangle,
-  PackageOpen,
-  User,
-  Tag,
-} from "lucide-react"
+import { Chip } from "@/components/ui/ds"
+import { EmptyState } from "@/components/ui/empty"
+import { Skeleton } from "@/components/ui/skeleton"
+import { useToast } from "@/components/ToastRegion"
+import { Icon } from "@/lib/icons"
+import { cn, formatNumber, formatStamp } from "@/lib/utils"
+import { Star } from "lucide-react"
 
 /**
  * Fluxos, plugins e modelos publicados por outras pessoas. Instalar copia o
@@ -41,16 +33,56 @@ const KIND_LABELS: Record<string, string> = {
   template: "Modelo",
 }
 
-/** Cor do rótulo de tipo, para dar de relance qual é qual. */
-const KIND_STYLES: Record<string, string> = {
-  workflow: "bg-blue-500/10 text-blue-600 dark:text-blue-400 ring-blue-500/20",
-  plugin: "bg-violet-500/10 text-violet-600 dark:text-violet-400 ring-violet-500/20",
-  template: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 ring-emerald-500/20",
+/** Quantos itens do índice aparecem antes do botão "mostrar todos". */
+const INDEX_PREVIEW = 12
+
+function kindLabel(kind: string): string {
+  return KIND_LABELS[kind] ?? kind
 }
 
-const FALLBACK_KIND_STYLE = "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 ring-zinc-500/20"
+/** Falha de leitura ou de ação: o rótulo diz o que aconteceu e há como tentar de novo. */
+function ErrorBlock({ title, message, onRetry }: { title: string; message: string; onRetry?: () => void }) {
+  return (
+    <div className="card stack-sm" style={{ borderColor: "var(--danger)" }}>
+      <span className="badge badge-danger">
+        <span className="dot" aria-hidden="true" />
+        Erro
+      </span>
+      <h3 className="card-title">{title}</h3>
+      <p className="card-sub">{message}</p>
+      {onRetry && (
+        <div>
+          <Button variant="secondary" size="sm" className="od-touch" onClick={onRetry}>
+            <Icon name="i-refresh" size="sm" />
+            Tentar de novo
+          </Button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Enquanto a vitrine chega, cartões com a mesma silhueta dos itens. */
+function CardsSkeleton() {
+  return (
+    <div className="grid-cards" aria-hidden="true">
+      {[0, 1, 2, 3].map((row) => (
+        <div key={row} className="card stack-sm">
+          <div className="row-between">
+            <Skeleton className="h-4 w-36" />
+            <Skeleton className="h-5 w-16" />
+          </div>
+          <Skeleton className="h-3.5 w-full" />
+          <Skeleton className="h-3.5 w-3/4" />
+        </div>
+      ))}
+    </div>
+  )
+}
 
 export default function MarketplacePage() {
+  const toast = useToast()
+
   const [assets, setAssets] = useState<MarketplaceAsset[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -64,6 +96,22 @@ export default function MarketplacePage() {
   const [removed, setRemoved] = useState<Record<string, string>>({})
   const [ratingId, setRatingId] = useState<string | null>(null)
 
+  const [index, setIndex] = useState<MarketplaceIndex | null>(null)
+  const [indexLoading, setIndexLoading] = useState(true)
+  const [indexError, setIndexError] = useState<string | null>(null)
+  const [showAllIndex, setShowAllIndex] = useState(false)
+
+  const [indexUrl, setIndexUrl] = useState("")
+  const [syncing, setSyncing] = useState(false)
+  const [syncResult, setSyncResult] = useState<{
+    added: number
+    updated: number
+    unchanged: number
+    skipped: number
+    errors: string[]
+  } | null>(null)
+  const [syncError, setSyncError] = useState<string | null>(null)
+
   const fetchAssets = async () => {
     setLoading(true)
     setError(null)
@@ -76,11 +124,45 @@ export default function MarketplacePage() {
     }
   }
 
+  const fetchIndex = async () => {
+    setIndexLoading(true)
+    try {
+      setIndex(await api.getMarketplaceIndex())
+      setIndexError(null)
+    } catch (e) {
+      setIndexError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setIndexLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void fetchIndex()
+  }, [])
+
   // Espera a pessoa parar de digitar antes de pedir a lista de novo.
   useEffect(() => {
-    const timer = setTimeout(fetchAssets, 300)
+    const timer = setTimeout(() => void fetchAssets(), 300)
     return () => clearTimeout(timer)
   }, [kind, query])
+
+  const handleSync = async () => {
+    const url = indexUrl.trim()
+    if (!url) return
+    setSyncing(true)
+    setSyncError(null)
+    setSyncResult(null)
+    try {
+      const result = await api.syncMarketplace(url)
+      setSyncResult(result)
+      toast(`${result.added} item(ns) novo(s), ${result.updated} atualizado(s).`)
+      await Promise.all([fetchAssets(), fetchIndex()])
+    } catch (e) {
+      setSyncError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   const handleInstall = async (asset: MarketplaceAsset) => {
     setBusyId(asset.id)
@@ -93,6 +175,7 @@ export default function MarketplacePage() {
         delete next[asset.id]
         return next
       })
+      toast(result.installed ? `${result.name} instalado.` : `${result.name} já estava instalado.`)
     } catch (e) {
       setActionError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -111,6 +194,7 @@ export default function MarketplacePage() {
         delete next[asset.id]
         return next
       })
+      toast(`A cópia de ${asset.name} foi removida.`)
     } catch (e) {
       setActionError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -124,6 +208,7 @@ export default function MarketplacePage() {
     try {
       const updated = await api.rateAsset(asset.id, score)
       setAssets((current) => current.map((item) => (item.id === updated.id ? updated : item)))
+      toast(`Nota ${score} registrada em ${updated.name}.`)
     } catch (e) {
       setActionError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -132,227 +217,361 @@ export default function MarketplacePage() {
   }
 
   const filtered = kind !== "" || query.trim() !== ""
+  const indexEntries = index ? (showAllIndex ? index.assets : index.assets.slice(0, INDEX_PREVIEW)) : []
 
   return (
-    <div className="space-y-6 max-w-[1100px] animate-[slide-in_0.3s_ease]">
+    <div className="view-grid">
       <Topbar
         title="Marketplace"
-        description="São fluxos, plugins e modelos prontos que outras pessoas publicaram: em vez de montar tudo do zero, você instala com um clique e usa aqui mesmo. A nota e o número de instalações ajudam a escolher."
+        description="Fluxos, plugins e modelos prontos que outras pessoas publicaram: instale com um clique em vez de montar tudo do zero."
         action={
-          <Button onClick={fetchAssets} loading={loading} size="sm" variant="outline">
-            <RefreshCw className="h-4 w-4" /> Atualizar
+          <Button
+            variant="secondary"
+            size="sm"
+            className="od-touch"
+            loading={loading}
+            onClick={() => void fetchAssets()}
+          >
+            <Icon name="i-refresh" size="sm" />
+            Atualizar
           </Button>
         }
       />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Search className="h-4 w-4" /> Procurar
-          </CardTitle>
-          <CardDescription>
+      <section className="card stack-md">
+        <div className="od-field" style={{ ["--od-gap" as string]: "2px" }}>
+          <h2 className="card-title">Procurar</h2>
+          <p className="card-sub">
             Escolha o tipo ou procure pelo nome e pela descrição. A lista se atualiza sozinha enquanto você digita.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex flex-wrap gap-2">
+          </p>
+        </div>
+
+        <div className="toolbar">
+          <div className="search-wrap">
+            <Icon name="i-search" />
+            <input
+              className="input"
+              type="search"
+              aria-label="Procurar no marketplace"
+              placeholder="ex.: backup diário, SEO, planilha"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
+          <div className="filter-rail">
             {KIND_FILTERS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => setKind(option.value)}
-                aria-pressed={kind === option.value}
-                className={cn(
-                  "rounded-[10px] border px-3 py-1.5 text-[12.5px] font-medium transition-all",
-                  kind === option.value
-                    ? "border-primary bg-primary/5 ring-1 ring-primary/20"
-                    : "text-muted-foreground hover:bg-accent"
-                )}
-              >
+              <Chip key={option.value} active={kind === option.value} onClick={() => setKind(option.value)}>
                 {option.label}
-              </button>
+              </Chip>
             ))}
           </div>
-          <Input
-            placeholder="ex.: backup diário, SEO, planilha"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            leftIcon={<Search className="h-4 w-4" />}
-            hint="Em branco, mostra tudo que está publicado."
-          />
-        </CardContent>
-      </Card>
+        </div>
+        <p className="hint">Em branco, mostra tudo que está publicado.</p>
+      </section>
 
       {error && (
-        <Card className="border-destructive/20 bg-destructive/5">
-          <CardContent className="p-4 text-[13px] text-destructive">
-            <p className="font-medium">Não foi possível carregar o marketplace.</p>
-            <p className="mt-1">{error}</p>
-            <p className="mt-1 text-muted-foreground">
-              Confira se o sistema está no ar e clique em <strong className="text-foreground/80">Atualizar</strong>.
-            </p>
-          </CardContent>
-        </Card>
+        <ErrorBlock
+          title="Não foi possível carregar o marketplace."
+          message={error}
+          onRetry={() => void fetchAssets()}
+        />
       )}
 
-      {actionError && (
-        <Card className="border-destructive/20 bg-destructive/5">
-          <CardContent className="p-4 text-[13px] text-destructive">
-            <p className="font-medium">A ação não deu certo.</p>
-            <p className="mt-1">{actionError}</p>
-          </CardContent>
-        </Card>
-      )}
+      {actionError && <ErrorBlock title="A ação não deu certo." message={actionError} />}
+
+      <section className="card stack-md">
+        <div className="od-field" style={{ ["--od-gap" as string]: "2px" }}>
+          <h2 className="card-title">Índice do marketplace</h2>
+          <p className="card-sub">
+            O índice é a lista publicada de itens. Sincronizar busca o índice de um endereço e incorpora o que ainda não
+            está aqui.
+          </p>
+        </div>
+
+        <div className="od-row" style={{ ["--od-gap" as string]: "12px", alignItems: "flex-end", flexWrap: "wrap" }}>
+          <div className="od-fill">
+            <Input
+              label="Endereço do índice"
+              placeholder="ex.: https://exemplo.com/marketplace/index.json"
+              value={indexUrl}
+              onChange={(e) => setIndexUrl(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && void handleSync()}
+              className="input-mono"
+              hint="O endereço de onde a lista publicada deve ser lida."
+            />
+          </div>
+          <Button
+            className="od-touch"
+            loading={syncing}
+            disabled={indexUrl.trim() === ""}
+            onClick={() => void handleSync()}
+          >
+            <Icon name="i-database" />
+            Sincronizar
+          </Button>
+        </div>
+
+        {syncError && (
+          <div className="od-stack" style={{ ["--od-gap" as string]: "4px" }}>
+            <span className="error-text">
+              <Icon name="i-alert" size="sm" />
+              Não foi possível sincronizar o índice.
+            </span>
+            <span className="hint">{syncError}</span>
+          </div>
+        )}
+
+        {syncResult && (
+          <div className="od-stack" style={{ ["--od-gap" as string]: "6px" }}>
+            <div className="od-cluster">
+              <Badge variant="success">
+                <span className="dot" aria-hidden="true" />
+                {syncResult.added} novo(s)
+              </Badge>
+              <Badge variant="accent">{syncResult.updated} atualizado(s)</Badge>
+              <Badge variant="neutral">{syncResult.unchanged} sem mudança</Badge>
+              {syncResult.skipped > 0 && <Badge variant="warning">{syncResult.skipped} ignorado(s)</Badge>}
+            </div>
+            {syncResult.errors.length > 0 && (
+              <ul className="stack-sm" style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                {syncResult.errors.map((message) => (
+                  <li key={message} className="error-text">
+                    <Icon name="i-alert" size="sm" />
+                    {message}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+
+        {indexError && (
+          <div className="od-stack" style={{ ["--od-gap" as string]: "4px" }}>
+            <span className="error-text">
+              <Icon name="i-alert" size="sm" />
+              Não foi possível ler o índice.
+            </span>
+            <span className="hint">{indexError}</span>
+            <div>
+              <Button variant="secondary" size="sm" className="od-touch" onClick={() => void fetchIndex()}>
+                <Icon name="i-refresh" size="sm" />
+                Tentar de novo
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {indexLoading && !index && (
+          <div className="od-stack" style={{ ["--od-gap" as string]: "8px" }} aria-hidden="true">
+            <Skeleton className="h-3.5 w-48" />
+            <Skeleton className="h-3.5 w-64" />
+          </div>
+        )}
+
+        {index && (
+          <>
+            <dl className="kv">
+              <dt>Versão do índice</dt>
+              <dd>{index.version}</dd>
+              <dt>Gerado em</dt>
+              <dd>{formatStamp(index.generated_at)}</dd>
+              <dt>Origem</dt>
+              <dd className="mono break-all">{index.source || "sem origem informada"}</dd>
+              <dt>Itens</dt>
+              <dd>{formatNumber(index.count)}</dd>
+            </dl>
+
+            {index.assets.length === 0 ? (
+              <p className="hint">O índice está vazio: nada foi publicado ainda.</p>
+            ) : (
+              <>
+                <div className="job-list">
+                  {indexEntries.map((entry) => (
+                    <article
+                      key={entry.id}
+                      className="job-row"
+                      style={{ gridTemplateColumns: "minmax(0, 1fr) auto" }}
+                    >
+                      <div className="job-meta">
+                        <div className="od-row" style={{ ["--od-gap" as string]: "8px", flexWrap: "wrap" }}>
+                          <span className="job-url od-truncate">{entry.name}</span>
+                          <Badge variant="accent">{kindLabel(entry.kind)}</Badge>
+                        </div>
+                        <span className="job-sub">
+                          <span>{entry.author || "sem autor"}</span>
+                          <span aria-hidden="true">·</span>
+                          <span>versão {entry.version}</span>
+                          <span aria-hidden="true">·</span>
+                          <span>nota {entry.rating.toFixed(1)}</span>
+                          <span aria-hidden="true">·</span>
+                          <span>{formatNumber(entry.installs)} instalação(ões)</span>
+                        </span>
+                        <span className="job-sub mono od-truncate">{entry.id}</span>
+                      </div>
+                      <span className="hint od-nowrap">{formatStamp(entry.published_at)}</span>
+                    </article>
+                  ))}
+                </div>
+
+                {index.assets.length > INDEX_PREVIEW && (
+                  <div>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="od-touch"
+                      onClick={() => setShowAllIndex((current) => !current)}
+                    >
+                      <Icon name="i-layers" size="sm" />
+                      {showAllIndex
+                        ? `Mostrar só os ${INDEX_PREVIEW} primeiros`
+                        : `Mostrar todos os ${formatNumber(index.assets.length)}`}
+                    </Button>
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        )}
+      </section>
+
+      {loading && assets.length === 0 && !error && <CardsSkeleton />}
 
       {!loading && !error && assets.length === 0 && (
-        <Card className="border-dashed">
-          <CardContent className="p-12 text-center">
-            <div className="h-12 w-12 rounded-[14px] bg-secondary flex items-center justify-center mx-auto mb-4">
-              <PackageOpen className="h-6 w-6 text-muted-foreground" />
-            </div>
-            <h3 className="text-[15px] font-semibold">
-              {filtered ? "Nada encontrado com esse filtro" : "Nada publicado ainda"}
-            </h3>
-            <p className="text-[13px] text-muted-foreground mt-1 max-w-md mx-auto">
-              {filtered
-                ? "Tente outro tipo, ou procure por uma palavra mais curta."
-                : "Quando alguém publicar um fluxo, um plugin ou um modelo, ele aparece aqui para você instalar."}
-            </p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={<Icon name="i-store" size="lg" />}
+          title={filtered ? "Nada encontrado com esse filtro" : "Nada publicado ainda"}
+          description={
+            filtered
+              ? "Tente outro tipo, ou procure por uma palavra mais curta."
+              : "Quando alguém publicar um fluxo, um plugin ou um modelo, ele aparece aqui para você instalar."
+          }
+        />
       )}
 
       {assets.length > 0 && (
-        <>
-          <p className="text-[12.5px] text-muted-foreground">
-            {assets.length} item(ns) {filtered ? "com esse filtro" : "publicado(s)"}.
+        <section className="stack-md">
+          <p className="list-meta">
+            <span>
+              {assets.length} item(ns) {filtered ? "com esse filtro" : "publicado(s)"}
+            </span>
+            {filtered && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="od-touch"
+                onClick={() => {
+                  setKind("")
+                  setQuery("")
+                }}
+              >
+                <Icon name="i-x" size="sm" />
+                Limpar filtros
+              </Button>
+            )}
           </p>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid-cards">
             {assets.map((asset) => {
               const install = installs[asset.id]
               const stars = Math.round(asset.rating)
+              const busyElsewhere = busyId !== null && busyId !== asset.id
               return (
-                <Card key={asset.id} className="flex flex-col">
-                  <CardHeader>
-                    <div className="flex items-start justify-between gap-3">
-                      <CardTitle className="min-w-0 break-words">{asset.name}</CardTitle>
-                      <span
-                        className={cn(
-                          "shrink-0 inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium ring-1 ring-inset whitespace-nowrap",
-                          KIND_STYLES[asset.kind] ?? FALLBACK_KIND_STYLE
-                        )}
-                      >
-                        {KIND_LABELS[asset.kind] ?? asset.kind}
-                      </span>
+                <article key={asset.id} className="card stack-sm">
+                  <div className="row-between">
+                    <h3 className="card-title break-words">{asset.name}</h3>
+                    <Badge variant="accent">{kindLabel(asset.kind)}</Badge>
+                  </div>
+
+                  <p className="card-sub">{asset.description || "Sem descrição."}</p>
+
+                  <span className="hint">
+                    {asset.author || "sem autor"} · versão {asset.version} · {formatNumber(asset.installs)}{" "}
+                    instalação(ões)
+                  </span>
+
+                  {asset.tags.length > 0 && (
+                    <div className="od-cluster">
+                      {asset.tags.map((tag) => (
+                        <Badge key={tag} variant="neutral">
+                          {tag}
+                        </Badge>
+                      ))}
                     </div>
-                    <CardDescription className="flex flex-wrap items-center gap-3">
-                      <span className="inline-flex items-center gap-1">
-                        <User className="h-3 w-3" /> {asset.author || "sem autor"}
+                  )}
+
+                  <div className="row-between">
+                    <div className="od-stack" style={{ ["--od-gap" as string]: "4px" }}>
+                      <span className="hint">
+                        nota {asset.rating.toFixed(1)} · {formatNumber(asset.rating_count)} avaliação(ões)
                       </span>
-                      <span className="font-mono text-[11.5px]">versão {asset.version}</span>
-                      <span className="inline-flex items-center gap-1">
-                        <Download className="h-3 w-3" /> {asset.installs} instalação(ões)
-                      </span>
-                    </CardDescription>
-                  </CardHeader>
-
-                  <CardContent className="flex-1 flex flex-col gap-3">
-                    <p className="text-[13px] text-muted-foreground">{asset.description || "Sem descrição."}</p>
-
-                    {asset.tags.length > 0 && (
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <Tag className="h-3 w-3 text-muted-foreground" />
-                        {asset.tags.map((tag) => (
-                          <Badge key={tag} className="bg-secondary text-secondary-foreground">
-                            {tag}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-
-                    <div className="flex flex-wrap items-center gap-2">
-                      <div className="flex items-center gap-1">
+                      <div className="od-row" style={{ ["--od-gap" as string]: "2px" }} role="group" aria-label={`Dar nota a ${asset.name}`}>
                         {[1, 2, 3, 4, 5].map((score) => (
                           <button
                             key={score}
                             type="button"
+                            className="btn btn-ghost btn-sm icon-btn"
                             aria-label={`Dar nota ${score} de 5`}
                             title={`Dar nota ${score} de 5`}
                             disabled={ratingId !== null}
-                            onClick={() => handleRate(asset, score)}
-                            className="disabled:opacity-50"
+                            onClick={() => void handleRate(asset, score)}
                           >
                             <Star
                               className={cn(
-                                "h-4 w-4",
-                                score <= stars ? "text-amber-500" : "text-muted-foreground/40"
+                                "ic ic-sm",
+                                score <= stars ? "text-[var(--warning)]" : "text-[var(--text-3)]"
                               )}
                               fill={score <= stars ? "currentColor" : "none"}
                             />
                           </button>
                         ))}
                       </div>
-                      <span className="text-[12px] text-muted-foreground">
-                        {asset.rating.toFixed(1)} de 5 · {asset.rating_count} avaliação(ões)
+                    </div>
+
+                    <Button
+                      size="sm"
+                      className="od-touch"
+                      loading={busyId === asset.id && !removed[asset.id]}
+                      disabled={busyElsewhere}
+                      onClick={() => void handleInstall(asset)}
+                    >
+                      <Icon name="i-download" size="sm" />
+                      Instalar
+                    </Button>
+                  </div>
+
+                  {install && (
+                    <div className="od-stack" style={{ ["--od-gap" as string]: "4px" }}>
+                      <span className="badge badge-success">
+                        <span className="dot" aria-hidden="true" />
+                        {install.installed ? "Instalado" : "Já estava instalado"}
                       </span>
+                      <span className="hint break-all">
+                        Guardado em <span className="mono">{install.target}</span>
+                      </span>
+                      <span className="hint">{install.detail}</span>
                     </div>
+                  )}
 
-                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                      <Button
-                        size="sm"
-                        variant="primary"
-                        loading={busyId === asset.id && !removed[asset.id]}
-                        disabled={busyId !== null && busyId !== asset.id}
-                        onClick={() => handleInstall(asset)}
-                      >
-                        <Download className="h-3.5 w-3.5" /> Instalar
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        loading={busyId === asset.id && Boolean(removed[asset.id])}
-                        disabled={busyId !== null && busyId !== asset.id}
-                        onClick={() => handleUninstall(asset)}
-                        title="Remover a cópia instalada"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" /> Remover
-                      </Button>
-                    </div>
-
-                    {install && (
-                      <div className="rounded-[10px] bg-emerald-500/10 border border-emerald-500/20 p-2.5 text-[12px] text-emerald-700 dark:text-emerald-400">
-                        <p className="flex items-center gap-1.5 font-medium">
-                          <Check className="h-3.5 w-3.5" />
-                          {install.installed ? "Instalado" : "Já estava instalado"}
-                        </p>
-                        <p className="mt-1 break-all">
-                          Guardado em <span className="font-mono">{install.target}</span>
-                        </p>
-                        <p className="mt-0.5">{install.detail}</p>
-                      </div>
-                    )}
-
-                    {removed[asset.id] && !install && (
-                      <p className="text-[12px] text-muted-foreground flex items-center gap-1.5">
-                        <AlertTriangle className="h-3.5 w-3.5" /> {removed[asset.id]}
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
+                  <div className="od-row" style={{ ["--od-gap" as string]: "8px", flexWrap: "wrap" }}>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="od-touch"
+                      loading={busyId === asset.id && Boolean(removed[asset.id])}
+                      disabled={busyElsewhere}
+                      title="Remover a cópia instalada"
+                      onClick={() => void handleUninstall(asset)}
+                    >
+                      <Icon name="i-trash" size="sm" />
+                      Remover
+                    </Button>
+                    {removed[asset.id] && !install && <span className="hint">{removed[asset.id]}</span>}
+                  </div>
+                </article>
               )
             })}
           </div>
-        </>
-      )}
-
-      {loading && assets.length === 0 && !error && (
-        <Card>
-          <CardContent className="p-10 text-center">
-            <Store className="h-6 w-6 mx-auto text-muted-foreground/40 mb-2 animate-pulse" />
-            <p className="text-[13px] text-muted-foreground">Carregando o que está publicado…</p>
-          </CardContent>
-        </Card>
+        </section>
       )}
     </div>
   )

@@ -1,44 +1,86 @@
 "use client"
-import { use, useEffect, useState } from "react"
+import { use, useCallback, useEffect, useState } from "react"
 import Link from "next/link"
-import { api, Job, JobResult, JobMode, JobStatus } from "@/lib/api"
-import { MODES, STATUS_HELP, STATUS_SHORT } from "@/lib/labels"
+import { api, Job, JobMode, JobResult, JobStatus } from "@/lib/api"
+import { MODES, STATUS_HELP, STATUS_LABELS } from "@/lib/labels"
 import { usePolling } from "@/hooks/usePolling"
 import { useWebSocket, WsEvent } from "@/hooks/useWebSocket"
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
+import { useToast } from "@/components/ToastRegion"
+import { cn, faviconLetter, formatBytes, formatClock, formatNumber, formatStamp } from "@/lib/utils"
+import { Topbar } from "@/components/Navbar"
 import { Button } from "@/components/ui/button"
-import { StatusBadge } from "@/components/ui/badge"
-import { DetailRow } from "@/components/DetailRow"
+import { Card } from "@/components/ui/card"
+import { Modal } from "@/components/ui/modal"
+import { Progress, Stepper } from "@/components/ui/ds"
+import { StatCard, StatStrip } from "@/components/ui/stat-card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { formatBytes, formatDuration } from "@/lib/utils"
-import {
-  ArrowLeft,
-  Download,
-  FileText,
-  X,
-  Globe,
-  Cpu,
-  Layers,
-  Clock,
-  HardDrive,
-  Timer,
-  AlertTriangle,
-  CheckCircle2,
-  Copy,
-} from "lucide-react"
+import { EmptyState } from "@/components/ui/empty"
+import { StatusBadge } from "@/components/ui/badge"
+import { AlertTriangle, ArrowLeft, Copy, Download, FileText, RefreshCw, RotateCw, X } from "lucide-react"
 
-const steps: JobStatus[] = ["pending", "probing", "processing", "running", "completed"]
+/** The four stages of the pipeline, in the wording of the prototype. */
+const STEP_LABELS = ["Fila", "Análise", "Baixando", "Pronto"]
+
+/** Pipeline position of each status, as an index into `STEP_LABELS`. */
+const STEP_INDEX: Record<JobStatus, number> = {
+  pending: 0,
+  probing: 1,
+  running: 2,
+  processing: 2,
+  completed: 3,
+  failed: 2,
+  cancelled: 2,
+}
+
+/**
+ * How full the progress bar is for each stage.
+ *
+ * The API exposes no percentage for a running job, so the bar shows the stage the
+ * worker has reached — never a number invented per second.
+ */
+const STEP_PROGRESS: Record<JobStatus, number> = {
+  pending: 10,
+  probing: 30,
+  running: 65,
+  processing: 88,
+  completed: 100,
+  failed: 65,
+  cancelled: 65,
+}
+
 const settled: JobStatus[] = ["completed", "failed", "cancelled"]
+
+interface LogLine {
+  ts: string
+  lvl: "info" | "ok" | "warn" | "err"
+  text: string
+}
+
+function nowClock() {
+  return new Date().toLocaleTimeString("pt-BR", { hour12: false })
+}
+
+function hostOf(url: string) {
+  try {
+    return new URL(url).host
+  } catch {
+    return url.replace(/^https?:\/\//, "").split("/")[0]
+  }
+}
 
 export default function JobDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
+  const toast = useToast()
   const [job, setJob] = useState<Job | null>(null)
   const [result, setResult] = useState<JobResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
+  const [live, setLive] = useState(true)
+  const [confirming, setConfirming] = useState(false)
+  const [logs, setLogs] = useState<LogLine[]>([])
+  const [rerunning, setRerunning] = useState(false)
 
-  const fetchJob = async () => {
+  const fetchJob = useCallback(async () => {
     try {
       const data = await api.getJob(id)
       setJob(data)
@@ -47,7 +89,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
         try {
           setResult(await api.getJobResult(id))
         } catch {
-          // resultado ainda não disponível
+          // o resultado ainda não está disponível
         }
       }
     } catch (e) {
@@ -55,358 +97,362 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     } finally {
       setLoading(false)
     }
-  }
+  }, [id])
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { setTimeout(fetchJob, 0) }, [id])
+  useEffect(() => {
+    setTimeout(fetchJob, 0)
+  }, [fetchJob])
 
-  usePolling(fetchJob, 5000, job ? !settled.includes(job.status) : true)
+  usePolling(fetchJob, 5000, live && (job ? !settled.includes(job.status) : true))
 
-  const [wsProgress, setWsProgress] = useState<string | null>(null)
-  const [wsLogs, setWsLogs] = useState<string[]>([])
-  const { connected, events } = useWebSocket(id, (event: WsEvent) => {
+  // Every event the worker publishes lands in the console, in arrival order.
+  const onEvent = useCallback((event: WsEvent) => {
+    const at = nowClock()
+    const push = (lvl: LogLine["lvl"], text: string) =>
+      setLogs((prev) => [...prev.slice(-199), { ts: at, lvl, text }])
+
     if (event.type === "progress" && typeof event.data?.message === "string") {
-      setWsProgress(event.data.message)
+      push("info", event.data.message)
+    } else if (event.type === "status" && typeof event.data?.status === "string") {
+      const status = event.data.status as JobStatus
+      push(status === "completed" ? "ok" : "info", `Etapa: ${STATUS_LABELS[status] ?? status}`)
+    } else if (event.type === "error") {
+      push("err", typeof event.data?.error === "string" ? event.data.error : "Erro reportado pelo worker")
     }
-    if (event.type === "progress" && typeof event.data?.log === "string") {
-      setWsLogs((prev) => [...prev.slice(-19), event.data.log as string])
-    }
-    // Re-fetch job when status changes
-    if (event.type === "status") {
-      fetchJob()
-    }
-  })
+  }, [])
+
+  const { connected } = useWebSocket(id, onEvent)
 
   const handleCancel = async () => {
-    if (!confirm("Interromper esta extração? O que já foi baixado será descartado.")) return
     try {
       await api.cancelJob(id)
-      fetchJob()
+      toast("Execução interrompida.")
+      await fetchJob()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      toast(e instanceof Error ? e.message : String(e), "err")
     }
   }
 
-  const copyId = async () => {
-    await navigator.clipboard.writeText(id)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+  const handleRerun = async () => {
+    if (!job) return
+    setRerunning(true)
+    try {
+      const created = await api.createJob({ url: job.url, mode: job.mode, max_depth: job.max_depth })
+      toast(`Nova execução criada: ${created.id.slice(0, 8)}.`)
+      setLogs([])
+      await fetchJob()
+    } catch (e) {
+      toast(e instanceof Error ? e.message : String(e), "err")
+    } finally {
+      setRerunning(false)
+    }
   }
 
   if (loading) {
     return (
-      <div className="space-y-4">
-        <Skeleton className="h-10 w-40" />
-        <Skeleton className="h-32 w-full" />
-        <Skeleton className="h-64 w-full" />
+      <div className="view-grid">
+        <Skeleton className="h-[64px]" />
+        <Skeleton className="h-[220px]" />
+        <Skeleton className="h-[280px]" />
       </div>
     )
   }
 
   if (error || !job) {
     return (
-      <div className="space-y-4">
-        <Link href="/" className="inline-flex items-center gap-2 text-[13px] text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="h-4 w-4" /> Voltar para as execuções
-        </Link>
-        <Card className="border-destructive/20 bg-destructive/5">
-          <CardContent className="p-6 text-center">
-            <AlertTriangle className="h-8 w-8 text-destructive mx-auto mb-2" />
-            <p className="text-[14px] font-medium">Não foi possível carregar esta extração</p>
-            <p className="text-[13px] text-muted-foreground mt-1">{error || "Extração não encontrada."}</p>
-            <p className="text-[12.5px] text-muted-foreground mt-2">
-              Ela pode ter sido removida na limpeza automática.{" "}
-              <Link href="/" className="text-primary underline">
-                Ver todas
-              </Link>
-              .
-            </p>
-          </CardContent>
-        </Card>
+      <div className="view-grid">
+        <Topbar
+          title="Detalhes da execução"
+          description="Acompanhe o andamento, veja os logs do worker e baixe o pacote quando terminar."
+          action={
+            <Link href="/">
+              <Button variant="secondary" size="sm">
+                <ArrowLeft className="ic ic-sm" aria-hidden="true" /> Voltar
+              </Button>
+            </Link>
+          }
+        />
+        <EmptyState
+          icon={<AlertTriangle className="ic" aria-hidden="true" />}
+          title="Não foi possível carregar esta extração"
+          description={`${error || "Extração não encontrada."} Ela pode ter sido removida na limpeza automática, que apaga as capturas depois de 24 horas.`}
+          action={{ label: "Tentar de novo", onClick: () => void fetchJob() }}
+        />
+        <div>
+          <Link href="/" className="hint">
+            Ver todas as execuções
+          </Link>
+        </div>
       </div>
     )
   }
 
-  const currentStepIdx = steps.indexOf(job.status)
+  const host = hostOf(job.url)
+  const mode = MODES[job.mode as JobMode]
+  const current = STEP_INDEX[job.status]
+  const progress = STEP_PROGRESS[job.status]
   const isActive = !settled.includes(job.status)
   const failed = job.status === "failed" || job.status === "cancelled"
-  const modeInfo = MODES[job.mode as JobMode]
+  const probe = job.probe
+
+  const statusLine: LogLine | null =
+    job.status === "completed"
+      ? { ts: "", lvl: "ok", text: "Execução finalizada com sucesso" }
+      : job.status === "failed"
+        ? { ts: "", lvl: "err", text: job.error || "Execução interrompida por erro" }
+        : job.status === "cancelled"
+          ? { ts: "", lvl: "warn", text: "Interrompida por você · o que já tinha sido capturado foi descartado" }
+          : null
+  const consoleLines = statusLine && !logs.some((l) => l.text === statusLine.text) ? [...logs, statusLine] : logs
 
   return (
-    <div className="space-y-6 max-w-[960px] animate-[slide-in_0.3s_ease]">
-      <Link
-        href="/"
-        className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <ArrowLeft className="h-3.5 w-3.5" /> Voltar para as execuções
-      </Link>
-
-      <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-        <div className="space-y-2 min-w-0">
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-[22px] font-semibold tracking-tight font-mono">{job.id.slice(0, 16)}</h1>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={copyId} title="Copiar identificador completo">
-              <Copy className="h-3.5 w-3.5" />
-            </Button>
-            {copied && <span className="text-[11px] text-emerald-600">copiado</span>}
-            <StatusBadge status={job.status} />
-          </div>
-          <div className="flex items-center gap-2 text-[13px] text-muted-foreground">
-            <Globe className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate max-w-[520px]" title={job.url}>
-              {job.url}
-            </span>
-          </div>
-          <p className="text-[12.5px] text-muted-foreground">{STATUS_HELP[job.status]}</p>
-        </div>
-
-        <div className="flex gap-2 shrink-0">
-          {isActive && (
-            <Button variant="outline" size="sm" onClick={handleCancel}>
-              <X className="h-4 w-4" /> Interromper
-            </Button>
-          )}
-          {job.status === "completed" && (
-            <>
-              <Button size="sm" onClick={() => window.open(api.downloadUrl(job.id), "_blank")}>
-                <Download className="h-4 w-4" /> Baixar ZIP
+    <div className="view-grid">
+      <Topbar
+        title="Detalhes da execução"
+        description="Acompanhe o andamento, veja os logs do worker e baixe o pacote quando terminar."
+        action={
+          <>
+            <Link href="/">
+              <Button variant="secondary" size="sm">
+                <ArrowLeft className="ic ic-sm" aria-hidden="true" /> Voltar
               </Button>
-              {job.mode === "pdf" && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => window.open(api.pdfUrl(job.id), "_blank")}
-                >
-                  <FileText className="h-4 w-4" /> Abrir PDF
-                </Button>
-              )}
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Andamento */}
-      <Card>
-        <CardContent className="p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <Clock className="h-4 w-4 text-muted-foreground" />
-            <span className="text-[12px] font-medium uppercase tracking-widest text-muted-foreground">Andamento</span>
+            </Link>
+            <Button variant="secondary" size="sm" onClick={() => fetchJob()} title="Buscar esta execução novamente agora">
+              <RefreshCw className="ic ic-sm" aria-hidden="true" /> Atualizar
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setLive((v) => !v)}
+              aria-pressed={live}
+              title="Atualização automática a cada 5 segundos"
+            >
+              <span
+                className={cn("h-2 w-2 rounded-full", live ? "bg-emerald-500 animate-pulse" : "bg-zinc-400")}
+                aria-hidden="true"
+              />
+              {live ? "Ao vivo" : "Pausado"}
+            </Button>
             {isActive && (
-              <span className="ml-auto text-[11px] px-2 py-1 rounded-full bg-amber-500/10 text-amber-600 animate-pulse">
-                atualizando sozinho
-              </span>
+              <Button variant="destructive" size="sm" onClick={() => setConfirming(true)}>
+                <X className="ic ic-sm" aria-hidden="true" /> Interromper
+              </Button>
             )}
-            {failed && (
-              <span className="ml-auto text-[11px] px-2 py-1 rounded-full bg-red-500/10 text-red-600">
-                parou aqui
-              </span>
+          </>
+        }
+      />
+
+      <Card>
+        <div className="detail-head">
+          <span className="job-favicon" aria-hidden="true">
+            {faviconLetter(host)}
+          </span>
+          <div className="grow">
+            <div className="od-row" style={{ "--od-gap": "12px", flexWrap: "wrap" } as React.CSSProperties}>
+              <h2 className="section-title">{host}</h2>
+              <StatusBadge status={job.status} />
+            </div>
+            <span className="detail-url">{job.url}</span>
+            <span className="hint">{STATUS_HELP[job.status]}</span>
+          </div>
+          <div className="od-row detail-actions" style={{ "--od-gap": "8px", flexWrap: "wrap" } as React.CSSProperties}>
+            <Button size="sm" variant="secondary" onClick={() => void handleRerun()} loading={rerunning}>
+              <RotateCw className="ic ic-sm" aria-hidden="true" /> Reexecutar
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              className="icon-btn"
+              aria-label="Copiar link da execução"
+              title="Copiar link da execução"
+              onClick={() => {
+                void navigator.clipboard.writeText(window.location.href)
+                toast("Link copiado.")
+              }}
+            >
+              <Copy className="ic ic-sm" aria-hidden="true" />
+            </Button>
+            <Button
+              size="sm"
+              disabled={job.status !== "completed"}
+              title={job.status === "completed" ? "Baixar o pacote ZIP" : "O pacote fica disponível quando a execução termina"}
+              onClick={() => window.open(api.downloadUrl(job.id), "_blank")}
+            >
+              <Download className="ic ic-sm" aria-hidden="true" />
+              {job.status === "completed" ? "Baixar pacote" : "Pacote indisponível"}
+            </Button>
+            {job.mode === "pdf" && job.status === "completed" && (
+              <Button size="sm" variant="secondary" onClick={() => window.open(api.pdfUrl(job.id), "_blank")}>
+                <FileText className="ic ic-sm" aria-hidden="true" /> Abrir PDF
+              </Button>
             )}
           </div>
-          <div className="flex items-center gap-2">
-            {steps.map((s, idx) => {
-              const done = currentStepIdx >= idx && !failed
-              const active = job.status === s
-              return (
-                <div key={s} className="flex items-center gap-2 flex-1">
-                  <div className="flex flex-col items-center gap-1.5">
-                    <div
-                      className={`h-8 w-8 rounded-full flex items-center justify-center text-[11px] font-medium border transition-all ${
-                        done ? "bg-primary text-primary-foreground border-primary shadow-sm shadow-primary/20" : "bg-secondary border"
-                      } ${active ? "ring-2 ring-primary/20 scale-110" : ""}`}
-                    >
-                      {done && job.status !== s ? <CheckCircle2 className="h-4 w-4" /> : idx + 1}
-                    </div>
-                    <span
-                      className={`text-[10px] uppercase tracking-wide font-medium ${
-                        active ? "text-foreground" : "text-muted-foreground"
-                      }`}
-                    >
-                      {STATUS_SHORT[s]}
-                    </span>
-                  </div>
-                  {idx < steps.length - 1 && (
-                    <div
-                      className={`h-[2px] flex-1 rounded-full transition-all ${
-                        idx < currentStepIdx && !failed ? "bg-primary" : "bg-border"
-                      }`}
-                    />
-                  )}
-                </div>
-              )
-            })}
+        </div>
+
+        <div className="stack-sm" style={{ marginTop: "var(--sp-5)" }}>
+          <Progress
+            value={progress}
+            state={job.status === "completed" ? "done" : failed ? "error" : "running"}
+            label={`Progresso da execução — etapa ${current + 1} de ${STEP_LABELS.length} (${STEP_LABELS[current]})`}
+          />
+          <div className="row-between">
+            <span className="hint">
+              {progress}% · {STATUS_LABELS[job.status]} · etapa {current + 1} de {STEP_LABELS.length}
+            </span>
+            <span className="hint">{live && isActive ? "Atualizado automaticamente" : "Atualização pausada"}</span>
           </div>
-        </CardContent>
+          <Stepper steps={STEP_LABELS} current={current} />
+        </div>
+
+        <div style={{ marginTop: "var(--sp-5)" }}>
+          <StatStrip columns={5}>
+            <StatCard label="Profundidade" value={formatNumber(job.max_depth)} trend="níveis a partir da página inicial" />
+            <StatCard
+              label="Arquivos"
+              value={result ? formatNumber(result.files_count) : "—"}
+              trend={result ? undefined : "aguardando resultado"}
+            />
+            <StatCard
+              label="Tamanho"
+              value={result ? formatBytes(result.total_size_bytes) : "—"}
+              trend={result ? undefined : "aguardando resultado"}
+            />
+            <StatCard
+              label="Tempo"
+              value={result ? formatClock(result.duration_seconds) : "—"}
+              trend={result ? undefined : "aguardando resultado"}
+            />
+            <StatCard
+              label="Erros"
+              value={job.error ? 1 : 0}
+              trend={job.error ? "motivo no console abaixo" : "nenhum erro registrado"}
+            />
+          </StatStrip>
+        </div>
       </Card>
 
-      {/* Live progress */}
-      {isActive && (wsProgress || wsLogs.length > 0) && (
-        <Card className="border-amber-500/20">
-          <CardContent className="p-5">
-            <div className="flex items-center gap-2 mb-3">
-              <Clock className="h-4 w-4 text-amber-500 animate-pulse" />
-              <span className="text-[12px] font-medium uppercase tracking-widest text-muted-foreground">
-                Progresso ao vivo
-              </span>
-              <span className={`ml-auto h-2 w-2 rounded-full ${connected ? "bg-emerald-500 animate-pulse" : "bg-zinc-400"}`} title={connected ? "Conectado" : "Desconectado"} />
-            </div>
-            {wsProgress && (
-              <p className="text-[13px] font-medium mb-2">{wsProgress}</p>
-            )}
-            {wsLogs.length > 0 && (
-              <div className="rounded-[10px] bg-secondary p-3 max-h-[160px] overflow-y-auto">
-                {wsLogs.map((log, i) => (
-                  <p key={i} className="text-[11px] font-mono text-muted-foreground leading-relaxed">{log}</p>
-                ))}
-              </div>
-            )}
-          </CardContent>
+      {job.error && (
+        <Card className="border-destructive/20">
+          <div className="section-head">
+            <h3 className="card-title od-row" style={{ "--od-gap": "8px" } as React.CSSProperties}>
+              <AlertTriangle className="ic ic-sm" aria-hidden="true" /> O que deu errado
+            </h3>
+            <span className="hint">Mensagem técnica do servidor, útil ao pedir ajuda</span>
+          </div>
+          <pre className="console" style={{ marginTop: "var(--sp-3)", whiteSpace: "pre-wrap" }}>{job.error}</pre>
         </Card>
       )}
 
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="two-col">
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Layers className="h-4 w-4" /> O que foi pedido
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-5">
-            <DetailRow label="Endereço" value={<span className="break-all">{job.url}</span>} />
-            <DetailRow
-              label="Modo"
-              value={
-                <span className="text-[12px] font-medium">
-                  {modeInfo?.icon} {modeInfo?.label ?? job.mode}
-                </span>
-              }
-              hint={modeInfo?.what}
-            />
-            <DetailRow
-              label="Páginas percorridas"
-              value={job.max_depth}
-              hint="Quantos links a partir da página inicial o Zfrog seguiu."
-            />
-            <DetailRow label="Iniciado em" value={new Date(job.created_at).toLocaleString("pt-BR")} />
-            <DetailRow label="Última atualização" value={new Date(job.updated_at).toLocaleString("pt-BR")} />
-          </CardContent>
+          <div className="section-head" style={{ marginBottom: "var(--sp-3)" }}>
+            <h3 className="card-title">Console do worker</h3>
+            <span className="hint od-row" style={{ "--od-gap": "6px" } as React.CSSProperties}>
+              <span
+                className={cn("h-2 w-2 rounded-full", connected ? "bg-emerald-500 animate-pulse" : "bg-zinc-400")}
+                aria-hidden="true"
+              />
+              {connected ? "conectado" : "desconectado"}
+            </span>
+          </div>
+          <div className="console" role="log" aria-label="Logs da execução" tabIndex={0}>
+            {consoleLines.map((line, index) => (
+              <div className="line" key={index}>
+                {line.ts && <span className="ts">{line.ts}</span>}
+                <span className={`lvl lvl-${line.lvl}`}>{line.lvl.toUpperCase()}</span>
+                <span>{line.text}</span>
+              </div>
+            ))}
+          </div>
+          {consoleLines.length === 0 && (
+            <p className="card-sub" style={{ marginTop: "var(--sp-3)" }}>
+              Nenhum evento recebido ainda. Os logs aparecem aqui enquanto o worker trabalha.
+            </p>
+          )}
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Cpu className="h-4 w-4" /> Análise do site
-            </CardTitle>
-            <CardDescription>O que o Zfrog descobriu antes de baixar</CardDescription>
-          </CardHeader>
-          <CardContent className="px-5">
-            {job.probe ? (
-              <>
-                <DetailRow
-                  label="Precisou de navegador"
-                  value={job.probe.suggested_engine === "playwright" ? "Sim" : "Não"}
-                  hint={
-                    job.probe.suggested_engine === "playwright"
-                      ? "O conteúdo só aparece depois que o JavaScript roda."
-                      : "O conteúdo já vem pronto na resposta do site."
-                  }
-                />
-                <DetailRow
-                  label="Tecnologia"
-                  value={job.probe.framework || "Site comum"}
-                  hint="Biblioteca usada para construir o site, quando identificada."
-                />
-                <DetailRow
-                  label="Tipo de conteúdo"
-                  value={<span className="font-mono text-[11px]">{job.probe.content_type || "—"}</span>}
-                />
-                <DetailRow
-                  label="Resposta do site"
-                  value={job.probe.status_code ?? "—"}
-                  hint={job.probe.status_code === 200 ? "O site respondeu normalmente." : undefined}
-                />
-                <DetailRow
-                  label="Endereço final"
-                  value={<span className="font-mono text-[11px] break-all">{job.probe.final_url || job.probe.url}</span>}
-                  hint={job.probe.final_url !== job.url ? "O site redirecionou para outro endereço." : undefined}
-                />
-              </>
-            ) : (
-              <p className="text-[13px] text-muted-foreground py-4">
-                Esta extração não passou pela análise — o modo escolhido não precisa dela.
-              </p>
+        <div className="stack-md">
+          <Card>
+            <h3 className="card-title" style={{ marginBottom: "var(--sp-3)" }}>
+              Detalhes
+            </h3>
+            <dl className="kv">
+              <dt>Modo</dt>
+              <dd>
+                {mode?.label ?? job.mode}
+                {mode?.what ? <span className="hint"> · {mode.what}</span> : null}
+              </dd>
+              <dt>Profundidade</dt>
+              <dd>{job.max_depth} nível(is)</dd>
+              <dt>Iniciado</dt>
+              <dd>{formatStamp(job.created_at)}</dd>
+              <dt>Última atualização</dt>
+              <dd>{formatStamp(job.updated_at)}</dd>
+              <dt>Identificador</dt>
+              <dd className="mono">{job.id}</dd>
+              <dt>Robots.txt</dt>
+              <dd>
+                {probe ? (probe.robots_restricted ? "Restrito pelo site" : "Permitido") : "não analisado nesta extração"}
+              </dd>
+              {probe && (
+                <>
+                  <dt>Navegador necessário</dt>
+                  <dd>{probe.suggested_engine === "playwright" ? "Sim" : "Não"}</dd>
+                  <dt>Tecnologia</dt>
+                  <dd>{probe.framework || "site comum"}</dd>
+                  <dt>Tipo de conteúdo</dt>
+                  <dd className="mono">{probe.content_type || "—"}</dd>
+                  <dt>Resposta do site</dt>
+                  <dd>{probe.status_code ?? "—"}</dd>
+                  <dt>Endereço final</dt>
+                  <dd className="mono">{probe.final_url || probe.url}</dd>
+                </>
+              )}
+              {result && (
+                <>
+                  <dt>Motor usado</dt>
+                  <dd>{result.engine_used}</dd>
+                  <dt>Salvo em</dt>
+                  <dd className="mono">{result.output_path}</dd>
+                </>
+              )}
+            </dl>
+          </Card>
+
+          <Card>
+            <h3 className="card-title" style={{ marginBottom: "var(--sp-2)" }}>
+              Próximo passo
+            </h3>
+            <p className="card-sub">
+              Ao concluir, o botão “Baixar pacote” libera o ZIP com todos os arquivos organizados. Você também pode
+              reprocessar só o que mudou escolhendo o modo <strong>Só o que mudou</strong> na próxima extração.
+            </p>
+            {result && (
+              <details style={{ marginTop: "var(--sp-3)" }}>
+                <summary className="hint" style={{ cursor: "pointer" }}>
+                  Detalhes técnicos do resultado
+                </summary>
+                <pre className="console" style={{ marginTop: "var(--sp-2)" }}>
+                  {JSON.stringify(result, null, 2)}
+                </pre>
+              </details>
             )}
-          </CardContent>
-        </Card>
+          </Card>
+        </div>
       </div>
 
-      {job.error && (
-        <Card className="border-destructive/20 bg-destructive/5">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-destructive">
-              <AlertTriangle className="h-4 w-4" /> O que deu errado
-            </CardTitle>
-            <CardDescription>Mensagem técnica do servidor, útil ao pedir ajuda</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <pre className="text-[12px] font-mono bg-card border rounded-[10px] p-3 overflow-auto whitespace-pre-wrap break-words">
-              {job.error}
-            </pre>
-          </CardContent>
-        </Card>
-      )}
-
-      {result && (
-        <Card className="border-emerald-500/20">
-          <div className="h-[1px] bg-gradient-to-r from-emerald-500/0 via-emerald-500/40 to-emerald-500/0" />
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-emerald-600" /> Resultado
-            </CardTitle>
-            <CardDescription>Pronto para baixar</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-3 gap-3">
-              <div className="rounded-[12px] bg-secondary p-3">
-                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground uppercase tracking-wide">
-                  <Cpu className="h-3 w-3" /> Método
-                </div>
-                <div className="mt-1 text-[13px] font-medium">{result.engine_used}</div>
-              </div>
-              <div className="rounded-[12px] bg-secondary p-3">
-                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground uppercase tracking-wide">
-                  <HardDrive className="h-3 w-3" /> Arquivos
-                </div>
-                <div className="mt-1 text-[13px] font-medium">{result.files_count}</div>
-              </div>
-              <div className="rounded-[12px] bg-secondary p-3">
-                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground uppercase tracking-wide">
-                  <Timer className="h-3 w-3" /> Levou
-                </div>
-                <div className="mt-1 text-[13px] font-medium">{formatDuration(result.duration_seconds)}</div>
-              </div>
-            </div>
-
-            <div className="text-[12.5px] text-muted-foreground">
-              Tamanho total: <span className="font-medium text-foreground">{formatBytes(result.total_size_bytes)}</span>
-              <span className="mx-2">·</span>
-              Salvo em <span className="font-mono">{result.output_path}</span>
-            </div>
-
-            <Button onClick={() => window.open(api.downloadUrl(job.id), "_blank")} className="w-full md:w-auto">
-              <Download className="h-4 w-4" /> Baixar ZIP ({formatBytes(result.total_size_bytes)})
-            </Button>
-
-            <details>
-              <summary className="text-[12px] text-muted-foreground cursor-pointer hover:text-foreground">
-                Detalhes técnicos
-              </summary>
-              <pre className="mt-2 text-[11px] font-mono bg-secondary rounded-[10px] p-3 overflow-auto max-h-[240px] border">
-                {JSON.stringify(result, null, 2)}
-              </pre>
-            </details>
-          </CardContent>
-        </Card>
-      )}
+      <Modal
+        open={confirming}
+        title="Interromper esta captura?"
+        body={`A execução de ${host} será cancelada e o que já foi baixado será descartado.`}
+        confirmLabel="Interromper"
+        danger
+        onConfirm={() => {
+          setConfirming(false)
+          void handleCancel()
+        }}
+        onClose={() => setConfirming(false)}
+      />
     </div>
   )
 }

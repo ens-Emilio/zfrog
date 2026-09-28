@@ -405,6 +405,21 @@ async def _terminate(proc) -> None:
 
 async def _run_dev(host: str, api_port: int, web_port: int, dashboard_dir: Path, reload: bool) -> int:
     """Run API and dashboard concurrently until either exits or user interrupts."""
+    # The dashboard calls the API from the browser with the session cookie, and a
+    # browser only attaches that cookie when the response names its exact origin —
+    # the spec forbids pairing credentials with "*". Without this the default
+    # `ZFROG_CORS_ORIGINS=*` makes every dashboard request fail as "Failed to fetch"
+    # while `curl` keeps working, which is a confusing first run. Listing the two
+    # origins the dev server answers on turns credential mode on for exactly them.
+    dashboard_origins = f"http://localhost:{web_port},http://127.0.0.1:{web_port}"
+    child_env = {
+        **os.environ,
+        "ZFROG_CORS_ORIGINS": os.environ.get("ZFROG_CORS_ORIGINS", dashboard_origins),
+        # The dashboard reads this at build time; pointing it at the API port keeps
+        # `--api-port` from silently having no effect on the browser.
+        "NEXT_PUBLIC_API_URL": os.environ.get("NEXT_PUBLIC_API_URL", f"http://{host}:{api_port}"),
+    }
+
     api_cmd = [
         sys.executable, "-m", "uvicorn", "zfrog.api:app",
         "--host", host, "--port", str(api_port),
@@ -416,6 +431,7 @@ async def _run_dev(host: str, api_port: int, web_port: int, dashboard_dir: Path,
 
     api_proc = await asyncio.create_subprocess_exec(
         *api_cmd,
+        env=child_env,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.STDOUT,
         start_new_session=True,
@@ -423,6 +439,7 @@ async def _run_dev(host: str, api_port: int, web_port: int, dashboard_dir: Path,
     web_proc = await asyncio.create_subprocess_exec(
         *web_cmd,
         cwd=dashboard_dir,
+        env=child_env,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.STDOUT,
         start_new_session=True,

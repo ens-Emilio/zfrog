@@ -1,0 +1,180 @@
+/* Documentação viva do design system — só o "chrome" da própria documentação.
+ *
+ * As classes de produto (card, badge, console, chart…) vêm de ds-components.css e
+ * continuam sendo a fonte da verdade; o que está aqui é o andaime das seções
+ * (grades de amostras, linhas de tipografia, réguas de espaço) que só existe
+ * nesta página e por isso não pertence ao design system compartilhado.
+ */
+
+.wrap {
+  display: grid;
+  gap: var(--sp-8);
+}
+
+.section {
+  display: grid;
+  gap: var(--sp-4);
+}
+
+.section > h2 {
+  font-size: var(--fs-24);
+  padding-bottom: var(--sp-3);
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.section h3 {
+  font-size: var(--fs-16);
+}
+
+.sub {
+  font-size: var(--fs-13);
+  color: var(--text-2);
+  max-width: 72ch;
+}
+
+.anchors {
+  display: flex;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+
+.anchor {
+  font-size: var(--fs-12);
+  color: var(--text-3);
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--glass-border);
+  transition: background var(--t-fast) var(--ease-out), color var(--t-fast) var(--ease-out);
+}
+
+@media (hover: hover) {
+  .anchor:hover {
+    color: var(--text-1);
+    background: var(--glass);
+  }
+}
+
+.swatches {
+  display: grid;
+  gap: var(--sp-3);
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+}
+
+.swatch {
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-control);
+  overflow: hidden;
+  background: var(--glass);
+}
+
+.fill {
+  height: 64px;
+}
+
+.meta {
+  padding: var(--sp-3);
+  display: grid;
+  gap: 2px;
+}
+
+.meta strong {
+  font-size: var(--fs-13);
+}
+
+.meta code {
+  font-size: var(--fs-11);
+  color: var(--text-3);
+}
+
+.typeRow {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: var(--sp-4);
+  align-items: baseline;
+  padding: var(--sp-3) 0;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.typeRow:last-child {
+  border-bottom: 0;
+}
+
+.typeTag {
+  font-size: var(--fs-11);
+  color: var(--text-3);
+  font-family: var(--font-mono);
+}
+
+.specGrid {
+  display: grid;
+  gap: var(--sp-4);
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+
+.spaceBar {
+  height: 20px;
+  border-radius: 4px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+}
+
+.radiusBox {
+  height: 72px;
+  width: 100%;
+  background: var(--glass);
+  border: 1px solid var(--glass-border-strong);
+}
+
+.iconGrid {
+  display: grid;
+  gap: var(--sp-2);
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+}
+
+.iconCell {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: var(--sp-3) 4px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-control);
+  background: var(--glass);
+}
+
+.iconCell span {
+  font-size: var(--fs-11);
+  color: var(--text-3);
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.demoRow {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+
+/* Amostras de elevação: o mesmo cartão com cada sombra do sistema. */
+.shadowBox {
+  display: grid;
+  gap: var(--sp-2);
+  padding: var(--sp-4);
+  border-radius: var(--r-card);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-strong);
+}
+
+.foot {
+  color: var(--text-3);
+  font-size: var(--fs-12);
+  text-align: center;
+}
+
+.ruleList {
+  padding-left: 18px;
+  margin: 0;
+  font-size: var(--fs-13);
+  color: var(--text-2);
+  line-height: 1.7;
+}

@@ -1,0 +1,299 @@
+/* Pond Glass — design tokens do zfrog.
+ *
+ * Portado verbatim do design system (protótipo OpenDesign, revisão 2) para que o
+ * painel e a documentação compartilhem os mesmos valores. Não edite um valor aqui
+ * sem atualizar a página /design, que é a referência viva.
+ *
+ * Regras do sistema (ver /design):
+ *   - frog-*  é a única família de ação; pond-* só apoia (info, gradientes, tags).
+ *   - Vidro só em camada flutuante (navbar, cards, modais, overlays).
+ *   - No máximo 2 brilhos ambientes por tela.
+ */
+
+/* OD-LAYOUT-PRIMITIVES v1 — structure only: display, flex/grid, overflow, wrapping, ratio.
+   Put this @layer first; product CSS outside the layer always wins. */
+@layer od-layout {
+  :where(.od-stack,.od-row,.od-row-top,.od-cluster,.od-grid,.od-field,.od-stat,.od-cell,.od-tile) > :where(*) { min-width: 0; }
+
+  /* containers */
+  .od-stack   { display: flex; flex-direction: column; gap: var(--od-gap, 8px); }
+  .od-row     { display: flex; align-items: center; gap: var(--od-gap, 8px); }
+  .od-row-top { display: flex; align-items: flex-start; gap: var(--od-gap, 8px); }
+  .od-cluster { display: flex; flex-wrap: wrap; align-items: center; gap: var(--od-gap, 8px); }
+  .od-fill    { flex: 1 1 0; min-width: 0; }
+  .od-fixed   { flex: none; }
+  .od-grid    { display: grid; gap: var(--od-gap, 12px); grid-template-columns: repeat(var(--od-cols, 3), minmax(0, 1fr)); }
+
+  /* stacked information: each piece is its own line — never sibling inline spans */
+  .od-stat, .od-field, .od-cell { display: grid; gap: var(--od-gap, 2px); }
+  :where(.od-stat,.od-field,.od-cell) > :where(*) { display: block; }
+  .od-tile { display: grid; grid-template-rows: auto 1fr; }
+  :where(.od-tile) > :where(*) { display: block; }
+
+  /* media keeps its intrinsic ratio by default; never a distorted or cropped
+     cover by accident. height:auto lets the ratio win over an <img height="…">
+     attribute. Cropping to a uniform box is an explicit opt-in: set --od-ratio
+     AND add .od-media-cover together (per the core rule, only where a crop is
+     deliberate — tile thumbs, decorative fills — never on full-frame content). */
+  .od-media { display: block; width: 100%; height: auto; aspect-ratio: var(--od-ratio, auto); }
+  .od-media-cover { object-fit: cover; }
+
+  /* data text only — authored copy is rewritten to its budget instead */
+  .od-truncate { display: block; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .od-clamp-2, .od-clamp-3 { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+  .od-clamp-2 { -webkit-line-clamp: 2; }
+  .od-clamp-3 { -webkit-line-clamp: 3; }
+  .od-lines-2 { min-height: calc(2 * 1.4em); }   /* block-level reservation for a shared baseline */
+  .od-nowrap  { white-space: nowrap; }           /* 数字+单位 · 价格+起 · 日期+星期 */
+  .od-keep    { word-break: keep-all; overflow-wrap: anywhere; } /* CJK labels break at spaces / <wbr> first */
+
+  /* screen skeleton (optional): bars take their own space, the middle scrolls — no padding guessed for chrome */
+  .od-screen { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; height: 100%; }
+  .od-scroll { overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
+
+  /* horizontal rail: the next item peeks at the edge; trailing room survives overflow */
+  .od-rail { display: flex; gap: var(--od-gap, 8px); overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none;
+             padding-inline: var(--od-rail-pad, 16px); scroll-padding-inline: var(--od-rail-pad, 16px); }
+  .od-rail::-webkit-scrollbar { display: none; }
+  :where(.od-rail) > :where(*) { flex: none; scroll-snap-align: start; }
+  :where(.od-rail) > :where(:last-child) { margin-inline-end: var(--od-rail-pad, 16px); }
+
+  .od-spacer { flex: none; visibility: hidden; pointer-events: none; }
+  .od-touch  { min-width: 44px; min-height: 44px; }
+}
+/* /OD-LAYOUT-PRIMITIVES v1 */
+
+:root {
+  color-scheme: dark;
+
+  /* Pond Glass — escala Frog (única família de ação) */
+  --frog-50: #EDFBF3;
+  --frog-100: #D3F7E1;
+  --frog-200: #A8EFC5;
+  --frog-300: #6FE3A4;
+  --frog-400: #3BD487;
+  --frog-500: #17B877;
+  --frog-600: #0E9663;
+  --frog-700: #0C7751;
+  --frog-800: #0B5E41;
+  --frog-900: #094D36;
+
+  /* Pond Glass — apoio Pond (parcimônia: info, gradientes, tags) */
+  --pond-300: #7FE7DC;
+  --pond-400: #38D6C4;
+  --pond-500: #14B8A6;
+
+  --bg-0: #0B120E;
+  --bg-1: #0F1712;
+  --bg-2: #111A15;
+
+  --glass: rgba(255, 255, 255, 0.06);
+  --glass-strong: rgba(255, 255, 255, 0.08);
+  --glass-hover: rgba(255, 255, 255, 0.09);
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --glass-border-strong: rgba(255, 255, 255, 0.18);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+
+  --text-1: #E9F2EC;
+  --text-2: #9DB4A6;
+  /* Desvio deliberado do protótipo, medido nos pixels renderizados. `#6B7F73` dava
+     4,15:1 sobre os cards e 3,53:1 sobre o vidro mais claro do `status-card`, abaixo
+     dos 4,5:1 que o próprio design system exige para texto de apoio. `#84988C` fecha
+     em 4,54:1 no pior caso. */
+  --text-3: #84988C;
+
+  --accent: var(--frog-400);
+  --accent-strong: var(--frog-300);
+  --accent-ink: #052E1F;
+  --accent-soft: rgba(59, 212, 135, 0.14);
+  --accent-line: rgba(59, 212, 135, 0.42);
+
+  --success: var(--frog-500);
+  --success-soft: rgba(23, 184, 119, 0.14);
+  --warning: #E8B33C;
+  --warning-soft: rgba(232, 179, 60, 0.14);
+  --danger: #E5484D;
+  --danger-soft: rgba(229, 72, 77, 0.14);
+  --info: var(--pond-400);
+  --info-soft: rgba(56, 214, 196, 0.14);
+
+  --ambient-a: rgba(23, 184, 119, 0.16);
+  --ambient-b: rgba(20, 184, 166, 0.12);
+
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.30);
+  --shadow-2: 0 8px 32px rgba(0, 0, 0, 0.35);
+  --shadow-pop: 0 24px 70px rgba(0, 0, 0, 0.55);
+
+  --font-display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  --fs-11: 0.6875rem;
+  --fs-12: 0.75rem;
+  --fs-13: 0.8125rem;
+  --fs-14: 0.875rem;
+  --fs-16: 1rem;
+  --fs-18: 1.125rem;
+  --fs-20: 1.25rem;
+  --fs-24: 1.5rem;
+  --fs-32: 2rem;
+  --fs-40: 2.5rem;
+
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-10: 40px;
+  --sp-12: 48px;
+
+  --r-sm: 8px;
+  --r-control: 10px;
+  --r-card: 16px;
+  --r-lg: 20px;
+  --r-pill: 999px;
+
+  --sidebar-w: 252px;
+  --content-max: 1180px;
+
+  --blur: 20px;
+  --blur-strong: 28px;
+
+  --t-fast: 150ms;
+  --t-base: 220ms;
+  --t-slow: 300ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+
+  --bg-0: #F4F8F5;
+  --bg-1: #EDF3EE;
+  --bg-2: #FFFFFF;
+
+  --glass: rgba(255, 255, 255, 0.60);
+  --glass-strong: rgba(255, 255, 255, 0.78);
+  --glass-hover: rgba(255, 255, 255, 0.75);
+  --glass-border: rgba(255, 255, 255, 0.70);
+  --glass-border-strong: rgba(12, 27, 20, 0.16);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+
+  --text-1: #0C1B14;
+  --text-2: #52655B;
+  /* Mesmo desvio do tema escuro, medido nos pixels renderizados: `#6E8478` dava
+     3,69:1 sobre o fundo da página e 3,88:1 sobre os cards. `#5F7569` fecha em
+     4,56:1 e 4,80:1. */
+  --text-3: #5F7569;
+
+  --accent: var(--frog-500);
+  /* `--frog-600` (#0E9663) dá 3,29:1 como texto sobre o fundo do chip selecionado
+     e 3,67:1 sobre os cards — abaixo de 4,5:1. `--frog-700` é o passo seguinte da
+     própria escala e fecha em 4,84:1. */
+  --accent-strong: var(--frog-700);
+  --accent-ink: #FFFFFF;
+  --accent-soft: rgba(23, 184, 119, 0.12);
+  --accent-line: rgba(23, 184, 119, 0.40);
+
+  --success: var(--frog-600);
+  --success-soft: rgba(14, 150, 99, 0.12);
+  --warning: #9A6B12;
+  --warning-soft: rgba(232, 179, 60, 0.16);
+  --danger: #C23439;
+  --danger-soft: rgba(229, 72, 77, 0.12);
+  --info: var(--pond-500);
+  --info-soft: rgba(20, 184, 166, 0.12);
+
+  --ambient-a: rgba(23, 184, 119, 0.14);
+  --ambient-b: rgba(20, 184, 166, 0.10);
+
+  --shadow-1: 0 1px 2px rgba(12, 27, 20, 0.08);
+  --shadow-2: 0 8px 24px rgba(12, 27, 20, 0.08);
+  --shadow-pop: 0 24px 70px rgba(12, 27, 20, 0.20);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+[hidden] { display: none !important; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg-0);
+  color: var(--text-1);
+  font-family: var(--font-sans);
+  font-size: var(--fs-14);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.ambient {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(56% 44% at 10% -8%, var(--ambient-a) 0%, transparent 62%),
+    radial-gradient(50% 42% at 94% 106%, var(--ambient-b) 0%, transparent 60%),
+    linear-gradient(180deg, var(--bg-1), var(--bg-0));
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  margin: 0;
+  color: var(--text-1);
+}
+
+p { margin: 0; }
+
+a { color: var(--accent-strong); text-decoration: none; }
+
+code, .mono { font-family: var(--font-mono); font-size: 0.94em; }
+
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent-strong);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}
+
+::selection { background: var(--accent-soft); color: var(--text-1); }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--glass-border-strong); border-radius: var(--r-pill); border: 3px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-3); background-clip: padding-box; }
+
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+.skip-link {
+  position: absolute; left: var(--sp-4); top: calc(-1 * var(--sp-12));
+  z-index: 100; background: var(--accent); color: var(--accent-ink);
+  padding: var(--sp-2) var(--sp-4); border-radius: var(--r-control);
+  font-weight: 600; transition: top var(--t-base) var(--ease-out);
+}
+.skip-link:focus { top: var(--sp-4); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+[data-motion="reduced"] *, [data-motion="reduced"] *::before, [data-motion="reduced"] *::after {
+  animation-duration: 0.001ms !important;
+  transition-duration: 0.001ms !important;
+}

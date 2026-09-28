@@ -1,26 +1,17 @@
 "use client"
+
 import { useState } from "react"
 import Link from "next/link"
-import { api, ProbeResult, JobMode } from "@/lib/api"
-import { MODES, MODE_ORDER } from "@/lib/labels"
+import { api, JobMode, ProbeResult } from "@/lib/api"
+import { ADVANCED_MODES, MODES, RECOMMENDED_MODES } from "@/lib/labels"
 import { Topbar } from "@/components/Navbar"
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import {
-  Search,
-  Sparkles,
-  Globe,
-  Cpu,
-  Layers,
-  FileType,
-  ArrowRight,
-  Check,
-  Zap,
-  HelpCircle,
-  Package,
-  MousePointerClick,
-} from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
+import { StatCard, StatStrip } from "@/components/ui/stat-card"
+import { ModeCard } from "@/components/ui/ds"
+import { Icon } from "@/lib/icons"
+import { useToast } from "@/components/ToastRegion"
 
 const engineToMode: Record<ProbeResult["suggested_engine"], JobMode> = {
   wget: "mirror",
@@ -31,34 +22,62 @@ const engineToMode: Record<ProbeResult["suggested_engine"], JobMode> = {
 /**
  * Modes that actually crawl beyond the given URL. `singlepage`/`extract` never
  * follow links, and `pdf`/`summarize` only ever read the root URL — offering a
- * depth slider for those would be a control that does nothing.
+ * depth field for those would be a control that does nothing.
  */
-const MODES_WITH_DEPTH: JobMode[] = ["mirror", "scrape", "analyze", "compare", "ask"]
+const MODES_WITH_DEPTH: JobMode[] = ["mirror", "scrape", "analyze", "compare", "ask", "delta"]
+
+/** Same rule as the prototype: a full address with `https://` and a real host. */
+function validateUrl(value: string): string {
+  if (!value.trim()) return "Informe o endereço do site."
+  const trimmed = value.trim()
+  if (!/^https:\/\//i.test(trimmed)) return "Inclua o começo do endereço, por exemplo https://."
+  try {
+    const parsed = new URL(trimmed)
+    if (!parsed.hostname || !parsed.hostname.includes(".")) return "Esse endereço não parece um site válido."
+  } catch {
+    return "Esse endereço não parece um site válido."
+  }
+  return ""
+}
 
 export default function ProbePage() {
-  const [probeUrl, setProbeUrl] = useState("")
+  const toast = useToast()
+
+  const [url, setUrl] = useState("")
+  const [urlError, setUrlError] = useState("")
+
   const [probing, setProbing] = useState(false)
   const [probeResult, setProbeResult] = useState<ProbeResult | null>(null)
   const [probeError, setProbeError] = useState<string | null>(null)
 
-  const [createUrl, setCreateUrl] = useState("")
-  const [createMode, setCreateMode] = useState<JobMode>("scrape")
-  const [createDepth, setCreateDepth] = useState(1)
-  const [createPdfName, setCreatePdfName] = useState("")
+  const [mode, setMode] = useState<JobMode>("auto")
+  const [depth, setDepth] = useState(1)
+  const [pdfName, setPdfName] = useState("")
+  const [advancedOpen, setAdvancedOpen] = useState(false)
+
   const [creating, setCreating] = useState(false)
-  const [createSuccess, setCreateSuccess] = useState<string | null>(null)
+  const [createdJob, setCreatedJob] = useState<string | null>(null)
   const [createError, setCreateError] = useState<string | null>(null)
 
-  const handleProbe = async () => {
-    if (!probeUrl) return
+  const selected = MODES[mode]
+  const depthApplies = MODES_WITH_DEPTH.includes(mode)
+
+  const handleAnalyze = async () => {
+    const problem = validateUrl(url)
+    if (problem) {
+      setUrlError(problem)
+      toast("Corrija o endereço para continuar.", "err")
+      return
+    }
     setProbing(true)
     setProbeError(null)
     setProbeResult(null)
     try {
-      const res = await api.probe(probeUrl)
-      setProbeResult(res)
-      setCreateUrl(probeUrl)
-      setCreateMode(engineToMode[res.suggested_engine] ?? "singlepage")
+      const result = await api.probe(url.trim())
+      setProbeResult(result)
+      const recommended = engineToMode[result.suggested_engine] ?? "singlepage"
+      setMode(recommended)
+      toast(`Análise concluída: modo ${MODES[recommended].label} sugerido.`)
     } catch (e) {
       setProbeError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -66,19 +85,26 @@ export default function ProbePage() {
     }
   }
 
-  const handleCreate = async () => {
-    if (!createUrl) return
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault()
+    const problem = validateUrl(url)
+    if (problem) {
+      setUrlError(problem)
+      toast("Corrija o endereço para continuar.", "err")
+      return
+    }
     setCreating(true)
-    setCreateSuccess(null)
+    setCreatedJob(null)
     setCreateError(null)
     try {
       const job = await api.createJob({
-        url: createUrl,
-        mode: createMode,
-        max_depth: createDepth,
-        ...(createMode === "pdf" && createPdfName.trim() ? { pdf_filename: createPdfName.trim() } : {}),
+        url: url.trim(),
+        mode,
+        max_depth: depthApplies ? depth : 0,
+        ...(mode === "pdf" && pdfName.trim() ? { pdf_filename: pdfName.trim() } : {}),
       })
-      setCreateSuccess(job.id)
+      setCreatedJob(job.id)
+      toast("Extração iniciada.")
     } catch (e) {
       setCreateError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -86,319 +112,406 @@ export default function ProbePage() {
     }
   }
 
-  const selected = MODES[createMode]
-  const depthExplained =
-    createDepth === 0
-      ? "Só a página que você indicou."
-      : createDepth === 1
-        ? "A página indicada e os links que saem dela."
-        : `Links até ${createDepth} níveis de distância — pode gerar muitos arquivos.`
+  const handleClear = () => {
+    setUrl("")
+    setUrlError("")
+    setProbeResult(null)
+    setProbeError(null)
+    setMode("auto")
+    setDepth(1)
+    setPdfName("")
+    setCreatedJob(null)
+    setCreateError(null)
+  }
 
   return (
-    <div className="space-y-6 max-w-[1200px] animate-[slide-in_0.3s_ease]">
+    <div className="view-grid">
       <Topbar
         title="Nova extração"
-        description="Informe o endereço do site, escolha o que quer receber e inicie. Leva alguns segundos."
+        description="Baixar um site ou extrair dados"
         action={
           <Link href="/captura">
-            <Button size="sm" variant="outline">
-              <MousePointerClick className="h-4 w-4" /> Escolher o que pegar na página
+            <Button variant="secondary" size="sm" className="od-touch">
+              <Icon name="i-target" size="sm" /> Escolher o que pegar na página
             </Button>
           </Link>
         }
       />
 
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* Passo 1 — analisar */}
-        <Card className="relative overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-violet-500/0 via-violet-500/50 to-violet-500/0" />
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-[10px] bg-violet-500/10 flex items-center justify-center text-violet-600">
-                <Search className="h-4 w-4" />
-              </div>
-              <div>
-                <CardTitle>Passo 1 — Analisar o endereço (opcional)</CardTitle>
-                <CardDescription>
-                  Descobre como o site foi feito e qual modo funciona melhor nele. Se preferir, pule direto para o
-                  passo 2.
-                </CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <Input
-                  placeholder="https://exemplo.com.br"
-                  value={probeUrl}
-                  onChange={(e) => setProbeUrl(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleProbe()}
-                  leftIcon={<Globe className="h-4 w-4" />}
-                />
-              </div>
-              <Button onClick={handleProbe} loading={probing} disabled={!probeUrl}>
-                <Sparkles className="h-4 w-4" />
-                Analisar
-              </Button>
-            </div>
-
-            {probeError && (
-              <div className="rounded-[12px] bg-destructive/10 border border-destructive/20 p-3 text-[13px] text-destructive">
-                <p className="font-medium">Não conseguimos acessar esse endereço.</p>
-                <p className="mt-1">{probeError}</p>
-                <p className="mt-1 text-muted-foreground">
-                  Confira se o endereço está completo (com <span className="font-mono">https://</span>).
-                </p>
-              </div>
-            )}
-
-            {probeResult && (
-              <div className="space-y-3 animate-[scale-in_0.25s_ease]">
-                <div className="rounded-[12px] border bg-secondary/50 p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[12px] font-medium uppercase tracking-widest text-muted-foreground">
-                      Resultado
-                    </span>
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 text-emerald-600 px-2.5 py-1 text-[11px] font-medium ring-1 ring-emerald-500/20">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                      Site acessível
-                    </span>
-                  </div>
-
-                  <div className="rounded-[10px] bg-primary/10 border border-primary/20 p-3">
-                    <div className="flex items-center gap-2 text-[11px] text-primary uppercase tracking-wide font-medium">
-                      <Zap className="h-3 w-3" /> Modo recomendado
-                    </div>
-                    <div className="mt-1 text-[14px] font-semibold text-primary">
-                      {MODES[engineToMode[probeResult.suggested_engine]].icon}{" "}
-                      {MODES[engineToMode[probeResult.suggested_engine]].label}
-                    </div>
-                    <p className="mt-1 text-[12px] text-muted-foreground">
-                      {MODES[engineToMode[probeResult.suggested_engine]].what}
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-[10px] bg-card border p-3">
-                      <div className="flex items-center gap-2 text-[11px] text-muted-foreground uppercase tracking-wide">
-                        <Cpu className="h-3 w-3" /> Precisa de navegador?
-                      </div>
-                      <div className="mt-1 text-[13.5px] font-medium">
-                        {probeResult.suggested_engine === "playwright" ? "Sim" : "Não"}
-                      </div>
-                    </div>
-                    <div className="rounded-[10px] bg-card border p-3">
-                      <div className="flex items-center gap-2 text-[11px] text-muted-foreground uppercase tracking-wide">
-                        <Layers className="h-3 w-3" /> Tecnologia
-                      </div>
-                      <div className="mt-1 text-[13.5px] font-medium capitalize">
-                        {probeResult.framework || "Site comum"}
-                      </div>
-                    </div>
-                    <div className="rounded-[10px] bg-card border p-3">
-                      <div className="flex items-center gap-2 text-[11px] text-muted-foreground uppercase tracking-wide">
-                        <FileType className="h-3 w-3" /> Tipo de conteúdo
-                      </div>
-                      <div className="mt-1 text-[12px] font-mono truncate">{probeResult.content_type || "—"}</div>
-                    </div>
-                    <div className="rounded-[10px] bg-card border p-3">
-                      <div className="text-[11px] text-muted-foreground uppercase tracking-wide">Resposta</div>
-                      <div className="mt-1 text-[13.5px] font-medium">
-                        {probeResult.status_code ?? "—"}
-                        {probeResult.status_code === 200 ? " · ok" : ""}
-                      </div>
-                    </div>
-                  </div>
-
-                  {probeResult.final_url && probeResult.final_url !== probeResult.url && (
-                    <div className="text-[12px] text-muted-foreground">
-                      O endereço redireciona para{" "}
-                      <span className="font-mono text-foreground break-all">{probeResult.final_url}</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-2 text-[12px] text-violet-600 dark:text-violet-400 bg-violet-500/10 border border-violet-500/20 rounded-[10px] p-2.5">
-                  <Check className="h-4 w-4 shrink-0" />
-                  Já preenchemos o passo 2 com o modo recomendado. É só clicar em Iniciar.
-                </div>
-              </div>
-            )}
-
-            {!probeResult && !probeError && !probing && (
-              <div className="rounded-[12px] border border-dashed p-8 text-center">
-                <Globe className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
-                <p className="text-[13px] text-muted-foreground">
-                  Cole o endereço acima e clique em <strong className="text-foreground">Analisar</strong>.
-                </p>
-                <p className="text-[12px] text-muted-foreground mt-1">
-                  Não sabe qual modo escolher?{" "}
-                  <Link href="/ajuda" className="text-primary underline">
-                    veja o guia
-                  </Link>
-                  .
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Passo 2 — iniciar */}
-        <Card className="relative overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-emerald-500/0 via-emerald-500/50 to-emerald-500/0" />
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-[10px] bg-emerald-500/10 flex items-center justify-center text-emerald-600">
-                <Zap className="h-4 w-4" />
-              </div>
-              <div>
-                <CardTitle>Passo 2 — Escolher e iniciar</CardTitle>
-                <CardDescription>Onde salvar e o quanto do site percorrer.</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            <Input
-              label="Endereço do site"
-              placeholder="https://exemplo.com.br"
-              value={createUrl}
-              onChange={(e) => setCreateUrl(e.target.value)}
-              leftIcon={<Globe className="h-4 w-4" />}
-              hint="O endereço completo, começando com https://"
+      <div className="two-col">
+        <form className="card" onSubmit={handleSubmit} noValidate>
+          <div className="od-field" style={{ "--od-gap": "6px" } as React.CSSProperties}>
+            <label className="label" htmlFor="probe-url">
+              Endereço do site
+              <span className="req" aria-hidden="true">
+                *
+              </span>
+            </label>
+            <input
+              id="probe-url"
+              name="url"
+              className="input input-mono"
+              type="url"
+              inputMode="url"
+              autoComplete="url"
+              required
+              placeholder="https://exemplo.com/pagina"
+              aria-describedby="probe-url-hint"
+              aria-invalid={urlError ? true : undefined}
+              value={url}
+              onChange={(event) => {
+                setUrl(event.target.value)
+                if (urlError) setUrlError("")
+              }}
+              onBlur={() => setUrlError(validateUrl(url))}
             />
-
-            <div className="flex flex-col gap-2">
-              <label className="text-[12.5px] font-medium text-foreground/80">
-                O que você quer receber?
-              </label>
-              <div className="grid sm:grid-cols-2 gap-2">
-                {MODE_ORDER.map((m) => {
-                  const info = MODES[m]
-                  const active = createMode === m
-                  return (
-                    <button
-                      key={m}
-                      onClick={() => setCreateMode(m)}
-                      className={`text-left rounded-[10px] border p-3 transition-all ${
-                        active ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "hover:bg-accent"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[13px] font-medium">
-                          {info.icon} {info.label}
-                        </span>
-                        {active && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
-                      </div>
-                      <p className="text-[11.5px] text-muted-foreground mt-1 leading-snug">{info.what}</p>
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-
-            <div className="rounded-[10px] bg-secondary/60 border p-3 space-y-2">
-              <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-widest text-muted-foreground font-medium">
-                <Package className="h-3 w-3" /> O que você vai receber
-              </div>
-              <p className="text-[12.5px]">{selected.output}</p>
-              <p className="text-[11.5px] text-muted-foreground">
-                <strong className="text-foreground/80">Quando usar:</strong> {selected.when}
+            <p className="hint" id="probe-url-hint">
+              Endereço completo, incluindo o começo <span className="mono">https://</span>.
+            </p>
+            {urlError && (
+              <p className="error-text" role="alert">
+                <Icon name="i-alert" size="sm" />
+                <span>{urlError}</span>
               </p>
+            )}
+          </div>
+
+          <div className="od-row" style={{ "--od-gap": "12px", marginTop: "var(--sp-3)", flexWrap: "wrap" } as React.CSSProperties}>
+            <Button type="button" variant="secondary" size="sm" onClick={handleAnalyze} loading={probing} disabled={!url.trim()}>
+              <Icon name="i-search" size="sm" /> Analisar endereço
+            </Button>
+            <span className="hint">
+              Opcional: descobre a tecnologia do site e já marca o modo que funciona melhor nele.
+            </span>
+          </div>
+
+          {probing && (
+            <div className="od-stack" style={{ "--od-gap": "8px", marginTop: "var(--sp-4)" } as React.CSSProperties}>
+              <Skeleton className="h-[18px] w-[180px]" />
+              <Skeleton className="h-[64px]" />
+            </div>
+          )}
+
+          {probeError && (
+            <div className="od-stack" style={{ "--od-gap": "8px", marginTop: "var(--sp-4)" } as React.CSSProperties}>
+              <Badge variant="danger">
+                <span className="dot" aria-hidden="true" />
+                Não conseguimos analisar
+              </Badge>
+              <p className="card-sub">{probeError}</p>
+              <p className="hint">
+                Confira se o endereço está completo (com <span className="mono">https://</span>) e se o site responde
+                publicamente.
+              </p>
+              <div className="od-row" style={{ "--od-gap": "8px", flexWrap: "wrap" } as React.CSSProperties}>
+                <Button type="button" size="sm" onClick={handleAnalyze} loading={probing}>
+                  Tentar de novo
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {probeResult && (
+            <div className="od-stack" style={{ "--od-gap": "12px", marginTop: "var(--sp-4)" } as React.CSSProperties}>
+              <div className="row-between">
+                <span className="label">Resultado da análise</span>
+                <Badge variant="success">
+                  <span className="dot" aria-hidden="true" />
+                  Site acessível
+                </Badge>
+              </div>
+
+              <div className="mode-summary">
+                <span>
+                  <strong>Modo recomendado: {MODES[engineToMode[probeResult.suggested_engine] ?? "singlepage"].label}</strong>{" "}
+                  — {MODES[engineToMode[probeResult.suggested_engine] ?? "singlepage"].what}
+                </span>
+                <span className="mode-out">
+                  Já marcamos este modo abaixo. É só clicar em Iniciar extração.
+                </span>
+              </div>
+
+              <StatStrip columns={4}>
+                <StatCard
+                  label="Tecnologia"
+                  value={probeResult.framework || "Site comum"}
+                  trend={probeResult.is_spa ? "montado por JavaScript" : "HTML pronto no servidor"}
+                />
+                <StatCard
+                  label="Navegador necessário"
+                  value={probeResult.suggested_engine === "playwright" ? "Sim" : "Não"}
+                  trend={probeResult.has_js_rendering ? "o site precisa executar scripts" : "não precisa executar scripts"}
+                />
+                <StatCard label="Tipo de conteúdo" value={probeResult.content_type || "—"} />
+                <StatCard
+                  label="Resposta"
+                  value={probeResult.status_code ?? "—"}
+                  trend={probeResult.status_code === 200 ? "ok" : "resposta do servidor"}
+                />
+              </StatStrip>
+
+              <p className="hint">
+                robots.txt: {probeResult.robots_restricted ? "o site restringe parte do conteúdo" : "sem restrição declarada"}.
+              </p>
+
+              {probeResult.final_url && probeResult.final_url !== probeResult.url && (
+                <p className="hint">
+                  O endereço redireciona para <span className="mono break-all">{probeResult.final_url}</span>.
+                </p>
+              )}
+            </div>
+          )}
+
+          <fieldset
+            style={{ border: 0, padding: 0, margin: "var(--sp-5) 0 0" }}
+            aria-labelledby="mode-legend"
+          >
+            <div className="row-between" style={{ marginBottom: "var(--sp-3)" }}>
+              <span className="label" id="mode-legend">
+                O que você quer fazer?
+              </span>
+              <span className="select-wrap" style={{ flex: "0 1 220px" }}>
+                <select
+                  className="select"
+                  aria-label="Mais modos de extração"
+                  value={ADVANCED_MODES.includes(mode) ? mode : ""}
+                  onChange={(event) => {
+                    const next = event.target.value as JobMode
+                    if (next) setMode(next)
+                  }}
+                >
+                  <option value="">Mais modos…</option>
+                  {ADVANCED_MODES.map((id) => (
+                    <option key={id} value={id}>
+                      {MODES[id].label}
+                    </option>
+                  ))}
+                </select>
+                <Icon name="i-chevron" />
+              </span>
             </div>
 
-            {MODES_WITH_DEPTH.includes(createMode) && (
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[12.5px] font-medium text-foreground/80">
-                  Quantas páginas percorrer?
-                </label>
-                <div className="flex items-center gap-2">
+            <div className="mode-grid">
+              {RECOMMENDED_MODES.map((id) => (
+                <ModeCard
+                  key={id}
+                  active={mode === id}
+                  label={MODES[id].label}
+                  icon={<Icon name={MODES[id].icon} size="lg" />}
+                  onClick={() => setMode(id)}
+                />
+              ))}
+            </div>
+
+            <div className="mode-summary" aria-live="polite" style={{ marginTop: "var(--sp-3)" }}>
+              <span>
+                <strong>{selected.label}</strong> — {selected.what}
+              </span>
+              <span className="mode-out">Você recebe: {selected.output}</span>
+            </div>
+          </fieldset>
+
+          <div className="accordion" style={{ marginTop: "var(--sp-6)" }}>
+            <button
+              className="acc-trigger"
+              type="button"
+              aria-expanded={advancedOpen}
+              aria-controls="adv-panel"
+              onClick={() => setAdvancedOpen((open) => !open)}
+            >
+              <Icon name="i-sliders" />
+              Opções avançadas
+              <Icon name="i-chevron" />
+            </button>
+            <div className="acc-panel" id="adv-panel" hidden={!advancedOpen}>
+              <div className="od-grid" style={{ "--od-cols": 2, "--od-gap": "16px" } as React.CSSProperties}>
+                <div className="od-field" style={{ "--od-gap": "6px" } as React.CSSProperties}>
+                  <label className="label" htmlFor="adv-depth">
+                    Profundidade
+                  </label>
                   <input
-                    type="range"
+                    id="adv-depth"
+                    className="input"
+                    type="number"
                     min={0}
                     max={5}
-                    value={createDepth}
-                    onChange={(e) => setCreateDepth(parseInt(e.target.value))}
-                    className="flex-1 accent-primary"
+                    value={depthApplies ? depth : 0}
+                    disabled={!depthApplies}
+                    onChange={(event) => setDepth(Math.max(0, Math.min(5, Number(event.target.value))))}
                   />
-                  <span className="h-9 w-12 rounded-[10px] border bg-secondary flex items-center justify-center text-[13px] font-mono font-medium">
-                    {createDepth}
+                  <span className="hint">
+                    {depthApplies
+                      ? "Quantos níveis de links seguir."
+                      : `O modo ${selected.label} não segue links, então a profundidade não se aplica.`}
                   </span>
                 </div>
-                <p className="text-[11.5px] text-muted-foreground">{depthExplained}</p>
-              </div>
-            )}
 
-            {createMode === "pdf" && (
-              <Input
-                label="Nome do arquivo (opcional)"
-                placeholder="index"
-                value={createPdfName}
-                onChange={(e) => setCreatePdfName(e.target.value)}
-                hint="Vira o nome do PDF. Caracteres especiais são trocados por _."
-              />
-            )}
-
-            <Button onClick={handleCreate} loading={creating} disabled={!createUrl} className="w-full">
-              Iniciar extração <ArrowRight className="h-4 w-4" />
-            </Button>
-
-            {createError && (
-              <div className="rounded-[12px] bg-destructive/10 border border-destructive/20 p-3 text-[13px] text-destructive">
-                <p className="font-medium">Não foi possível iniciar.</p>
-                <p className="mt-1">{createError}</p>
-              </div>
-            )}
-
-            {createSuccess && (
-              <div className="rounded-[12px] bg-emerald-500/10 border border-emerald-500/20 p-3 animate-[scale-in_0.2s_ease]">
-                <div className="flex items-start gap-2.5">
-                  <div className="h-6 w-6 rounded-full bg-emerald-500 flex items-center justify-center text-white shrink-0">
-                    <Check className="h-3.5 w-3.5" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-medium text-emerald-700 dark:text-emerald-400">
-                      Extração iniciada!
-                    </p>
-                    <p className="text-[12px] text-muted-foreground mt-0.5">
-                      Você pode acompanhar o andamento e baixar o resultado.
-                    </p>
-                    <p className="text-[11px] font-mono mt-1 break-all text-muted-foreground">{createSuccess}</p>
-                    <div className="flex gap-2 mt-2.5">
-                      <Link href={`/jobs/${createSuccess}`}>
-                        <Button size="sm" variant="primary">
-                          Acompanhar
-                        </Button>
-                      </Link>
-                      <Link href="/">
-                        <Button size="sm" variant="outline">
-                          Ver todas
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
+                <div className="od-field" style={{ "--od-gap": "6px" } as React.CSSProperties}>
+                  <label className="label" htmlFor="adv-limit">
+                    Limite de páginas
+                  </label>
+                  <input
+                    id="adv-limit"
+                    className="input"
+                    type="number"
+                    min={1}
+                    max={10000}
+                    placeholder="Padrão do servidor"
+                    disabled
+                  />
+                  <span className="hint">
+                    Trava de segurança do download, definida no servidor. Esta tela ainda não envia esse valor.
+                  </span>
                 </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
 
-      <Card className="bg-secondary/40">
-        <CardContent className="p-4 flex items-start gap-3">
-          <HelpCircle className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-          <div className="text-[12.5px] text-muted-foreground leading-relaxed">
-            <strong className="text-foreground">Em dúvida?</strong> Comece com{" "}
-            <strong className="text-foreground">Página única</strong> para testar: é rápido e mostra se o conteúdo vem
-            completo. Se vier vazio, o site precisa de{" "}
-            <strong className="text-foreground">Site com JavaScript</strong>. O{" "}
-            <Link href="/ajuda" className="text-primary underline">
-              guia completo
-            </Link>{" "}
-            compara os quatro modos lado a lado.
+                <div className="od-field" style={{ "--od-gap": "6px" } as React.CSSProperties}>
+                  <label className="label" htmlFor="adv-delay">
+                    Pausa entre requisições (ms)
+                  </label>
+                  <input
+                    id="adv-delay"
+                    className="input"
+                    type="number"
+                    min={0}
+                    step={100}
+                    placeholder="Padrão do servidor"
+                    disabled
+                  />
+                  <span className="hint">
+                    Mais pausa é mais gentil com o site. Definida no servidor; esta tela ainda não envia esse valor.
+                  </span>
+                </div>
+
+                <div className="od-field" style={{ "--od-gap": "6px" } as React.CSSProperties}>
+                  <label className="label" htmlFor="adv-selector">
+                    Seletor de conteúdo (opcional)
+                  </label>
+                  <input
+                    id="adv-selector"
+                    className="input input-mono"
+                    placeholder="article.main-content"
+                    disabled
+                  />
+                  <span className="hint">
+                    Ainda não enviado pelo painel. Para escolher o que pegar clicando na página, use a tela{" "}
+                    <Link href="/captura">Captura</Link>.
+                  </span>
+                </div>
+
+                {mode === "pdf" && (
+                  <div className="od-field" style={{ "--od-gap": "6px" } as React.CSSProperties}>
+                    <label className="label" htmlFor="adv-pdf">
+                      Nome do arquivo PDF (opcional)
+                    </label>
+                    <input
+                      id="adv-pdf"
+                      className="input input-mono"
+                      placeholder="index"
+                      value={pdfName}
+                      onChange={(event) => setPdfName(event.target.value)}
+                    />
+                    <span className="hint">Vira o nome do PDF. Caracteres especiais são trocados por _.</span>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
-        </CardContent>
-      </Card>
+
+          <div
+            className="od-row"
+            style={{ "--od-gap": "12px", marginTop: "var(--sp-6)", flexWrap: "wrap" } as React.CSSProperties}
+          >
+            <Button type="submit" size="lg" loading={creating} className="od-touch">
+              <Icon name="i-play" size="sm" /> Iniciar extração
+            </Button>
+            <Button type="button" variant="ghost" size="lg" className="od-touch" onClick={handleClear}>
+              Limpar
+            </Button>
+          </div>
+
+          {createError && (
+            <div className="od-stack" style={{ "--od-gap": "8px", marginTop: "var(--sp-4)" } as React.CSSProperties}>
+              <Badge variant="danger">
+                <span className="dot" aria-hidden="true" />
+                Não foi possível iniciar
+              </Badge>
+              <p className="card-sub">{createError}</p>
+              <div className="od-row" style={{ "--od-gap": "8px", flexWrap: "wrap" } as React.CSSProperties}>
+                <Button type="submit" size="sm" loading={creating}>
+                  Tentar de novo
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {createdJob && (
+            <div className="od-stack" style={{ "--od-gap": "8px", marginTop: "var(--sp-4)" } as React.CSSProperties}>
+              <Badge variant="success">
+                <span className="dot" aria-hidden="true" />
+                Extração iniciada
+              </Badge>
+              <p className="card-sub">
+                Você pode acompanhar o andamento e baixar o resultado. Identificador:{" "}
+                <span className="mono break-all">{createdJob}</span>
+              </p>
+              <div className="od-row" style={{ "--od-gap": "8px", flexWrap: "wrap" } as React.CSSProperties}>
+                <Link href={`/jobs/${createdJob}`}>
+                  <Button size="sm" className="od-touch">
+                    Acompanhar
+                  </Button>
+                </Link>
+                <Link href="/">
+                  <Button size="sm" variant="secondary" className="od-touch">
+                    Ver todas
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          )}
+        </form>
+
+        <aside className="stack-md">
+          <div className="card">
+            <h2 className="card-title" style={{ marginBottom: "var(--sp-3)" }}>
+              Antes de começar
+            </h2>
+            <ul
+              className="stack-sm"
+              style={{ listStyle: "none", padding: 0, margin: 0, fontSize: "var(--fs-13)", color: "var(--text-2)" }}
+            >
+              <li className="od-row" style={{ "--od-gap": "8px", alignItems: "flex-start" } as React.CSSProperties}>
+                <Icon name="i-check" size="sm" className="text-[var(--success)] mt-0.5" />
+                <span>
+                  Respeitamos o <span className="mono">robots.txt</span> por padrão.
+                </span>
+              </li>
+              <li className="od-row" style={{ "--od-gap": "8px", alignItems: "flex-start" } as React.CSSProperties}>
+                <Icon name="i-check" size="sm" className="text-[var(--success)] mt-0.5" />
+                <span>A pausa entre requisições evita sobrecarregar o site.</span>
+              </li>
+              <li className="od-row" style={{ "--od-gap": "8px", alignItems: "flex-start" } as React.CSSProperties}>
+                <Icon name="i-check" size="sm" className="text-[var(--success)] mt-0.5" />
+                <span>Você pode cancelar a qualquer momento na tela da execução.</span>
+              </li>
+            </ul>
+          </div>
+
+          <div className="card">
+            <h2 className="card-title" style={{ marginBottom: "var(--sp-2)" }}>
+              Qual modo escolher?
+            </h2>
+            <p className="card-sub" style={{ marginBottom: "var(--sp-3)" }}>
+              Não sabe a diferença entre os modos? O guia explica cada um em uma frase, incluindo o que você recebe no
+              fim.
+            </p>
+            <Link href="/ajuda">
+              <Button variant="secondary" size="sm" className="od-touch">
+                <Icon name="i-book" size="sm" /> Ver o guia de modos
+              </Button>
+            </Link>
+          </div>
+        </aside>
+      </div>
     </div>
   )
 }

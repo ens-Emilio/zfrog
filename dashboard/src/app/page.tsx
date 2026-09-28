@@ -1,52 +1,56 @@
 "use client"
-import { useEffect, useState, useMemo } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
-import { api, Job, JobStatus, JobMode } from "@/lib/api"
-import { MODES, STATUS_HELP } from "@/lib/labels"
+import { api, Job, JobMode, JobStatus } from "@/lib/api"
+import { MODES, STATUS_HELP, STATUS_LABELS } from "@/lib/labels"
 import { usePolling } from "@/hooks/usePolling"
-import { cn, timeAgo } from "@/lib/utils"
+import { useToast } from "@/components/ToastRegion"
+import { cn, faviconLetter, formatBytes, formatNumber, timeAgo } from "@/lib/utils"
 import { Topbar } from "@/components/Navbar"
-import { StatusBadge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { StatCard } from "@/components/ui/stat-card"
+import { Chip } from "@/components/ui/ds"
+import { StatCard, StatStrip } from "@/components/ui/stat-card"
 import { Skeleton } from "@/components/ui/skeleton"
-import {
-  Search,
-  Download,
-  X,
-  ExternalLink,
-  Layers,
-  CheckCircle2,
-  Clock3,
-  AlertCircle,
-  Play,
-  SearchX,
-  RefreshCw,
-  Globe,
-  ArrowRight,
-} from "lucide-react"
+import { EmptyState } from "@/components/ui/empty"
+import { Modal } from "@/components/ui/modal"
+import { StatusBadge } from "@/components/ui/badge"
+import { Activity, AlertTriangle, Download, Eye, Filter, Play, RefreshCw, RotateCw, Search, SearchX, X } from "lucide-react"
 
-const statusFilters: (JobStatus | "all")[] = ["all", "running", "pending", "completed", "failed"]
-const filterLabels: Record<JobStatus | "all", string> = {
-  all: "Todas",
-  running: "Baixando",
-  pending: "Na fila",
-  probing: "Analisando",
-  processing: "Organizando",
-  completed: "Concluídas",
-  failed: "Falhas",
-  cancelled: "Canceladas",
+/** The four filters of the prototype, each one a rank over the real statuses. */
+type FilterKey = "all" | "done" | "active" | "failed"
+
+const FILTERS: { key: FilterKey; label: string; dot?: string }[] = [
+  { key: "all", label: "Todas" },
+  { key: "done", label: "Concluídas", dot: "var(--success)" },
+  { key: "active", label: "Em andamento", dot: "var(--accent)" },
+  { key: "failed", label: "Falhas", dot: "var(--danger)" },
+]
+
+const inFlight: JobStatus[] = ["pending", "probing", "processing", "running"]
+
+/** The host shown in a row; falls back to the raw string for a malformed URL. */
+function hostOf(url: string) {
+  try {
+    return new URL(url).host
+  } catch {
+    return url.replace(/^https?:\/\//, "").split("/")[0]
+  }
 }
-const inFlight: JobStatus[] = ["running", "pending", "probing", "processing"]
+
+const DAY_MS = 86_400_000
 
 export default function JobsPage() {
+  const toast = useToast()
   const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [q, setQ] = useState("")
-  const [status, setStatus] = useState<JobStatus | "all">("all")
+  const [filter, setFilter] = useState<FilterKey>("all")
   const [polling, setPolling] = useState(true)
+  const [confirming, setConfirming] = useState<Job | null>(null)
+  /** Files and bytes per finished job, read once from the real result endpoint. */
+  const [results, setResults] = useState<Record<string, { files: number; bytes: number }>>({})
+  const askedResults = useRef<Set<string>>(new Set())
 
   const fetchJobs = async () => {
     try {
@@ -66,289 +70,356 @@ export default function JobsPage() {
 
   usePolling(fetchJobs, 5000, polling)
 
-  const filtered = useMemo(
-    () =>
-      jobs.filter((j) => {
-        if (status !== "all" && j.status !== status) return false
-        if (q && !j.url.toLowerCase().includes(q.toLowerCase()) && !j.id.toLowerCase().includes(q.toLowerCase()))
-          return false
-        return true
-      }),
-    [jobs, q, status]
-  )
+  // The list endpoint carries no file count, so the totals come from the result
+  // endpoint — once per job, never re-asked while the page is open.
+  useEffect(() => {
+    const missing = jobs.filter((j) => j.status === "completed" && !askedResults.current.has(j.id))
+    if (!missing.length) return
+    missing.forEach((j) => askedResults.current.add(j.id))
+    let cancelled = false
+    Promise.all(
+      missing.map(async (j) => {
+        try {
+          const r = await api.getJobResult(j.id)
+          return [j.id, { files: r.files_count, bytes: r.total_size_bytes }] as const
+        } catch {
+          return null
+        }
+      })
+    ).then((rows) => {
+      if (cancelled) return
+      const known = rows.filter((row): row is readonly [string, { files: number; bytes: number }] => row !== null)
+      if (!known.length) return
+      setResults((prev) => {
+        const next = { ...prev }
+        for (const [id, value] of known) next[id] = value
+        return next
+      })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [jobs])
 
-  const stats = useMemo(
-    () => ({
-      total: jobs.length,
-      running: jobs.filter((j) => inFlight.includes(j.status)).length,
-      completed: jobs.filter((j) => j.status === "completed").length,
-      failed: jobs.filter((j) => j.status === "failed").length,
-    }),
-    [jobs]
-  )
+  const filtered = useMemo(() => {
+    const needle = q.trim().toLowerCase()
+    return jobs.filter((j) => {
+      if (filter !== "all") {
+        const bucket: FilterKey =
+          j.status === "completed" ? "done" : j.status === "failed" || j.status === "cancelled" ? "failed" : "active"
+        if (bucket !== filter) return false
+      }
+      if (!needle) return true
+      const host = hostOf(j.url).toLowerCase()
+      return j.url.toLowerCase().includes(needle) || host.includes(needle) || j.id.toLowerCase().includes(needle)
+    })
+  }, [jobs, q, filter])
 
-  const handleCancel = async (id: string) => {
-    if (!confirm("Interromper esta extração? O que já foi baixado será descartado.")) return
+  const stats = useMemo(() => {
+    const at = (job: Job) => new Date(job.created_at).getTime()
+    const now = new Date()
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+    const yesterdayStart = todayStart - DAY_MS
+
+    const today = jobs.filter((j) => at(j) >= todayStart).length
+    const yesterday = jobs.filter((j) => at(j) >= yesterdayStart && at(j) < todayStart).length
+    const delta = yesterday > 0 ? Math.round(((today - yesterday) / yesterday) * 100) : null
+
+    const active = jobs.filter((j) => inFlight.includes(j.status))
+    const breakdown = [
+      { n: active.filter((j) => j.status === "running").length, what: "baixando" },
+      { n: active.filter((j) => j.status === "processing").length, what: "organizando" },
+      { n: active.filter((j) => j.status === "probing").length, what: "analisando" },
+      { n: active.filter((j) => j.status === "pending").length, what: "na fila" },
+    ].filter((part) => part.n > 0)
+
+    const completed = jobs.filter((j) => j.status === "completed").length
+    const files = jobs.reduce((sum, j) => sum + (results[j.id]?.files ?? 0), 0)
+
+    const weekAgo = Date.now() - 7 * DAY_MS
+    const settled = jobs.filter((j) => at(j) >= weekAgo && (j.status === "completed" || j.status === "failed"))
+    const rate = settled.length ? settled.filter((j) => j.status === "completed").length / settled.length : null
+
+    return {
+      today,
+      delta,
+      yesterday,
+      active: active.length,
+      breakdown,
+      completed,
+      files,
+      rate,
+      settled: settled.length,
+    }
+  }, [jobs, results])
+
+  const handleCancel = async (job: Job) => {
     try {
-      await api.cancelJob(id)
-      fetchJobs()
+      await api.cancelJob(job.id)
+      toast("Execução interrompida.")
+      await fetchJobs()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      toast(e instanceof Error ? e.message : String(e), "err")
+    }
+  }
+
+  const handleRerun = async (job: Job) => {
+    try {
+      await api.createJob({ url: job.url, mode: job.mode, max_depth: job.max_depth })
+      toast("Nova execução criada.")
+      await fetchJobs()
+    } catch (e) {
+      toast(e instanceof Error ? e.message : String(e), "err")
     }
   }
 
   return (
-    <div className="space-y-6 animate-[slide-in_0.3s_ease]">
+    <div className="view-grid">
       <Topbar
         title="Execuções"
         description="Cada vez que você baixa um site ou extrai dados, aparece aqui. Clique em uma linha para ver os detalhes."
         action={
           <>
-            <Button variant="outline" size="sm" onClick={() => fetchJobs()} title="Buscar a lista novamente agora">
-              <RefreshCw className="h-3.5 w-3.5" /> Atualizar
+            <Button variant="secondary" size="sm" onClick={() => fetchJobs()} title="Buscar a lista novamente agora">
+              <RefreshCw className="ic ic-sm" aria-hidden="true" /> Atualizar
             </Button>
             <Button
               variant="secondary"
               size="sm"
               onClick={() => setPolling((p) => !p)}
+              aria-pressed={polling}
               title="Atualização automática da lista a cada 5 segundos"
             >
-              <div className={cn("h-2 w-2 rounded-full", polling ? "bg-emerald-500 animate-pulse" : "bg-zinc-400")} />
+              <span
+                className={cn("h-2 w-2 rounded-full", polling ? "bg-emerald-500 animate-pulse" : "bg-zinc-400")}
+                aria-hidden="true"
+              />
               {polling ? "Ao vivo" : "Pausado"}
             </Button>
             <Link href="/probe">
               <Button size="sm">
-                <Play className="h-3.5 w-3.5" /> Nova extração
+                <Play className="ic ic-sm" aria-hidden="true" /> Nova extração
               </Button>
             </Link>
           </>
         }
       />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard label="Total" value={stats.total} icon={<Layers className="h-4 w-4" />} />
+      <StatStrip columns={4}>
+        <StatCard
+          label="Execuções hoje"
+          value={formatNumber(stats.today)}
+          trend={
+            stats.delta === null
+              ? stats.today > 0
+                ? "nenhuma execução ontem"
+                : undefined
+              : `${stats.delta >= 0 ? "+" : ""}${stats.delta}% vs. ontem`
+          }
+          trendDirection={stats.delta === null ? undefined : stats.delta >= 0 ? "up" : "down"}
+          icon={<Activity className="ic ic-sm" aria-hidden="true" />}
+        />
         <StatCard
           label="Em andamento"
-          value={stats.running}
-          icon={<Clock3 className="h-4 w-4" />}
-          className={stats.running ? "ring-1 ring-amber-500/20" : ""}
+          value={formatNumber(stats.active)}
+          trend={
+            stats.breakdown.length
+              ? stats.breakdown.map((part) => `${part.n} ${part.what}`).join(" · ")
+              : "nada em andamento agora"
+          }
         />
-        <StatCard label="Concluídas" value={stats.completed} icon={<CheckCircle2 className="h-4 w-4" />} />
         <StatCard
-          label="Falhas"
-          value={stats.failed}
-          icon={<AlertCircle className="h-4 w-4" />}
-          className={stats.failed ? "ring-1 ring-red-500/20" : ""}
+          label="Concluídas"
+          value={formatNumber(stats.completed)}
+          trend={stats.files > 0 ? `${formatNumber(stats.files)} arquivos no total` : undefined}
         />
+        <StatCard
+          label="Taxa de sucesso"
+          value={stats.rate === null ? "—" : `${Math.round(stats.rate * 100)}%`}
+          trend={
+            stats.settled === 0
+              ? "últimos 7 dias · sem execuções concluídas"
+              : `últimos 7 dias · ${stats.settled} execuções`
+          }
+        />
+      </StatStrip>
+
+      <div className="toolbar">
+        <div className="search-wrap">
+          <Search className="ic" aria-hidden="true" />
+          <input
+            className="input"
+            id="job-search"
+            type="search"
+            placeholder="Buscar por URL ou domínio…"
+            aria-label="Buscar execuções"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+        </div>
+        <div className="filter-rail" role="group" aria-label="Filtrar por status">
+          {FILTERS.map((f) => (
+            <Chip key={f.key} active={filter === f.key} onClick={() => setFilter(f.key)}>
+              {f.dot ? (
+                <span
+                  className="dot"
+                  style={{ width: 7, height: 7, borderRadius: "50%", background: f.dot, display: "inline-block" }}
+                  aria-hidden="true"
+                />
+              ) : (
+                <Filter className="ic" aria-hidden="true" />
+              )}
+              {f.label}
+            </Chip>
+          ))}
+        </div>
       </div>
 
-      {jobs.length > 0 && (
-        <Card>
-          <CardContent className="p-4 flex flex-col md:flex-row gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <input
-                placeholder="Buscar por endereço ou identificador…"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                className="h-9 w-full rounded-[10px] border bg-background pl-9 pr-3 text-[13.5px] focus:outline-none focus:ring-2 focus:ring-ring"
-              />
-            </div>
-            <div className="flex gap-1.5 overflow-auto">
-              {statusFilters.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => setStatus(s)}
-                  className={cn(
-                    "h-9 px-3 rounded-[10px] text-[12.5px] font-medium whitespace-nowrap border transition-all",
-                    status === s ? "bg-primary text-primary-foreground border-primary shadow-sm" : "bg-card hover:bg-accent"
+      <div className="list-meta">
+        <span>
+          {filtered.length} {filtered.length === 1 ? "execução" : "execuções"}
+        </span>
+        <span>As capturas ficam guardadas por 24 horas</span>
+      </div>
+
+      {loading ? (
+        <div className="stack-sm" aria-hidden="true">
+          <Skeleton className="h-[78px]" />
+          <Skeleton className="h-[78px]" />
+          <Skeleton className="h-[78px]" />
+        </div>
+      ) : error && jobs.length === 0 ? (
+        <EmptyState
+          icon={<AlertTriangle className="ic" aria-hidden="true" />}
+          title="Não foi possível falar com o servidor"
+          description={`${error} Verifique se a API está rodando (./zfrog dev) e tente de novo.`}
+          action={{ label: "Tentar de novo", onClick: () => void fetchJobs() }}
+        />
+      ) : jobs.length === 0 ? (
+        <EmptyState
+          icon={<Play className="ic" aria-hidden="true" />}
+          title="Nenhuma extração ainda"
+          description="O zfrog copia sites para o seu computador e extrai dados de páginas. Comece informando o endereço de um site para ver a primeira execução aqui."
+          href={{ label: "Nova extração", href: "/probe" }}
+        />
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          icon={<SearchX className="ic" aria-hidden="true" />}
+          title="Nenhuma execução encontrada"
+          description="Ajuste a busca ou o filtro de status. Se ainda não há nada aqui, comece baixando um site."
+          action={{
+            label: "Limpar filtros",
+            onClick: () => {
+              setQ("")
+              setFilter("all")
+            },
+          }}
+        />
+      ) : (
+        <div className="job-list" role="list">
+          {filtered.map((job) => {
+            const host = hostOf(job.url)
+            const mode = MODES[job.mode as JobMode]
+            const result = results[job.id]
+            const sub: React.ReactNode[] = [
+              <span key="mode">{mode?.label ?? job.mode}</span>,
+              <span key="depth">profundidade {job.max_depth}</span>,
+            ]
+            if (result) {
+              sub.push(<span key="files">{formatNumber(result.files)} arquivos</span>)
+              sub.push(<span key="size">{formatBytes(result.bytes)}</span>)
+            }
+            sub.push(<span key="when">{timeAgo(job.created_at)}</span>)
+            const running = inFlight.includes(job.status)
+
+            return (
+              <article key={job.id} className="job-row" role="listitem">
+                <div className="job-favicon" aria-hidden="true">
+                  {faviconLetter(host)}
+                </div>
+                <div className="job-meta">
+                  <div className="od-row" style={{ "--od-gap": "8px", flexWrap: "wrap" } as React.CSSProperties}>
+                    <Link
+                      href={`/jobs/${job.id}`}
+                      className="job-url od-truncate"
+                      style={{ flex: "1 1 240px" }}
+                      title={`${job.url} · ${STATUS_HELP[job.status]}`}
+                    >
+                      {host}
+                    </Link>
+                    <StatusBadge status={job.status} />
+                  </div>
+                  <span className="job-sub">
+                    {sub.flatMap((node, index) =>
+                      index === 0 ? [node] : [<span key={`sep-${index}`} aria-hidden="true">·</span>, node]
+                    )}
+                  </span>
+                </div>
+                <div className="job-actions">
+                  <Link href={`/jobs/${job.id}`}>
+                    <Button size="sm" variant="secondary">
+                      <Eye className="ic ic-sm" aria-hidden="true" /> Ver
+                    </Button>
+                  </Link>
+                  {job.status === "completed" ? (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="icon-btn"
+                      aria-label={`Baixar pacote de ${host}`}
+                      title="Baixar o pacote ZIP"
+                      onClick={() => window.open(api.downloadUrl(job.id), "_blank")}
+                    >
+                      <Download className="ic ic-sm" aria-hidden="true" />
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="icon-btn"
+                      aria-label={`Reexecutar ${host}`}
+                      title="Reexecutar com o mesmo endereço e modo"
+                      onClick={() => void handleRerun(job)}
+                    >
+                      <RotateCw className="ic ic-sm" aria-hidden="true" />
+                    </Button>
                   )}
-                >
-                  {filterLabels[s]}
-                </button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                  {running && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="icon-btn"
+                      aria-label={`Interromper execução de ${host}`}
+                      title={`Interromper — ${STATUS_LABELS[job.status]}`}
+                      onClick={() => setConfirming(job)}
+                    >
+                      <X className="ic ic-sm" aria-hidden="true" />
+                    </Button>
+                  )}
+                </div>
+              </article>
+            )
+          })}
+        </div>
       )}
 
-      <Card className="overflow-hidden">
-        {loading ? (
-          <div className="p-4 space-y-3">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <Skeleton key={i} className="h-14 w-full" />
-            ))}
-          </div>
-        ) : error && jobs.length === 0 ? (
-          <div className="p-8 text-center">
-            <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-destructive/10 text-destructive mb-3">
-              <AlertCircle className="h-5 w-5" />
-            </div>
-            <p className="text-[14px] font-medium">Não foi possível falar com o servidor</p>
-            <p className="text-[13px] text-muted-foreground mt-1">{error}</p>
-            <p className="text-[12.5px] text-muted-foreground mt-2">
-              Verifique se a API está rodando (<span className="font-mono">./zfrog dev</span>).
-            </p>
-            <Button size="sm" variant="outline" className="mt-4" onClick={fetchJobs}>
-              Tentar de novo
-            </Button>
-          </div>
-        ) : jobs.length === 0 ? (
-          <FirstRun />
-        ) : filtered.length === 0 ? (
-          <div className="p-8 text-center">
-            <SearchX className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
-            <p className="text-[14px] font-medium">Nenhuma execução encontrada</p>
-            <p className="text-[13px] text-muted-foreground mt-1">
-              Nada corresponde a esse filtro ou busca.
-            </p>
-            <Button
-              size="sm"
-              variant="outline"
-              className="mt-4"
-              onClick={() => {
-                setQ("")
-                setStatus("all")
-              }}
-            >
-              Limpar filtros
-            </Button>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="border-b bg-muted/30 text-[11px] uppercase tracking-widest text-muted-foreground">
-                  <th className="px-4 py-3 font-medium">Identificador</th>
-                  <th className="px-4 py-3 font-medium">Endereço</th>
-                  <th className="px-4 py-3 font-medium">Modo</th>
-                  <th className="px-4 py-3 font-medium">Situação</th>
-                  <th className="px-4 py-3 font-medium">Quando</th>
-                  <th className="px-4 py-3 font-medium text-right">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/60">
-                {filtered.map((job) => (
-                  <tr key={job.id} className="group hover:bg-accent/50 transition-colors">
-                    <td className="px-4 py-3">
-                      <Link
-                        href={`/jobs/${job.id}`}
-                        className="font-mono text-[12.5px] font-medium bg-secondary px-2 py-1 rounded-[8px] group-hover:bg-primary group-hover:text-primary-foreground transition-colors"
-                        title={job.id}
-                      >
-                        {job.id.slice(0, 8)}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 max-w-[320px]">
-                      <div className="flex items-center gap-2">
-                        <Globe className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                        <span className="text-[13px] truncate" title={job.url}>
-                          {job.url.length > 48 ? job.url.slice(0, 48) + "…" : job.url}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className="inline-flex items-center gap-1.5 rounded-[8px] bg-secondary px-2 py-1 text-[11px] font-medium whitespace-nowrap"
-                        title={MODES[job.mode as JobMode]?.what}
-                      >
-                        {MODES[job.mode as JobMode]?.icon} {MODES[job.mode as JobMode]?.label ?? job.mode}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3" title={STATUS_HELP[job.status]}>
-                      <StatusBadge status={job.status} size="sm" />
-                    </td>
-                    <td className="px-4 py-3 text-[12.5px] text-muted-foreground whitespace-nowrap">
-                      {timeAgo(job.created_at)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex justify-end gap-1">
-                        {job.status === "completed" && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => window.open(api.downloadUrl(job.id), "_blank")}
-                            title="Baixar o arquivo ZIP"
-                          >
-                            <Download className="h-4 w-4" />
-                          </Button>
-                        )}
-                        {inFlight.includes(job.status) && (
-                          <Button variant="ghost" size="icon" onClick={() => handleCancel(job.id)} title="Interromper">
-                            <X className="h-4 w-4" />
-                          </Button>
-                        )}
-                        <Link href={`/jobs/${job.id}`}>
-                          <Button variant="ghost" size="icon" title="Ver detalhes">
-                            <ExternalLink className="h-4 w-4" />
-                          </Button>
-                        </Link>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
-    </div>
-  )
-}
-
-function FirstRun() {
-  const steps = [
-    {
-      n: 1,
-      title: "Informe o endereço do site",
-      body: "Cole o link da página que você quer copiar, começando com https://.",
-    },
-    {
-      n: 2,
-      title: "Escolha o que quer receber",
-      body: "Site completo, página única, site com JavaScript ou tabela de dados.",
-    },
-    {
-      n: 3,
-      title: "Baixe o resultado",
-      body: "Quando terminar, o botão de download aparece nesta lista.",
-    },
-  ]
-
-  return (
-    <div className="p-8">
-      <div className="text-center mb-6">
-        <div className="inline-flex h-12 w-12 items-center justify-center rounded-[14px] bg-primary/10 text-primary mb-3">
-          <Play className="h-6 w-6" />
-        </div>
-        <h3 className="text-[16px] font-semibold">Nenhuma extração ainda</h3>
-        <p className="text-[13.5px] text-muted-foreground mt-1 max-w-md mx-auto">
-          O Zfrog copia sites para o seu computador e extrai dados de páginas. Veja como começar:
-        </p>
-      </div>
-
-      <div className="grid md:grid-cols-3 gap-3 max-w-3xl mx-auto">
-        {steps.map((s) => (
-          <div key={s.n} className="rounded-[12px] border bg-card/50 p-4">
-            <div className="h-7 w-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-[12px] font-semibold mb-2">
-              {s.n}
-            </div>
-            <p className="text-[13px] font-medium">{s.title}</p>
-            <p className="text-[12px] text-muted-foreground mt-1 leading-relaxed">{s.body}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-6">
-        <Link href="/probe">
-          <Button>
-            Começar primeira extração <ArrowRight className="h-4 w-4" />
-          </Button>
-        </Link>
-        <Link href="/ajuda">
-          <Button variant="outline">Ver o guia</Button>
-        </Link>
-      </div>
+      <Modal
+        open={confirming !== null}
+        title="Interromper esta captura?"
+        body={
+          confirming
+            ? `A execução de ${hostOf(confirming.url)} será cancelada e o que já foi baixado será descartado.`
+            : ""
+        }
+        confirmLabel="Interromper"
+        danger
+        onConfirm={() => {
+          const job = confirming
+          setConfirming(null)
+          if (job) void handleCancel(job)
+        }}
+        onClose={() => setConfirming(null)}
+      />
     </div>
   )
 }

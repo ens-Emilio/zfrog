@@ -1,25 +1,17 @@
 "use client"
-import { useEffect, useState } from "react"
+
+import { useEffect, useState, type CSSProperties } from "react"
 import { api, WorkerInfo, WorkerStats } from "@/lib/api"
 import { Topbar } from "@/components/Navbar"
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { StatCard } from "@/components/ui/stat-card"
+import { Badge } from "@/components/ui/badge"
+import { StatCard, StatStrip } from "@/components/ui/stat-card"
+import { Skeleton } from "@/components/ui/skeleton"
+import { EmptyState } from "@/components/ui/empty"
+import { Chip } from "@/components/ui/ds"
+import { Icon } from "@/lib/icons"
 import { timeAgo } from "@/lib/utils"
-import {
-  Cpu,
-  Wifi,
-  WifiOff,
-  Boxes,
-  Activity,
-  Gauge,
-  Server,
-  Compass,
-  Globe2,
-  RefreshCw,
-  AlertTriangle,
-} from "lucide-react"
 
 /**
  * Máquinas que processam as cópias e as regiões onde elas ficam. Quando há mais
@@ -51,6 +43,49 @@ function regionRows(byRegion: Record<string, number | RegionBucket>): RegionRow[
     .sort((a, b) => b.workers - a.workers || a.region.localeCompare(b.region))
 }
 
+/**
+ * A situação de uma máquina, na ordem em que ela importa: uma máquina desligada
+ * está em manutenção mesmo que ainda esteja respondendo, e uma que parou de
+ * responder não recebe trabalho nem tem vagas para oferecer.
+ */
+type WorkerState = { label: string; variant: "accent" | "success" | "warning" | "danger"; help: string }
+
+function workerState(worker: WorkerInfo): WorkerState {
+  if (!worker.enabled) {
+    return {
+      label: "Manutenção",
+      variant: "warning",
+      help: "Desativada de propósito: não recebe novas cópias.",
+    }
+  }
+  if (!worker.alive) {
+    return {
+      label: "Sem resposta",
+      variant: "danger",
+      help: "Parou de mandar sinal de vida; não recebe novas cópias.",
+    }
+  }
+  if (Math.max(0, worker.capacity - worker.running) === 0) {
+    return {
+      label: "Ocupado",
+      variant: "accent",
+      help: "Todas as vagas estão em uso agora.",
+    }
+  }
+  return {
+    label: "Livre",
+    variant: "success",
+    help: "Respondendo e com vaga sobrando.",
+  }
+}
+
+/** Data e hora completas, para o `title` e para o painel de detalhes. */
+function fullStamp(value: string): string {
+  if (!value) return "—"
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString("pt-BR")
+}
+
 export default function WorkersPage() {
   const [stats, setStats] = useState<WorkerStats | null>(null)
   const [workers, setWorkers] = useState<WorkerInfo[]>([])
@@ -58,6 +93,7 @@ export default function WorkersPage() {
   const [region, setRegion] = useState("")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [expanded, setExpanded] = useState<string | null>(null)
 
   const [url, setUrl] = useState("")
   const [assignRegion, setAssignRegion] = useState("")
@@ -111,15 +147,18 @@ export default function WorkersPage() {
   }
 
   const rows = stats ? regionRows(stats.by_region) : []
+  const maintenance = workers.filter((worker) => !worker.enabled).length
+  const occupancy = stats && stats.capacity > 0 ? Math.round((stats.running / stats.capacity) * 100) : 0
 
   return (
-    <div className="space-y-6 max-w-[1100px] animate-[slide-in_0.3s_ease]">
+    <div className="view-grid">
       <Topbar
         title="Workers"
         description="Um worker é uma máquina que processa as cópias; a região dele decide onde os dados são tratados."
         action={
-          <Button onClick={() => fetchWorkers(region)} loading={loading} size="sm" variant="outline">
-            <RefreshCw className="h-4 w-4" /> Atualizar
+          <Button variant="secondary" size="sm" onClick={() => fetchWorkers(region)} loading={loading}>
+            <Icon name="i-refresh" size="sm" />
+            Atualizar
           </Button>
         }
       />
@@ -131,312 +170,286 @@ export default function WorkersPage() {
       </datalist>
 
       {error && (
-        <Card className="border-destructive/20 bg-destructive/5">
-          <CardContent className="p-4 text-[13px] text-destructive">
-            <p className="font-medium">Não foi possível carregar os workers.</p>
-            <p className="mt-1">{error}</p>
-            <p className="mt-1 text-muted-foreground">
-              Confira se o sistema está no ar e clique em <strong className="text-foreground/80">Atualizar</strong>.
-            </p>
-          </CardContent>
-        </Card>
+        <div className="card" role="alert">
+          <h3 className="card-title">Não foi possível carregar os workers.</h3>
+          <p className="card-sub" style={{ marginTop: "var(--sp-2)" }}>
+            {error}
+          </p>
+          <div className="od-row" style={{ marginTop: "var(--sp-4)" }}>
+            <Button size="sm" onClick={() => fetchWorkers(region)} loading={loading}>
+              <Icon name="i-refresh" size="sm" />
+              Tentar de novo
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {!stats && !error && (
+        <StatStrip>
+          {[0, 1, 2, 3].map((index) => (
+            <div className="stat" key={index}>
+              <Skeleton className="h-7 w-16" />
+              <Skeleton className="h-3 w-24" style={{ marginTop: "var(--sp-2)" }} />
+            </div>
+          ))}
+        </StatStrip>
       )}
 
       {stats && (
         <>
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+          <StatStrip>
             <StatCard
               label="Workers"
               value={stats.workers}
-              icon={<Cpu className="h-4 w-4" />}
-              trend="registrados"
+              trend={rows.length === 1 ? "1 região" : `${rows.length} regiões`}
             />
             <StatCard
-              label="Vivos"
-              value={stats.alive}
-              icon={<Wifi className="h-4 w-4" />}
-              trend="respondendo"
-              className={stats.alive > 0 ? "ring-1 ring-emerald-500/20" : undefined}
-            />
-            <StatCard
-              label="Capacidade"
-              value={stats.capacity}
-              icon={<Boxes className="h-4 w-4" />}
-              trend="vagas no total"
-            />
-            <StatCard
-              label="Em uso"
+              label="Execuções rodando"
               value={stats.running}
-              icon={<Activity className="h-4 w-4" />}
-              trend="rodando agora"
+              trend={`${stats.free} ${stats.free === 1 ? "vaga livre" : "vagas livres"}`}
             />
             <StatCard
-              label="Livres"
-              value={stats.free}
-              icon={<Gauge className="h-4 w-4" />}
-              trend="vagas sobrando"
-              className={stats.free > 0 ? "ring-1 ring-emerald-500/20" : undefined}
+              label="Ocupação média"
+              value={`${occupancy}%`}
+              trend={`${stats.alive} ${stats.alive === 1 ? "máquina viva" : "máquinas vivas"}`}
             />
-          </div>
+            <StatCard
+              label="Em manutenção"
+              value={maintenance}
+              trend={maintenance > 0 ? "fora da fila" : "nenhuma parada"}
+            />
+          </StatStrip>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Compass className="h-4 w-4" /> Por região
-              </CardTitle>
-              <CardDescription>
-                Quantas máquinas vivas cada região tem e quantas vagas ainda sobram nelas. A capacidade que aparece
-                aqui é só das máquinas que estão respondendo.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {rows.length === 0 ? (
-                <div className="rounded-[12px] border border-dashed p-8 text-center">
-                  <Compass className="h-7 w-7 mx-auto text-muted-foreground/40 mb-2" />
-                  <p className="text-[13px] font-medium">Nenhuma região com máquina viva</p>
-                  <p className="text-[12.5px] text-muted-foreground mt-1">
-                    Assim que uma máquina se registrar e mandar sinal de vida, a região dela aparece aqui.
-                  </p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                  {rows.map((row) => (
-                    <div key={row.region} className="rounded-[12px] border bg-secondary/40 p-3">
-                      <p className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium break-all">
-                        {row.region}
-                      </p>
-                      <p className="text-[20px] font-semibold tabular-nums">{row.workers}</p>
-                      <p className="text-[11.5px] text-muted-foreground">
-                        {row.capacity > 0
-                          ? `${row.free} de ${row.capacity} vagas livres`
-                          : `${row.workers === 1 ? "máquina viva" : "máquinas vivas"}`}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <div className="card">
+            <h3 className="card-title" style={{ marginBottom: "var(--sp-2)" }}>
+              Por região
+            </h3>
+            <p className="card-sub" style={{ marginBottom: "var(--sp-4)" }}>
+              Quantas máquinas vivas cada região tem e quantas vagas ainda sobram nelas. A capacidade aqui é só das
+              máquinas que estão respondendo.
+            </p>
+            {rows.length === 0 ? (
+              <EmptyState
+                icon={<Icon name="i-globe" size="lg" />}
+                title="Nenhuma região com máquina viva"
+                description="Assim que uma máquina se registrar e mandar sinal de vida, a região dela aparece aqui."
+              />
+            ) : (
+              <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
+                {rows.map((row) => (
+                  <div className="stat" key={row.region}>
+                    <span className="stat-value">{row.workers}</span>
+                    <span className="stat-label mono od-truncate" title={row.region}>
+                      {row.region || "sem região"}
+                    </span>
+                    <span className="stat-trend">
+                      {row.capacity > 0
+                        ? `${row.free} de ${row.capacity} vagas livres`
+                        : `${row.workers === 1 ? "máquina viva" : "máquinas vivas"}`}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Cpu className="h-4 w-4" /> Máquinas
-          </CardTitle>
-          <CardDescription>
-            {region
-              ? `Mostrando só a região ${region}. Os números do topo continuam sendo do sistema inteiro.`
-              : "Todas as máquinas registradas. As que param de mandar sinal de vida ficam marcadas em vermelho."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-wrap gap-2">
-            {[{ value: "", label: "Todas" }, ...regions.map((name) => ({ value: name, label: name }))].map(
-              (option) => (
-                <button
-                  key={option.value || "all"}
-                  type="button"
-                  onClick={() => {
-                    setRegion(option.value)
-                    fetchWorkers(option.value)
-                  }}
-                  aria-pressed={region === option.value}
-                  className={`rounded-[10px] border px-3 py-1.5 text-[12.5px] font-medium transition-all ${
-                    region === option.value
-                      ? "border-primary bg-primary/5 ring-1 ring-primary/20"
-                      : "text-muted-foreground hover:bg-accent"
-                  }`}
+      <div className="card">
+        <h3 className="card-title" style={{ marginBottom: "var(--sp-2)" }}>
+          Máquinas
+        </h3>
+        <p className="card-sub" style={{ marginBottom: "var(--sp-4)" }}>
+          {region
+            ? `Mostrando só a região ${region}. Os números do topo continuam sendo do sistema inteiro.`
+            : "Todas as máquinas registradas. Uma máquina parada de responder fica marcada como sem resposta."}
+        </p>
+
+        <div className="filter-rail" style={{ marginBottom: "var(--sp-4)" }}>
+          {[{ value: "", label: "Todas" }, ...regions.map((name) => ({ value: name, label: name }))].map((option) => (
+            <Chip
+              key={option.value || "all"}
+              active={region === option.value}
+              onClick={() => {
+                setRegion(option.value)
+                void fetchWorkers(option.value)
+              }}
+            >
+              {option.label}
+            </Chip>
+          ))}
+        </div>
+
+        {loading && workers.length === 0 && !error && (
+          <div className="job-list">
+            {[0, 1, 2].map((index) => (
+              <Skeleton key={index} className="h-[78px] w-full" />
+            ))}
+          </div>
+        )}
+
+        {!loading && !error && workers.length === 0 && (
+          <EmptyState
+            icon={<Icon name="i-server" size="lg" />}
+            title={region ? "Nenhum worker nessa região" : "Nenhum worker registrado"}
+            description={
+              region
+                ? "Troque o filtro para ver as outras regiões, ou registre uma máquina nessa região."
+                : "Nenhuma máquina se apresentou ao sistema ainda. Sem worker, as cópias são processadas no próprio servidor."
+            }
+            action={region ? { label: "Ver todas as regiões", onClick: () => { setRegion(""); void fetchWorkers("") } } : undefined}
+          />
+        )}
+
+        {workers.length > 0 && (
+          <div className="job-list">
+            {workers.map((worker) => {
+              const free = Math.max(0, worker.capacity - worker.running)
+              const state = workerState(worker)
+              const open = expanded === worker.id
+              const detailsId = `worker-details-${worker.id}`
+              return (
+                <article
+                  key={worker.id}
+                  className="job-row"
+                  style={{ gridTemplateColumns: "minmax(0, 1fr) auto" }}
                 >
-                  {option.label}
-                </button>
+                  <div className="job-meta">
+                    <div className="od-row" style={{ "--od-gap": "8px" } as CSSProperties}>
+                      <span className="job-url mono od-truncate" title={worker.id}>
+                        {worker.id}
+                      </span>
+                      <Badge variant={state.variant} className="od-fixed" title={state.help}>
+                        <span className="dot" aria-hidden="true" />
+                        {state.label}
+                      </Badge>
+                    </div>
+                    <span className="job-sub">
+                      <span>{worker.region || "sem região"}</span>
+                      <span aria-hidden="true">·</span>
+                      <span>
+                        {worker.running} de {worker.capacity} em uso
+                      </span>
+                      <span aria-hidden="true">·</span>
+                      <span title={fullStamp(worker.last_seen)}>
+                        {worker.alive ? `visto ${timeAgo(worker.last_seen)}` : `sem sinal desde ${timeAgo(worker.last_seen)}`}
+                      </span>
+                    </span>
+                  </div>
+
+                  <div className="job-actions">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      aria-expanded={open}
+                      aria-controls={open ? detailsId : undefined}
+                      onClick={() => setExpanded(open ? null : worker.id)}
+                    >
+                      {open ? "Fechar" : "Detalhes"}
+                    </Button>
+                  </div>
+
+                  {open && (
+                    <dl className="kv" id={detailsId} style={{ gridColumn: "1 / -1" }}>
+                      <dt>Situação</dt>
+                      <dd>{state.label} — {state.help}</dd>
+                      <dt>Região</dt>
+                      <dd className="mono">{worker.region || "—"}</dd>
+                      <dt>Capacidade</dt>
+                      <dd>
+                        {worker.capacity} {worker.capacity === 1 ? "execução ao mesmo tempo" : "execuções ao mesmo tempo"}
+                      </dd>
+                      <dt>Em uso</dt>
+                      <dd>
+                        {worker.running} em andamento · {free} {free === 1 ? "vaga livre" : "vagas livres"}
+                      </dd>
+                      <dt>Versão</dt>
+                      <dd className="mono">{worker.version || "—"}</dd>
+                      <dt>Etiquetas</dt>
+                      <dd>{worker.tags.length > 0 ? worker.tags.join(", ") : "—"}</dd>
+                      <dt>Registrada em</dt>
+                      <dd>{fullStamp(worker.started_at)}</dd>
+                      <dt>Último sinal de vida</dt>
+                      <dd>{worker.last_seen ? fullStamp(worker.last_seen) : "nunca"}</dd>
+                      <dt>Recebe novas cópias</dt>
+                      <dd>{worker.enabled ? "sim" : "não"}</dd>
+                    </dl>
+                  )}
+                </article>
               )
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="card">
+        <h3 className="card-title" style={{ marginBottom: "var(--sp-2)" }}>
+          Onde este site seria processado?
+        </h3>
+        <p className="card-sub" style={{ marginBottom: "var(--sp-4)" }}>
+          Mostra qual máquina pegaria o trabalho de um site, em qual região e por quê. A escolha sai da região do site;
+          se lá não houver máquina livre, o sistema usa outra e diz o motivo.
+        </p>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Input
+            label="Endereço do site"
+            placeholder="https://exemplo.com"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && void handleAssign()}
+            leftIcon={<Icon name="i-globe" size="sm" />}
+            hint="O mesmo endereço que você usaria em Nova extração."
+          />
+          <Input
+            label="Região (opcional)"
+            placeholder="ex.: br"
+            list="worker-regions"
+            value={assignRegion}
+            onChange={(e) => setAssignRegion(e.target.value)}
+            hint="Em branco, a região vem do próprio site."
+          />
+        </div>
+
+        <div className="od-row" style={{ marginTop: "var(--sp-4)" }}>
+          <Button onClick={() => void handleAssign()} loading={assigning} disabled={!url.trim()}>
+            <Icon name="i-target" size="sm" />
+            Ver
+          </Button>
+        </div>
+
+        {assignError && (
+          <div className="od-stack" style={{ marginTop: "var(--sp-4)", "--od-gap": "4px" } as CSSProperties}>
+            <p className="error-text">
+              <Icon name="i-alert" size="sm" />
+              Não foi possível descobrir onde este site seria processado.
+            </p>
+            <p className="hint">{assignError}</p>
+          </div>
+        )}
+
+        {assignment && (
+          <div className="od-stack" style={{ marginTop: "var(--sp-4)", "--od-gap": "6px" } as CSSProperties}>
+            <div className="od-cluster" style={{ "--od-gap": "var(--sp-2)" } as CSSProperties}>
+              <Badge variant={assignment.worker ? "success" : "warning"}>
+                <span className="dot" aria-hidden="true" />
+                {assignment.worker ? "Com worker" : "Sem worker livre"}
+              </Badge>
+              <span className="mono text-[var(--fs-13)] text-[var(--text-2)]">
+                {assignment.worker ?? "processado no próprio servidor"}
+              </span>
+            </div>
+            <p className="hint">
+              Região: <span className="mono">{assignment.region || "—"}</span> · Motivo: {assignment.reason}
+            </p>
+            {!assignment.worker && (
+              <p className="hint">
+                Sem máquina livre, a cópia roda no próprio servidor até alguém registrar um worker.
+              </p>
             )}
           </div>
-
-          {!loading && !error && workers.length === 0 && (
-            <div className="rounded-[12px] border border-dashed p-12 text-center">
-              <div className="h-12 w-12 rounded-[14px] bg-secondary flex items-center justify-center mx-auto mb-4">
-                <Cpu className="h-6 w-6 text-muted-foreground" />
-              </div>
-              <h3 className="text-[15px] font-semibold">
-                {region ? "Nenhum worker nessa região" : "Nenhum worker registrado"}
-              </h3>
-              <p className="text-[13px] text-muted-foreground mt-1 max-w-md mx-auto">
-                {region
-                  ? "Troque o filtro para ver as outras regiões, ou registre uma máquina nessa região."
-                  : "Nenhuma máquina se apresentou ao sistema ainda. Sem worker, as cópias são processadas no próprio servidor."}
-              </p>
-            </div>
-          )}
-
-          {workers.length > 0 && (
-            <div className="overflow-x-auto rounded-[12px] border">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="border-b bg-muted/30 text-[11px] uppercase tracking-widest text-muted-foreground">
-                    <th className="px-4 py-3 font-medium">Id</th>
-                    <th className="px-4 py-3 font-medium">Região</th>
-                    <th className="px-4 py-3 font-medium">Situação</th>
-                    <th className="px-4 py-3 font-medium">Sinal de vida</th>
-                    <th className="px-4 py-3 font-medium">Versão</th>
-                    <th className="px-4 py-3 font-medium">Visto por último</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/60">
-                  {workers.map((worker) => {
-                    const free = Math.max(0, worker.capacity - worker.running)
-                    return (
-                      <tr key={worker.id} className="hover:bg-accent/50">
-                        <td className="px-4 py-3 text-[12.5px] font-mono break-all">{worker.id}</td>
-                        <td className="px-4 py-3 text-[12.5px]">{worker.region || "—"}</td>
-                        <td className="px-4 py-3">
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <span
-                              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium ring-1 ring-inset whitespace-nowrap ${
-                                free > 0
-                                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 ring-emerald-500/20"
-                                  : "bg-amber-500/10 text-amber-600 dark:text-amber-400 ring-amber-500/20"
-                              }`}
-                            >
-                              {free > 0 ? "Livre" : "Ocupado"}
-                            </span>
-                            <span className="text-[12px] text-muted-foreground tabular-nums">
-                              {worker.running}/{worker.capacity}
-                            </span>
-                            {!worker.enabled && (
-                              <span
-                                className="text-[11px] text-muted-foreground"
-                                title="Desativado: não recebe novas cópias."
-                              >
-                                desativado
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`inline-flex items-center gap-1.5 text-[12.5px] whitespace-nowrap ${
-                              worker.alive ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
-                            }`}
-                            title={
-                              worker.alive
-                                ? "Mandou sinal de vida há pouco."
-                                : "Parou de mandar sinal de vida; não recebe novas cópias."
-                            }
-                          >
-                            <span
-                              className={`h-2 w-2 rounded-full shrink-0 ${
-                                worker.alive ? "bg-emerald-500" : "bg-red-500"
-                              }`}
-                            />
-                            {worker.alive ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
-                            {worker.alive ? "vivo" : "sem resposta"}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-[12px] font-mono text-muted-foreground">
-                          {worker.version || "—"}
-                        </td>
-                        <td className="px-4 py-3 text-[12.5px] text-muted-foreground whitespace-nowrap">
-                          <span title={new Date(worker.last_seen).toLocaleString("pt-BR")}>
-                            {worker.last_seen ? timeAgo(worker.last_seen) : "nunca"}
-                          </span>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {loading && workers.length === 0 && !error && (
-            <div className="rounded-[12px] border border-dashed p-10 text-center">
-              <Cpu className="h-6 w-6 mx-auto text-muted-foreground/40 mb-2 animate-pulse" />
-              <p className="text-[13px] text-muted-foreground">Carregando as máquinas…</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Compass className="h-4 w-4" /> Onde este site seria processado?
-          </CardTitle>
-          <CardDescription>
-            Mostra qual máquina pegaria o trabalho de um site, em qual região e por quê. A escolha sai da região do
-            site; se lá não houver máquina livre, o sistema usa outra e diz o motivo.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
-            <div className="flex-1">
-              <Input
-                label="Endereço do site"
-                placeholder="https://exemplo.com"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleAssign()}
-                leftIcon={<Globe2 className="h-4 w-4" />}
-                hint="O mesmo endereço que você usaria em Nova extração."
-              />
-            </div>
-            <div className="sm:w-[220px]">
-              <Input
-                label="Região (opcional)"
-                placeholder="ex.: br"
-                list="worker-regions"
-                value={assignRegion}
-                onChange={(e) => setAssignRegion(e.target.value)}
-                hint="Em branco, a região vem do próprio site."
-              />
-            </div>
-            <Button onClick={handleAssign} loading={assigning} disabled={!url.trim()}>
-              <Compass className="h-4 w-4" /> Ver
-            </Button>
-          </div>
-
-          {assignError && (
-            <div className="rounded-[12px] bg-destructive/10 border border-destructive/20 p-3 text-[13px] text-destructive">
-              <p className="font-medium">Não foi possível descobrir onde este site seria processado.</p>
-              <p className="mt-1">{assignError}</p>
-            </div>
-          )}
-
-          {assignment && (
-            <div
-              className={`rounded-[12px] border p-4 text-[13px] ${
-                assignment.worker
-                  ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-400"
-                  : "bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-400"
-              }`}
-            >
-              <p className="flex items-center gap-1.5 font-medium">
-                {assignment.worker ? (
-                  <>
-                    <Server className="h-4 w-4" /> Seria processado por {assignment.worker}
-                  </>
-                ) : (
-                  <>
-                    <AlertTriangle className="h-4 w-4" /> Nenhum worker disponível agora
-                  </>
-                )}
-              </p>
-              <p className="mt-1">
-                Região: <span className="font-mono">{assignment.region || "—"}</span>
-              </p>
-              <p className="mt-0.5">Motivo: {assignment.reason}</p>
-              {!assignment.worker && (
-                <p className="mt-1 text-muted-foreground">
-                  Sem máquina livre, a cópia roda no próprio servidor até alguém registrar um worker.
-                </p>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        )}
+      </div>
     </div>
   )
 }

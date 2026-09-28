@@ -28,3 +28,37 @@ export function timeAgo(dateStr: string) {
   if (diff < 86400) return `${Math.floor(diff / 3600)}h atrás`
   return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })
 }
+
+/** Duration as the mm:ss clock the design system shows in the job metrics. */
+export function formatClock(seconds: number) {
+  if (seconds == null || isNaN(seconds)) return "—"
+  const total = Math.max(0, Math.round(seconds))
+  const m = Math.floor(total / 60)
+  const s = total % 60
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+}
+
+/** Thousands separator, pt-BR. */
+export function formatNumber(value: number) {
+  if (value == null || isNaN(value)) return "—"
+  return value.toLocaleString("pt-BR")
+}
+
+/** Percentage with no decimals, the way the stat cells show it. */
+export function formatPercent(value: number) {
+  if (value == null || isNaN(value)) return "—"
+  return `${Math.round(value)}%`
+}
+
+/** `dd/mm/aaaa · hh:mm`, the timestamp format the design system uses. */
+export function formatStamp(value: string | number | Date) {
+  const d = new Date(value)
+  if (isNaN(d.getTime())) return "—"
+  return `${d.toLocaleDateString("pt-BR")} · ${d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`
+}
+
+/** The letter shown in a `.job-favicon`, derived from the host. */
+export function faviconLetter(host: string) {
+  const first = host.replace(/^www\./, "").split(".")[0] || "?"
+  return first.charAt(0).toUpperCase()
+}

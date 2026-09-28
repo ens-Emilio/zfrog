@@ -1,19 +1,74 @@
 "use client"
-import { useEffect, useState } from "react"
+
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { api, DiffReport, SnapshotEntry } from "@/lib/api"
 import { Topbar } from "@/components/Navbar"
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { RefreshCw, History, GitCompare, FilePlus2, FileMinus2, FilePen, CheckCircle2, AlertTriangle } from "lucide-react"
+import { Select } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import { EmptyState } from "@/components/ui/empty"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Icon } from "@/lib/icons"
+import { formatStamp } from "@/lib/utils"
 
-/** How a single page fared between the two snapshots. */
-type PageChange = { path: string; kind: "added" | "removed" | "changed" | "unchanged"; diffLines?: number }
+/**
+ * Histórico de capturas de um site e comparação entre duas delas.
+ *
+ * Cada linha do tempo é uma lista de capturas guardadas; escolher duas libera a
+ * comparação, que devolve o que foi adicionado, removido, alterado e o que
+ * permaneceu igual entre a mais antiga e a mais recente das duas.
+ */
 
-const changeStyle: Record<PageChange["kind"], { label: string; className: string; icon: typeof FilePlus2 }> = {
-  added: { label: "Adicionada", className: "text-emerald-600 dark:text-emerald-400", icon: FilePlus2 },
-  removed: { label: "Removida", className: "text-red-600 dark:text-red-400", icon: FileMinus2 },
-  changed: { label: "Alterada", className: "text-amber-600 dark:text-amber-400", icon: FilePen },
-  unchanged: { label: "Igual", className: "text-muted-foreground", icon: CheckCircle2 },
+/** Quantas linhas do diff são desenhadas antes de avisar que a lista continua. */
+const MAX_ROWS = 200
+
+/** Uma linha do bloco `.diff`: o sinal, o caminho e, quando houver, as linhas mexidas. */
+type DiffRow = { kind: "add" | "del" | "same"; sign: string; path: string; lines?: number }
+
+/** Falha de leitura ou de ação: diz o que aconteceu e oferece como tentar de novo. */
+function ErrorBlock({ title, message, onRetry }: { title: string; message: string; onRetry?: () => void }) {
+  return (
+    <div className="card stack-sm" style={{ borderColor: "var(--danger)" }}>
+      <span className="badge badge-danger">
+        <span className="dot" aria-hidden="true" />
+        Erro
+      </span>
+      <h3 className="card-title">{title}</h3>
+      <p className="card-sub">{message}</p>
+      {onRetry && (
+        <div>
+          <Button variant="secondary" size="sm" className="od-touch" onClick={onRetry}>
+            <Icon name="i-refresh" size="sm" />
+            Tentar de novo
+          </Button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** A silhueta da tela enquanto as capturas chegam. */
+function PageSkeleton() {
+  return (
+    <div className="stack-lg" aria-hidden="true">
+      <div className="card">
+        <Skeleton className="h-10 w-full max-w-[320px]" />
+      </div>
+      <div className="two-col">
+        <div className="card stack-md">
+          <Skeleton className="h-4 w-32" />
+          {[0, 1, 2].map((row) => (
+            <Skeleton key={row} className="h-16 w-full" />
+          ))}
+        </div>
+        <div className="card stack-md">
+          <Skeleton className="h-4 w-28" />
+          <Skeleton className="h-3.5 w-full" />
+          <Skeleton className="h-24 w-full" />
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export default function SnapshotsPage() {
@@ -21,55 +76,80 @@ export default function SnapshotsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const [slug, setSlug] = useState<string>("")
-  const [olderRef, setOlderRef] = useState("")
-  const [newerRef, setNewerRef] = useState("")
+  const [slug, setSlug] = useState("")
 
+  /** Os `file` das duas capturas escolhidas, na ordem em que foram marcadas. */
+  const [selected, setSelected] = useState<string[]>([])
   const [report, setReport] = useState<DiffReport | null>(null)
   const [comparing, setComparing] = useState(false)
   const [compareError, setCompareError] = useState<string | null>(null)
 
-  const fetchSnapshots = async () => {
+  const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
       const data = await api.getSnapshots()
       setSnapshots(data)
-      const slugs = Array.from(new Set(data.map((s) => s.slug)))
-      setSlug((current) => (current && slugs.includes(current) ? current : slugs[0] ?? ""))
+      const slugs = Array.from(new Set(data.map((entry) => entry.slug)))
+      setSlug((current) => (current && slugs.includes(current) ? current : (slugs[0] ?? "")))
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
       setLoading(false)
     }
-  }
-
-  useEffect(() => {
-    fetchSnapshots()
   }, [])
 
-  const slugs = Array.from(new Set(snapshots.map((s) => s.slug)))
-  const forSlug = snapshots.filter((s) => s.slug === slug)
-
-  // Default to comparing the two most recent captures of the chosen site.
   useEffect(() => {
-    if (forSlug.length >= 2) {
-      const last = forSlug[forSlug.length - 1]
-      const prev = forSlug[forSlug.length - 2]
-      setOlderRef(`${prev.slug}/${prev.file}`)
-      setNewerRef(`${last.slug}/${last.file}`)
-    } else {
-      setOlderRef("")
-      setNewerRef("")
-    }
-  }, [slug, snapshots.length])
+    void load()
+  }, [load])
 
-  const handleCompare = async () => {
+  const slugs = useMemo(() => Array.from(new Set(snapshots.map((entry) => entry.slug))), [snapshots])
+
+  /** As capturas do site escolhido, da mais recente para a mais antiga. */
+  const captures = useMemo(
+    () =>
+      snapshots
+        .filter((entry) => entry.slug === slug)
+        .sort((a, b) => new Date(b.captured_at).getTime() - new Date(a.captured_at).getTime()),
+    [snapshots, slug]
+  )
+
+  // Ao trocar de site (ou recarregar a lista) a escolha volta para as duas capturas mais recentes.
+  useEffect(() => {
+    setSelected(captures.slice(0, 2).map((entry) => entry.file))
+    setReport(null)
+    setCompareError(null)
+  }, [captures])
+
+  /** Marca ou desmarca uma captura; ao marcar a terceira, a mais antiga sai. */
+  const toggleCapture = (file: string) => {
+    setReport(null)
+    setCompareError(null)
+    setSelected((previous) => {
+      if (previous.includes(file)) return previous.filter((item) => item !== file)
+      if (previous.length < 2) return [...previous, file]
+      const chosen = captures.filter((entry) => previous.includes(entry.file))
+      // `captures` vem da mais recente para a mais antiga: a última é a mais antiga marcada.
+      const keep = chosen.length ? chosen[0].file : previous[previous.length - 1]
+      return [keep, file]
+    })
+  }
+
+  const chosen = useMemo(
+    () => captures.filter((entry) => selected.includes(entry.file)),
+    [captures, selected]
+  )
+  /** Mais antiga → mais recente, que é a ordem que a comparação espera. */
+  const older = chosen.length === 2 ? chosen[1] : null
+  const newer = chosen.length === 2 ? chosen[0] : null
+
+  const compare = async () => {
+    if (!older || !newer) return
     setComparing(true)
     setCompareError(null)
     setReport(null)
     try {
-      setReport(await api.diffSnapshots(olderRef, newerRef))
+      setReport(await api.diffSnapshots(`${older.slug}/${older.file}`, `${newer.slug}/${newer.file}`))
     } catch (e) {
       setCompareError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -77,217 +157,210 @@ export default function SnapshotsPage() {
     }
   }
 
-  const selectedSite = forSlug[0]?.url
-  const pageChanges: PageChange[] = report
-    ? [
-        ...report.added.map((path) => ({ path, kind: "added" as const })),
-        ...report.removed.map((path) => ({ path, kind: "removed" as const })),
-        ...report.changed.map((path) => ({
-          path,
-          kind: "changed" as const,
-          diffLines: report.details.find((d) => d.path === path)?.text_diff_lines,
-        })),
-        ...report.unchanged.map((path) => ({ path, kind: "unchanged" as const })),
-      ]
-    : []
+  const rows: DiffRow[] = useMemo(() => {
+    if (!report) return []
+    const linesOf = (path: string) => report.details.find((detail) => detail.path === path)?.text_diff_lines
+    return [
+      ...report.added.map((path) => ({ kind: "add" as const, sign: "+", path })),
+      ...report.removed.map((path) => ({ kind: "del" as const, sign: "-", path })),
+      ...report.changed.map((path) => ({ kind: "same" as const, sign: "~", path, lines: linesOf(path) })),
+    ]
+  }, [report])
+
+  const visibleRows = rows.slice(0, MAX_ROWS)
 
   return (
-    <div className="space-y-6 max-w-[1100px] animate-[slide-in_0.3s_ease]">
+    <div className="view-grid">
       <Topbar
-        title="Histórico e mudanças"
-        description="Cada cópia de site (modo Site completo ou Site com JavaScript) guarda uma versão. Compare duas para ver o que mudou."
+        title="Histórico"
+        description="Cada cópia guardada de um site é uma captura. Escolha duas na linha do tempo para ver o que mudou entre elas."
         action={
-          <Button onClick={fetchSnapshots} loading={loading} size="sm" variant="outline">
-            <RefreshCw className="h-4 w-4" /> Atualizar
+          <Button variant="secondary" size="sm" className="od-touch" loading={loading} onClick={() => void load()}>
+            <Icon name="i-refresh" size="sm" />
+            Atualizar
           </Button>
         }
       />
 
-      {error && (
-        <Card className="border-destructive/20 bg-destructive/5">
-          <CardContent className="p-4 text-[13px] text-destructive">
-            <p className="font-medium">Não foi possível carregar o histórico.</p>
-            <p className="mt-1">{error}</p>
-          </CardContent>
-        </Card>
+      {loading && <PageSkeleton />}
+
+      {!loading && error && (
+        <ErrorBlock
+          title="Não foi possível carregar o histórico."
+          message={error}
+          onRetry={() => void load()}
+        />
       )}
 
       {!loading && !error && snapshots.length === 0 && (
-        <Card className="border-dashed">
-          <CardContent className="p-12 text-center">
-            <div className="h-12 w-12 rounded-[14px] bg-secondary flex items-center justify-center mx-auto mb-4">
-              <History className="h-6 w-6 text-muted-foreground" />
-            </div>
-            <h3 className="text-[15px] font-semibold">Nenhuma versão guardada ainda</h3>
-            <p className="text-[13px] text-muted-foreground mt-1 max-w-md mx-auto">
-              Faça uma cópia nos modos <strong>Site completo</strong> ou <strong>Site com JavaScript</strong>. Cada
-              cópia vira uma versão que pode ser comparada depois.
-            </p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={<Icon name="i-history" size="lg" />}
+          title="Nenhuma captura guardada ainda"
+          description="Faça uma extração nos modos Site completo ou Site com JavaScript. Cada cópia vira uma captura desta linha do tempo."
+          href={{ label: "Ir para Nova extração", href: "/" }}
+        />
       )}
 
-      {snapshots.length > 0 && (
+      {!loading && !error && snapshots.length > 0 && (
         <>
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <History className="h-4 w-4" /> Versões guardadas
-              </CardTitle>
-              <CardDescription>
-                {snapshots.length} versão(ões) de {slugs.length} site(s). A mais recente aparece por último.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex flex-wrap gap-2">
-                {slugs.map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => setSlug(s)}
-                    className={`rounded-[10px] border px-3 py-1.5 text-[12.5px] font-medium transition-all ${
-                      slug === s ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "hover:bg-accent"
-                    }`}
-                  >
-                    {snapshots.find((x) => x.slug === s)?.url || s}
-                  </button>
-                ))}
+          <div className="card">
+            <div className="row-between">
+              <div className="od-field" style={{ ["--od-gap" as string]: "6px", maxWidth: "320px" }}>
+                <Select
+                  label="Site acompanhado"
+                  value={slug}
+                  onChange={(event) => setSlug(event.target.value)}
+                >
+                  {slugs.map((item) => (
+                    <option key={item} value={item}>
+                      {snapshots.find((entry) => entry.slug === item)?.url || item}
+                    </option>
+                  ))}
+                </Select>
               </div>
-
-              <div className="rounded-[12px] border divide-y">
-                {forSlug.map((s) => (
-                  <div key={s.file} className="flex items-center justify-between gap-3 px-4 py-2.5">
-                    <span className="text-[12.5px] font-mono">{s.file}</span>
-                    <span className="text-[12px] text-muted-foreground">
-                      {new Date(s.captured_at).toLocaleString("pt-BR")}
-                    </span>
-                    <span className="text-[12px] text-muted-foreground">{s.pages} página(s)</span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <GitCompare className="h-4 w-4" /> Comparar duas versões
-              </CardTitle>
-              <CardDescription>
-                A comparação é feita entre a versão antiga e a nova. Já vem preenchida com as duas últimas.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid sm:grid-cols-2 gap-3">
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-[12.5px] font-medium text-foreground/80">Versão antiga</span>
-                  <select
-                    value={olderRef}
-                    onChange={(e) => setOlderRef(e.target.value)}
-                    className="h-9 rounded-[10px] border bg-background px-3 text-[13px]"
-                  >
-                    {forSlug.map((s) => (
-                      <option key={s.file} value={`${s.slug}/${s.file}`}>
-                        {s.file}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-[12.5px] font-medium text-foreground/80">Versão nova</span>
-                  <select
-                    value={newerRef}
-                    onChange={(e) => setNewerRef(e.target.value)}
-                    className="h-9 rounded-[10px] border bg-background px-3 text-[13px]"
-                  >
-                    {forSlug.map((s) => (
-                      <option key={s.file} value={`${s.slug}/${s.file}`}>
-                        {s.file}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-
               <Button
-                onClick={handleCompare}
+                className="od-touch"
+                disabled={!older || !newer || comparing}
                 loading={comparing}
-                disabled={!olderRef || !newerRef || forSlug.length < 2}
+                onClick={() => void compare()}
               >
-                <GitCompare className="h-4 w-4" /> Comparar
+                <Icon name="i-scale" size="sm" />
+                Comparar capturas
               </Button>
+            </div>
+          </div>
 
-              {forSlug.length < 2 && (
-                <p className="text-[12px] text-muted-foreground">
-                  É preciso ter pelo menos duas versões deste site para comparar.
+          <div className="two-col">
+            <div className="card">
+              <h3 className="card-title" style={{ marginBottom: "var(--sp-4)" }}>
+                Linha do tempo
+              </h3>
+              {captures.length === 0 ? (
+                <p className="card-sub">Nenhuma captura guardada para este site.</p>
+              ) : (
+                <div className="timeline">
+                  {captures.map((entry, index) => {
+                    const isSelected = selected.includes(entry.file)
+                    const parsed = new Date(entry.captured_at)
+                    const readable = isNaN(parsed.getTime())
+                    const date = readable ? entry.file : parsed.toLocaleDateString("pt-BR")
+                    const hour = readable
+                      ? ""
+                      : parsed.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+                    return (
+                      <div key={entry.file} className={isSelected ? "tl-item is-selected" : "tl-item"}>
+                        <button
+                          type="button"
+                          className="tl-btn od-touch"
+                          aria-pressed={isSelected}
+                          onClick={() => toggleCapture(entry.file)}
+                        >
+                          <span className="od-row" style={{ ["--od-gap" as string]: "8px", flexWrap: "wrap" }}>
+                            <strong style={{ fontSize: "var(--fs-14)" }}>{date}</strong>
+                            {index === 0 && <Badge variant="accent">atual</Badge>}
+                          </span>
+                          <span className="job-sub">
+                            <span>
+                              {entry.pages} {entry.pages === 1 ? "página" : "páginas"}
+                            </span>
+                            {hour && <span aria-hidden="true">·</span>}
+                            {hour && <span>{hour}</span>}
+                            <span aria-hidden="true">·</span>
+                            <span className="mono od-truncate">{entry.file}</span>
+                          </span>
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+              {captures.length > 0 && (
+                <p className="hint" style={{ marginTop: "var(--sp-4)" }}>
+                  {chosen.length === 2
+                    ? "Duas capturas marcadas. Toque em outra para trocar a mais antiga."
+                    : "Marque duas capturas para comparar."}
                 </p>
               )}
-
-              {compareError && (
-                <div className="rounded-[12px] bg-destructive/10 border border-destructive/20 p-3 text-[13px] text-destructive">
-                  <p className="font-medium">Não foi possível comparar.</p>
-                  <p className="mt-1">{compareError}</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </>
-      )}
-
-      {report && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4" /> O que mudou
-            </CardTitle>
-            <CardDescription>
-              {selectedSite || report.url} — {Math.round(report.change_ratio * 100)}% das páginas mudaram.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {(
-                [
-                  ["Adicionadas", report.added.length, "text-emerald-600 dark:text-emerald-400"],
-                  ["Removidas", report.removed.length, "text-red-600 dark:text-red-400"],
-                  ["Alteradas", report.changed.length, "text-amber-600 dark:text-amber-400"],
-                  ["Iguais", report.unchanged.length, "text-muted-foreground"],
-                ] as const
-              ).map(([label, count, color]) => (
-                <div key={label} className="rounded-[12px] border bg-secondary/40 p-3">
-                  <p className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">{label}</p>
-                  <p className={`text-[20px] font-semibold ${color}`}>{count}</p>
-                </div>
-              ))}
             </div>
 
-            {pageChanges.length === 0 ? (
-              <p className="text-[13px] text-muted-foreground">
-                Nenhuma página para comparar — as duas versões estão vazias.
+            <div className="card">
+              <h3 className="card-title" style={{ marginBottom: "var(--sp-2)" }}>
+                O que mudou
+              </h3>
+              <p className="card-sub" style={{ marginBottom: "var(--sp-3)" }}>
+                {older && newer
+                  ? `Comparando ${formatStamp(older.captured_at)} → ${formatStamp(newer.captured_at)} (mais antiga → mais recente).`
+                  : "Selecione duas capturas na linha do tempo para ver o que mudou."}
               </p>
-            ) : (
-              <div className="rounded-[12px] border divide-y">
-                {pageChanges.map((page) => {
-                  const style = changeStyle[page.kind]
-                  const Icon = style.icon
-                  return (
-                    <div key={`${page.kind}-${page.path}`} className="flex items-center gap-3 px-4 py-2.5">
-                      <Icon className={`h-3.5 w-3.5 shrink-0 ${style.className}`} />
-                      <span className="text-[12.5px] font-mono truncate flex-1" title={page.path}>
-                        {page.path}
-                      </span>
-                      {page.diffLines != null && (
-                        <span className="text-[11.5px] text-muted-foreground shrink-0">
-                          {page.diffLines} linha(s)
-                        </span>
-                      )}
-                      <span className={`text-[12px] font-medium shrink-0 ${style.className}`}>{style.label}</span>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+
+              {compareError && (
+                <div className="stack-sm" style={{ marginBottom: "var(--sp-3)" }}>
+                  <span className="error-text">
+                    <Icon name="i-alert" size="sm" />
+                    {compareError}
+                  </span>
+                  <div>
+                    <Button variant="secondary" size="sm" className="od-touch" onClick={() => void compare()}>
+                      <Icon name="i-refresh" size="sm" />
+                      Tentar de novo
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {report && (
+                <>
+                  <div className="od-cluster" style={{ marginBottom: "var(--sp-3)" }}>
+                    <Badge variant="success">+{report.added.length} adicionadas</Badge>
+                    <Badge variant="danger">-{report.removed.length} removidas</Badge>
+                    <Badge variant="warning">{report.changed.length} alteradas</Badge>
+                    <Badge variant="neutral">{report.unchanged.length} sem mudança</Badge>
+                  </div>
+
+                  <div className="diff" role="region" aria-label="Lista de páginas alteradas entre as duas capturas" aria-live="polite">
+                    {visibleRows.length === 0 ? (
+                      <div className="diff-row same">
+                        <span className="sign"> </span>
+                        <span>Nenhuma diferença entre as duas capturas.</span>
+                      </div>
+                    ) : (
+                      visibleRows.map((row) => (
+                        <div key={`${row.kind}-${row.path}`} className={`diff-row ${row.kind}`}>
+                          <span className="sign">{row.sign}</span>
+                          <span>
+                            {row.path}
+                            {row.lines != null && ` · ${row.lines} ${row.lines === 1 ? "linha" : "linhas"}`}
+                          </span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {rows.length > visibleRows.length && (
+                    <p className="hint" style={{ marginTop: "var(--sp-2)" }}>
+                      Mostrando {visibleRows.length} de {rows.length} páginas com mudança.
+                    </p>
+                  )}
+                  <p className="list-meta" style={{ marginTop: "var(--sp-3)" }}>
+                    <span>
+                      {Math.round(report.change_ratio * 100)}% das páginas mudaram desde a captura mais antiga.
+                    </span>
+                    <span className="mono od-truncate">{report.url}</span>
+                  </p>
+                </>
+              )}
+
+              {!report && !compareError && (
+                <div className="diff" aria-hidden="true">
+                  <div className="diff-row same">
+                    <span className="sign"> </span>
+                    <span>A comparação aparece aqui depois de escolher duas capturas e tocar em Comparar capturas.</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </>
       )}
     </div>
   )

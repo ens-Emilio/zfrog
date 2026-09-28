@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils"
 
+/** The `.skeleton` shimmer of the design system. */
 export function Skeleton({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("animate-pulse rounded-[12px] bg-muted", className)} {...props} />
+  return <div className={cn("skeleton", className)} {...props} />
 }

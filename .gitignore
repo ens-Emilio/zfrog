@@ -11,6 +11,10 @@
 /schedules.json
 /workflows/
 /metrics.db
+# SQLite leaves these two beside an open database. Without the wildcard they are
+# not covered by the rule above and get committed on the next `git add -A`.
+/metrics.db-*
+/search.db-*
 /audit.log
 /api_keys.json
 /marketplace/
