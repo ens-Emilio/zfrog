@@ -38,3 +38,9 @@ yarn-error.log*
 
 # typescript
 *.tsbuildinfo
+# Gerado pelo Next e não versionado, como no create-next-app: o conteúdo alterna
+# entre `.next/types` e `.next/dev/types` conforme o último comando foi build ou
+# dev, então versioná-lo rende um diff espúrio a cada alternância. O `include` do
+# tsconfig cobre os dois caminhos, e o `tsc --noEmit` do CI passa sem o arquivo
+# (verificado em clone limpo).
+next-env.d.ts
