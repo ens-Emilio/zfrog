@@ -78,6 +78,21 @@ cair, o outro é encerrado automaticamente.
 # Captura automática (padrão): o probe escolhe o motor
 zfrog clone https://example.com
 
+# Capturar uma referência de design: screenshot + tokens + card no catálogo
+zfrog jump https://stripe.com
+zfrog jump https://stripe.com --breakpoint mobile --tag fintech
+
+# Extrair um componente: o HTML e o CSS que o navegador aplicou nele
+zfrog tongue https://stripe.com ".hero"
+
+# A coleção: listar, filtrar e buscar por descrição visual
+zfrog pond                                   # todas as referências
+zfrog pond --tag fintech                     # por etiqueta
+zfrog pond --color "#635BFF"                 # por cor
+zfrog pond --search "layouts escuros com cards arredondados"
+zfrog show 9cc7eb98                          # detalhes de uma referência
+zfrog export 9cc7eb98 --format html          # mini style guide
+
 # Clonar site estático
 zfrog clone https://example.com --mode singlepage
 
@@ -239,6 +254,8 @@ Cada motor tem um papel distinto e não concorre com os outros.
 
 | Motor | Papel | Quando usar | Modo |
 |-------|-------|-------------|------|
+| **jump** | Referência: renderiza a página, tira screenshot full page e extrai os tokens de design | Quando o alvo é uma referência visual | `jump` |
+| **tongue** | Componente: devolve o HTML e o CSS computado de um seletor | Para estudar um card, navbar ou botão específico | `tongue` |
 | **Playwright** | Captura visual: renderiza e guarda o HTML renderizado + CSS/JS/imagens que o navegador carregou | Sempre. É o motor padrão. | `scrape` |
 | **Scrapy** | Descoberta: mapeia quais páginas existem no site | Site inteiro ou lote de URLs | `extract` |
 | **StaticFile** | Captura leve: página única, com os assets embutidos | Quando a página não depende de JavaScript | `singlepage` |
@@ -303,6 +320,58 @@ perde o design, perder o atalho só custa tempo. O Scrapy entra quando o alvo é
 
 O probe também registra se o `robots.txt` restringe a URL (`robots_restricted`). O motor wget
 respeita `respect_robots` (padrão `true`; desligue com `--no-robots`).
+
+## Referências de design
+
+O fluxo que dá nome ao projeto: capturar uma página como referência visual,
+guardá-la num catálogo e encontrá-la depois.
+
+```bash
+zfrog jump https://stripe.com --tag fintech --breakpoint desktop
+```
+
+Isso renderiza a página, tira um screenshot de página inteira e extrai os tokens
+de design dela — paleta (com a cor dominante e o papel de cada uma), tipografia
+(família, tamanhos, pesos), escala (padding, margin, raios, sombras) e os assets
+principais. O resultado vira um **card** no catálogo, com o screenshot, a URL de
+origem, a data e as etiquetas que você definiu.
+
+Um componente específico, em vez da página toda:
+
+```bash
+zfrog tongue https://stripe.com ".hero"
+```
+
+Devolve o HTML do elemento e o **CSS que o navegador resolveu para ele**,
+agrupado em layout, cor e tipografia — mais a caixa e os filhos diretos. O HTML
+sai sanitizado (scripts, `onclick` e `javascript:` removidos).
+
+O catálogo:
+
+```bash
+zfrog pond --tag fintech               # por etiqueta
+zfrog pond --color "#635BFF"           # por cor dominante
+zfrog pond --site stripe.com           # por site
+zfrog pond --search "escuro com cards arredondados"
+zfrog show <id>                        # detalhe, com a paleta
+zfrog export <id> --format html        # mini style guide autocontido
+```
+
+**Como a busca por descrição funciona, e o que ela não faz.** Cada card é
+descrito em palavras a partir dos tokens medidos — luminosidade e matiz das
+cores, arredondamento dos cantos, vocabulário de sombras, serifa ou não. Essa
+descrição é embedada e o ranking é por similaridade de cosseno. Isso responde
+"layouts escuros com cards arredondados" porque a extração mediu exatamente
+esses atributos. **Não** embeda os pixels: não acha "a que tem foto de cachorro".
+Para isso, `visual_search.describe()` é o único ponto que muda.
+
+Sem um modelo de embeddings configurado, a busca cai para comparação de palavras
+— degrada para algo útil, não para nada. Configure `ZFROG_AI_EMBEDDING` (e rode
+`zfrog pond --reindex`) para usar os vetores.
+
+No painel, a rota **Coleção** é o moodboard: os screenshots em grade, filtros por
+etiqueta, cor e site, a busca por descrição e um painel de detalhe com paleta,
+tipografia, etiquetas e nota.
 
 ## Change Detection
 
@@ -1146,13 +1215,19 @@ zfrog/
 │   ├── models.py           # Schemas
 │   ├── orchestrator.py     # Core logic: probe → motor → pipeline
 │   ├── probe.py            # Auto-detecção (sugere o motor)
+│   ├── tokens.py           # Extração de design tokens de uma página
+│   ├── components.py       # Extração de um componente (HTML + CSS computado)
+│   ├── catalog.py          # Catálogo de referências (cards, tags, cores)
+│   ├── visual_search.py    # Busca por descrição sobre o catálogo
 │   ├── queue.py            # Celery tasks
 │   ├── engines/
 │   │   ├── base.py         # Interface abstrata
 │   │   ├── playwright.py   # Captura visual (padrão)
 │   │   ├── scrapy.py       # Descoberta
 │   │   ├── static_file.py  # Página leve
-│   │   └── wget.py         # Assets
+│   │   ├── wget.py         # Assets
+│   │   ├── jump.py         # Referência: screenshot + tokens + card
+│   │   ├── tongue.py       # Componente: HTML + CSS computado
 │   ├── pipeline/
 │   │   ├── link_rewriter.py
 │   │   ├── privacy_cleaner.py
@@ -1201,7 +1276,7 @@ O que o CI roda, e o que se espera de cada passo:
 |---|---|---|
 | Lockfile | `uv lock --check` | verde |
 | Lint | `ruff check . --select F821,F811,F402,E9` | verde |
-| Testes | `pytest tests/ -q` | verde (1601) |
+| Testes | `pytest tests/ -q` | verde (1679) |
 | Tipos do painel | `tsc --noEmit` | verde |
 | Build do painel | `next build` | verde |
 

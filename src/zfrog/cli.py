@@ -2184,5 +2184,431 @@ def arweave(
     console.print(f"ID: [cyan]{result['item_id']}[/]")
     console.print(f"[dim]{result['gateway_url']}[/]")
 
+# ── referências de design ───────────────────────────────────────────────────────
+# jump/tongue/pond: as três palavras do sapo. jump captura, tongue extrai um
+# componente, pond é o catálogo onde tudo fica.
+
+@app.command()
+def jump(
+    url: str = typer.Argument(..., help="Endereço da página a capturar"),
+    breakpoint_name: str = typer.Option(
+        "desktop",
+        "--breakpoint",
+        "-b",
+        help="Resolução do screenshot: desktop, tablet ou mobile",
+    ),
+    tag: list[str] = typer.Option([], "--tag", "-t", help="Etiqueta para a referência (pode repetir)"),
+    output: str = typer.Option("output", "--output", "-o", help="Diretório de saída"),
+):
+    """Capture uma página como referência: screenshot + tokens de design."""
+    from zfrog.engines.jump import BREAKPOINTS, DEFAULT_BREAKPOINT
+    from zfrog.orchestrator import run_job
+
+    if breakpoint_name not in BREAKPOINTS:
+        console.print(
+            f"[red]Resolução desconhecida:[/] {breakpoint_name}. "
+            f"Use uma de: {', '.join(BREAKPOINTS)}"
+        )
+        sys.exit(1)
+
+    settings_output = Path(output)
+    from zfrog.config import settings
+
+    settings.output_dir = settings_output
+
+    job = JobCreate(url=url, mode="jump", token_breakpoint=breakpoint_name, card_tags=list(tag))
+
+    console.print(f"Capturando [cyan]{url}[/] em {breakpoint_name}")
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console,
+    ) as progress:
+        task = progress.add_task("Capturando…", total=None)
+
+        try:
+            result = asyncio.run(run_job(job))
+        except Exception as e:
+            console.print(f"[red]Falhou:[/] {e}")
+            sys.exit(1)
+
+        progress.update(task, description="[green]Pronto[/]")
+
+    console.print(f"[green]Capturado[/] — {result.files_count} arquivos, "
+                  f"{result.total_size_bytes:,} bytes em {result.duration_seconds:.1f}s")
+    _print_tokens_summary(_job_dir(result))
+
+@app.command()
+def tongue(
+    url: str = typer.Argument(..., help="Endereço da página"),
+    selector: str = typer.Argument(..., help="Seletor CSS do componente (ex.: .hero, #nav)"),
+    output: str = typer.Option("output", "--output", "-o", help="Diretório de saída"),
+):
+    """Extrai um componente: o HTML e o CSS que o navegador aplicou nele."""
+    from zfrog.config import settings
+    from zfrog.orchestrator import run_job
+
+    settings.output_dir = Path(output)
+
+    job = JobCreate(url=url, mode="tongue", selector=selector)
+
+    console.print(f"Extraindo [cyan]{selector}[/] de {url}")
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console,
+    ) as progress:
+        task = progress.add_task("Extraindo…", total=None)
+
+        try:
+            result = asyncio.run(run_job(job))
+        except Exception as e:
+            console.print(f"[red]Falhou:[/] {e}")
+            sys.exit(1)
+
+        progress.update(task, description="[green]Pronto[/]")
+
+    console.print(f"[green]Extraído[/] — {result.files_count} arquivos")
+    _print_component_summary(_job_dir(result))
+
+@app.command()
+def pond(
+    tag: Optional[str] = typer.Option(None, "--tag", "-t", help="Filtrar por etiqueta"),
+    color: Optional[str] = typer.Option(None, "--color", "-c", help="Filtrar por cor (ex.: #3BD487)"),
+    site: Optional[str] = typer.Option(None, "--site", "-s", help="Filtrar por site"),
+    query: Optional[str] = typer.Option(None, "--query", "-q", help="Buscar no endereço, título ou nota"),
+    describe: Optional[str] = typer.Option(
+        None,
+        "--search",
+        help="Buscar por descrição visual (ex.: \"layouts escuros com cards arredondados\")",
+    ),
+    reindex: bool = typer.Option(
+        False, "--reindex", help="Reindexar os embeddings do catálogo antes de buscar"
+    ),
+    limit: int = typer.Option(50, "--limit", "-n", help="Quantas referências mostrar"),
+):
+    """Lista as referências capturadas, ou busca por descrição com --search."""
+    from zfrog.catalog import Catalog
+    from zfrog.config import settings
+
+    catalog = Catalog(Path(settings.catalog_db))
+
+    if reindex:
+        from zfrog.visual_search import embed_catalog_sync
+
+        written = embed_catalog_sync(catalog, force=True)
+        if written:
+            console.print(f"[green]{written} referência(s) indexada(s).[/]")
+        else:
+            console.print(
+                "[yellow]Nada indexado.[/] A busca por descrição precisa de um modelo de "
+                "embeddings configurado; sem ele a busca cai para comparação de palavras."
+            )
+
+    if describe:
+        from zfrog.visual_search import search_descriptive
+
+        hits = asyncio.run(search_descriptive(catalog, describe, limit=limit))
+        if not hits:
+            console.print(f"[yellow]Nada encontrado para[/] “{describe}”.")
+            return
+
+        table = Table(title=f"Busca por descrição — “{describe}” ({len(hits)})")
+        table.add_column("ID", style="dim")
+        table.add_column("RELEVÂNCIA", justify="right", style="green")
+        table.add_column("SITE", style="cyan")
+        table.add_column("TÍTULO")
+        table.add_column("COR", style="green")
+        table.add_column("TAGS", style="magenta")
+
+        for hit in hits:
+            table.add_row(
+                hit.card.id[:8],
+                f"{hit.score:.2f}",
+                hit.card.site,
+                (hit.card.title or "—")[:40],
+                hit.card.dominant or "—",
+                ", ".join(hit.card.tags) or "—",
+            )
+
+        console.print(table)
+        return
+
+    cards = catalog.list(tag=tag, color=color, site=site, query=query, limit=limit)
+
+    if not cards:
+        if catalog.count():
+            console.print("[yellow]Nenhuma referência bate com esses filtros.[/]")
+        else:
+            console.print(
+                "[yellow]O catálogo está vazio.[/] Capture uma página com "
+                "[cyan]zfrog jump <url>[/]."
+            )
+        return
+
+    table = Table(title=f"Referências ({len(cards)} de {catalog.count()})")
+    table.add_column("ID", style="dim")
+    table.add_column("SITE", style="cyan")
+    table.add_column("TÍTULO")
+    table.add_column("COR", style="green")
+    table.add_column("TAGS", style="magenta")
+    table.add_column("QUANDO", style="dim")
+
+    for card in cards:
+        table.add_row(
+            card.id[:8],
+            card.site,
+            (card.title or "—")[:40],
+            card.dominant or "—",
+            ", ".join(card.tags) or "—",
+            card.captured_at_label,
+        )
+
+    console.print(table)
+
+    if tag is None and color is None and site is None and query is None:
+        tags = catalog.tags()
+        if tags:
+            console.print(
+                "[dim]tags:[/] " + " · ".join(f"{name} ({count})" for name, count in tags[:12])
+            )
+        colors = catalog.colors(12)
+        if colors:
+            console.print(
+                "[dim]cores:[/] " + " · ".join(f"{hex_color} ({count})" for hex_color, count in colors)
+            )
+
+@app.command()
+def show(
+    card_id: str = typer.Argument(..., help="ID da referência (prefixo serve)"),
+):
+    """Mostra os detalhes de uma referência capturada."""
+    from zfrog.catalog import Catalog
+    from zfrog.config import settings
+
+    catalog = Catalog(Path(settings.catalog_db))
+
+    card = catalog.get(card_id)
+    if card is None:
+        matches = [c for c in catalog.list(limit=1000) if c.id.startswith(card_id)]
+        if len(matches) == 1:
+            card = matches[0]
+        elif len(matches) > 1:
+            console.print(f"[yellow]Prefixo ambíguo:[/] {len(matches)} referências começam com isso.")
+            for match in matches[:10]:
+                console.print(f"  {match.id[:12]} — {match.site}")
+            sys.exit(1)
+
+    if card is None:
+        console.print(f"[red]Referência não encontrada:[/] {card_id}")
+        sys.exit(1)
+
+    console.print(f"[bold]{card.title or card.url}[/]")
+    console.print(f"[dim]{card.url}[/]")
+    console.print()
+
+    details = Table.grid(padding=(0, 2))
+    details.add_column(style="dim")
+    details.add_column()
+    details.add_row("ID", card.id)
+    details.add_row("Site", card.site)
+    details.add_row("Capturado", card.captured_at_label)
+    details.add_row("Modo", f"{card.mode} · {card.engine}")
+    details.add_row("Screenshot", card.screenshot or "—")
+    details.add_row("Tags", ", ".join(card.tags) or "—")
+    details.add_row("Nota", card.note or "—")
+    console.print(details)
+
+    tokens = card.tokens or {}
+    palette = tokens.get("palette", [])
+    if palette:
+        console.print()
+        palette_table = Table(title="Paleta")
+        palette_table.add_column("COR", style="green")
+        palette_table.add_column("USOS", justify="right")
+        palette_table.add_column("PAPEL", style="cyan")
+        for entry in palette[:12]:
+            palette_table.add_row(entry.get("hex", ""), str(entry.get("count", 0)), entry.get("role") or "—")
+        console.print(palette_table)
+
+    fonts = tokens.get("fonts", [])
+    if fonts:
+        console.print()
+        for font in fonts[:6]:
+            console.print(f"[bold]{font.get('family')}[/] — {font.get('count')} elementos")
+
+@app.command()
+def export(
+    card_id: str = typer.Argument(..., help="ID da referência"),
+    fmt: str = typer.Option("json", "--format", "-f", help="json, md ou html"),
+    dest: Optional[Path] = typer.Option(None, "--dest", "-d", help="Onde salvar (default: stdout)"),
+):
+    """Exporta uma referência como JSON, Markdown ou um mini style guide em HTML."""
+    from zfrog.catalog import Catalog
+    from zfrog.config import settings
+
+    catalog = Catalog(Path(settings.catalog_db))
+    card = catalog.get(card_id)
+    if card is None:
+        matches = [c for c in catalog.list(limit=1000) if c.id.startswith(card_id)]
+        if len(matches) == 1:
+            card = matches[0]
+
+    if card is None:
+        console.print(f"[red]Referência não encontrada:[/] {card_id}")
+        sys.exit(1)
+
+    if fmt == "json":
+        payload = json.dumps(card.to_dict(), ensure_ascii=False, indent=2)
+    elif fmt == "md":
+        payload = _card_markdown(card)
+    elif fmt == "html":
+        payload = _card_html(card)
+    else:
+        console.print(f"[red]Formato desconhecido:[/] {fmt} (use json, md ou html)")
+        sys.exit(1)
+
+    if dest is None:
+        console.print(payload)
+        return
+
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(payload, encoding="utf-8")
+    console.print(f"[green]Salvo[/] em {dest}")
+
+def _job_dir(result) -> Path:
+    """The job's output *directory*.
+
+    ``JobResult.output_path`` is the packaged ZIP, not the directory — the reports
+    (tokens, component) are siblings of it, so the parent is what callers need.
+    """
+    path = Path(result.output_path)
+    return path.parent if path.is_file() or path.suffix == ".zip" else path
+
+
+def _print_tokens_summary(output_dir: Path) -> None:
+    """Show the token report of a finished jump, when there is one."""
+    report = output_dir / "design-tokens.md"
+    if not report.exists():
+        return
+    console.print()
+    console.print(Markdown(report.read_text(encoding="utf-8")))
+
+
+def _print_component_summary(output_dir: Path) -> None:
+    """Show the component report of a finished tongue, when there is one."""
+    report = output_dir / "component.md"
+    if not report.exists():
+        return
+    console.print()
+    console.print(Markdown(report.read_text(encoding="utf-8")))
+
+def _card_markdown(card) -> str:
+    """A capture as a Markdown reference sheet."""
+    tokens = card.tokens or {}
+    lines = [
+        f"# {card.title or card.url}",
+        "",
+        f"- **Site**: {card.site}",
+        f"- **Origem**: {card.url}",
+        f"- **Capturado**: {card.captured_at_label}",
+        f"- **Modo**: {card.mode} · {card.engine}",
+        f"- **Tags**: {', '.join(card.tags) or '—'}",
+    ]
+    if card.screenshot:
+        lines.append(f"- **Screenshot**: {card.screenshot}")
+    if card.note:
+        lines += ["", f"> {card.note}"]
+
+    palette = tokens.get("palette", [])
+    if palette:
+        lines += ["", "## Paleta", ""]
+        for entry in palette[:12]:
+            role = f" · *{entry['role']}*" if entry.get("role") else ""
+            lines.append(f"- `{entry.get('hex')}` ×{entry.get('count')}{role}")
+
+    fonts = tokens.get("fonts", [])
+    if fonts:
+        lines += ["", "## Tipografia", ""]
+        for font in fonts[:6]:
+            sizes = ", ".join(list(font.get("sizes", {}).keys())[:4]) or "—"
+            lines.append(f"- **{font.get('family')}** — tamanhos: {sizes}")
+
+    return "\n".join(lines) + "\n"
+
+def _swatch(entry: dict) -> str:
+    """One palette swatch as a <figure>."""
+    import html as html_module
+
+    hex_color = html_module.escape(str(entry.get("hex", "")))
+    role = entry.get("role")
+    caption = f"{hex_color} · {html_module.escape(str(role))}" if role else hex_color
+    return (
+        f'<figure><div style="background:{hex_color}"></div>'
+        f"<figcaption><code>{caption}</code></figcaption></figure>"
+    )
+
+
+def _card_html(card) -> str:
+    """A capture as a self-contained mini style guide."""
+    import html as html_module
+
+    escape = html_module.escape
+    tokens = card.tokens or {}
+
+    swatches = "".join(_swatch(entry) for entry in tokens.get("palette", [])[:16])
+    fonts = "".join(
+        f"<li><strong>{escape(str(font.get('family', '')))}</strong> — "
+        f"{escape(', '.join(list(font.get('sizes', {}).keys())[:5]))}</li>"
+        for font in tokens.get("fonts", [])[:8]
+    )
+    screenshot = (
+        f'<img src="{escape(card.screenshot)}" alt="Captura de {escape(card.site)}">'
+        if card.screenshot
+        else ""
+    )
+    tags = (
+        f'<span>{" ".join(escape(tag) for tag in card.tags)}</span>' if card.tags else ""
+    )
+
+    return f"""<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>{escape(card.title or card.url)} — referência zfrog</title>
+<style>
+  body {{ font: 14px/1.6 system-ui, sans-serif; margin: 0 auto; max-width: 900px; padding: 32px; }}
+  h1 {{ font-size: 24px; margin: 0 0 4px; }}
+  h2 {{ font-size: 16px; margin: 28px 0 10px; }}
+  .url {{ color: #666; font-family: ui-monospace, monospace; font-size: 13px; }}
+  .meta {{ display: flex; gap: 16px; flex-wrap: wrap; margin: 16px 0 24px; font-size: 13px; color: #555; }}
+  .swatches {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; }}
+  figure {{ margin: 0; }}
+  figure div {{ height: 56px; border-radius: 8px; border: 1px solid rgba(0,0,0,.1); }}
+  figcaption {{ font-size: 11px; margin-top: 4px; color: #666; }}
+  img {{ max-width: 100%; border-radius: 8px; border: 1px solid rgba(0,0,0,.1); }}
+  ul {{ padding-left: 18px; }}
+</style>
+</head>
+<body>
+  <h1>{escape(card.title or card.url)}</h1>
+  <p class="url">{escape(card.url)}</p>
+  <div class="meta">
+    <span>{escape(card.site)}</span>
+    <span>{escape(card.captured_at_label)}</span>
+    <span>{escape(card.mode)} · {escape(card.engine)}</span>
+    {tags}
+  </div>
+  {screenshot}
+  <h2>Paleta</h2>
+  <div class="swatches">{swatches}</div>
+  <h2>Tipografia</h2>
+  <ul>{fonts}</ul>
+</body>
+</html>
+"""
+
 if __name__ == "__main__":
     app()

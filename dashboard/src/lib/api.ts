@@ -524,6 +524,63 @@ export interface PriceChange {
   significant: boolean
 }
 
+// ── catálogo de referências ──
+
+/** One colour in a card's palette, with how often the page used it. */
+export interface CatalogColor {
+  hex: string
+  count: number
+  role: string | null
+  properties?: Record<string, number>
+}
+
+/** One font family the captured page used. */
+export interface CatalogFont {
+  family: string
+  count: number
+  sizes?: Record<string, number>
+  weights?: Record<string, number>
+  headings?: number
+  body?: number
+}
+
+/** The design tokens read off a captured page. */
+export interface CatalogTokens {
+  url?: string
+  title?: string
+  element_count?: number
+  palette?: CatalogColor[]
+  fonts?: CatalogFont[]
+  font_sizes?: [string, number][]
+  font_weights?: [string, number][]
+  padding?: [string, number][]
+  margin?: [string, number][]
+  radii?: [string, number][]
+  shadows?: [string, number][]
+  assets?: { url: string; kind: string; width?: number; height?: number; alt?: string }[]
+  unreadable_colors?: number
+}
+
+/** One captured reference: screenshot, tokens, origin, date and tags. */
+export interface CatalogCard {
+  id: string
+  url: string
+  site: string
+  title: string
+  mode: string
+  engine: string
+  job_id: string
+  screenshot: string
+  note: string
+  created_at: number
+  captured_at: string
+  bytes: number
+  tags: string[]
+  palette: string[]
+  dominant: string
+  tokens: CatalogTokens
+}
+
 export const api = {
   getJobs: () => fetcher<Job[]>("/jobs"),
   getJob: (id: string) => fetcher<Job>(`/jobs/${id}`),
@@ -732,4 +789,48 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ requests_per_second: rps }),
     }),
+
+  // ── catálogo de referências ──
+  getCatalog: (filters?: {
+    tag?: string
+    color?: string
+    site?: string
+    since?: number
+    until?: number
+    query?: string
+    limit?: number
+    offset?: number
+  }) => {
+    const params = new URLSearchParams()
+    for (const [key, value] of Object.entries(filters ?? {})) {
+      if (value !== undefined && value !== null && value !== "") params.set(key, String(value))
+    }
+    const qs = params.toString()
+    return fetcher<{ total: number; cards: CatalogCard[] }>(`/catalog${qs ? `?${qs}` : ""}`)
+  },
+  getCatalogCard: (id: string) => fetcher<CatalogCard>(`/catalog/${encodeURIComponent(id)}`),
+  getCatalogTags: () => fetcher<{ tag: string; count: number }[]>("/catalog/tags"),
+  getCatalogColors: (limit = 60) =>
+    fetcher<{ hex: string; count: number }[]>(`/catalog/colors?limit=${limit}`),
+  getCatalogSites: () => fetcher<{ site: string; count: number }[]>("/catalog/sites"),
+  searchCatalog: (query: string, limit = 20) =>
+    fetcher<{ query: string; hits: (CatalogCard & { score: number })[] }>("/catalog/search", {
+      method: "POST",
+      body: JSON.stringify({ query, limit }),
+    }),
+  setCatalogTags: (id: string, tags: string[], replace = false) =>
+    fetcher<{ id: string; tags: string[] }>(`/catalog/${encodeURIComponent(id)}/tags`, {
+      method: "POST",
+      body: JSON.stringify({ tags, replace }),
+    }),
+  setCatalogNote: (id: string, note: string) =>
+    fetcher<{ id: string; note: string }>(`/catalog/${encodeURIComponent(id)}/note`, {
+      method: "POST",
+      body: JSON.stringify({ note }),
+    }),
+  deleteCatalogCard: (id: string) =>
+    fetcher<{ id: string; deleted: boolean }>(`/catalog/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    }),
+  catalogScreenshotUrl: (id: string) => `${API_URL}/catalog/${encodeURIComponent(id)}/screenshot`,
 }

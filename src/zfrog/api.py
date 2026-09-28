@@ -667,6 +667,171 @@ async def search_content(body: SearchRequest, request: Request,
         "hits": [asdict(hit) for hit in hits],
     }
 
+
+class CardTagsRequest(BaseModel):
+    """Tags to apply to a reference card."""
+
+    tags: list[str] = []
+    replace: bool = False
+
+
+class CardNoteRequest(BaseModel):
+    """Free-form note on a reference card."""
+
+    note: str = ""
+
+
+class CatalogSearchRequest(BaseModel):
+    """A descriptive search over the reference catalog."""
+
+    query: str
+    limit: int = 20
+
+
+def _catalog(request: Request):
+    """The catalog of the caller's workspace.
+
+    ``_scoped`` returns None for the shared area — every other store reads that as
+    "use your default", so the None is translated here rather than pushed into
+    :class:`Catalog`, which has no concept of a shared area.
+    """
+    from zfrog.catalog import Catalog
+
+    scoped = _scoped(request, "catalog_db")
+    return Catalog(Path(scoped) if scoped is not None else Path(settings.catalog_db))
+
+
+@app.get("/catalog")
+async def list_catalog(
+    request: Request,
+    tag: Optional[str] = None,
+    color: Optional[str] = None,
+    site: Optional[str] = None,
+    since: Optional[float] = None,
+    until: Optional[float] = None,
+    query: Optional[str] = None,
+    limit: int = 100,
+    offset: int = 0,
+    auth: AuthDecision = Depends(auth_dependency(ACTION_READ)),
+):
+    """List captured design references, newest first. All filters combine with AND."""
+    catalog = _catalog(request)
+    cards = catalog.list(
+        tag=tag, color=color, site=site, since=since, until=until,
+        query=query, limit=limit, offset=offset,
+    )
+    return {
+        "total": catalog.count(),
+        "cards": [card.to_dict() for card in cards],
+    }
+
+
+@app.get("/catalog/tags")
+async def catalog_tags(request: Request,
+                       auth: AuthDecision = Depends(auth_dependency(ACTION_READ))):
+    """Every tag in the catalog with how many references use it."""
+    return [{"tag": tag, "count": count} for tag, count in _catalog(request).tags()]
+
+
+@app.get("/catalog/colors")
+async def catalog_colors(request: Request, limit: int = 60,
+                         auth: AuthDecision = Depends(auth_dependency(ACTION_READ))):
+    """Every colour in the catalog with how many references carry it."""
+    return [{"hex": hex_color, "count": count} for hex_color, count in _catalog(request).colors(limit)]
+
+
+@app.get("/catalog/sites")
+async def catalog_sites(request: Request,
+                        auth: AuthDecision = Depends(auth_dependency(ACTION_READ))):
+    """Every captured site with its reference count."""
+    return [{"site": site, "count": count} for site, count in _catalog(request).sites()]
+
+
+@app.post("/catalog/search")
+async def catalog_search(body: CatalogSearchRequest, request: Request,
+                         auth: AuthDecision = Depends(auth_dependency(ACTION_READ))):
+    """Search the catalog by description ("layouts escuros com cards arredondados")."""
+    from zfrog.visual_search import search_descriptive
+
+    hits = await search_descriptive(_catalog(request), body.query, limit=body.limit)
+    return {
+        "query": body.query,
+        "hits": [
+            {"score": round(hit.score, 4), **hit.card.to_dict()} for hit in hits
+        ],
+    }
+
+
+@app.get("/catalog/{card_id}")
+async def get_catalog_card(card_id: str, request: Request,
+                           auth: AuthDecision = Depends(auth_dependency(ACTION_READ))):
+    """One reference, by id or by an unambiguous id prefix."""
+    catalog = _catalog(request)
+    card = catalog.get(card_id)
+    if card is None:
+        matches = [c for c in catalog.list(limit=1000) if c.id.startswith(card_id)]
+        if len(matches) == 1:
+            card = matches[0]
+        elif len(matches) > 1:
+            raise HTTPException(status_code=409, detail=f"prefixo ambíguo: {len(matches)} referências")
+    if card is None:
+        raise HTTPException(status_code=404, detail="Referência não encontrada")
+    return card.to_dict()
+
+
+@app.get("/catalog/{card_id}/screenshot")
+async def catalog_screenshot(card_id: str, request: Request,
+                             auth: AuthDecision = Depends(auth_dependency(ACTION_READ))):
+    """Serve the screenshot of a reference.
+
+    The stored path is relative to the media root and is resolved against it with the
+    result checked to stay inside — a catalog row is data, and data must not be able
+    to name a file outside the tree it belongs to.
+    """
+    card = _catalog(request).get(card_id)
+    if card is None or not card.screenshot:
+        raise HTTPException(status_code=404, detail="Screenshot não encontrado")
+
+    root = Path(settings.catalog_media_dir).resolve()
+    target = (root / card.screenshot).resolve()
+    if root not in target.parents or not target.is_file():
+        raise HTTPException(status_code=404, detail="Screenshot não encontrado")
+
+    return FileResponse(target)
+
+
+@app.post("/catalog/{card_id}/tags")
+async def catalog_set_tags(card_id: str, body: CardTagsRequest, request: Request,
+                           auth: AuthDecision = Depends(auth_dependency(ACTION_VERSION_MANAGE))):
+    """Add tags to a reference, or replace the whole list."""
+    catalog = _catalog(request)
+    if catalog.get(card_id) is None:
+        raise HTTPException(status_code=404, detail="Referência não encontrada")
+    tags = catalog.tag(card_id, body.tags, replace=body.replace)
+    _audit(request, "catalog.tag", target=card_id, detail=",".join(tags))
+    return {"id": card_id, "tags": tags}
+
+
+@app.post("/catalog/{card_id}/note")
+async def catalog_set_note(card_id: str, body: CardNoteRequest, request: Request,
+                           auth: AuthDecision = Depends(auth_dependency(ACTION_VERSION_MANAGE))):
+    """Set the note of a reference."""
+    catalog = _catalog(request)
+    if catalog.get(card_id) is None:
+        raise HTTPException(status_code=404, detail="Referência não encontrada")
+    catalog.note(card_id, body.note)
+    return {"id": card_id, "note": body.note}
+
+
+@app.delete("/catalog/{card_id}")
+async def catalog_delete(card_id: str, request: Request,
+                         auth: AuthDecision = Depends(auth_dependency(ACTION_VERSION_MANAGE))):
+    """Remove a reference from the catalog. The captured files stay on disk."""
+    if not _catalog(request).delete(card_id):
+        raise HTTPException(status_code=404, detail="Referência não encontrada")
+    _audit(request, "catalog.delete", target=card_id)
+    return {"id": card_id, "deleted": True}
+
 @app.get("/sessions")
 async def list_sessions(request: Request, 
     auth: AuthDecision = Depends(auth_dependency(ACTION_READ)),

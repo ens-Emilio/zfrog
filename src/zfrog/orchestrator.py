@@ -155,11 +155,16 @@ async def run_job(job: JobCreate) -> JobResult:
             update_job(job_record)
             
             # Determine engine based on mode or probe suggestion.
-            # "auto" is the default: the probe picked the motor above. The four
-            # capture modes map to the four motors by role: mirror is the assets
-            # motor, singlepage the light motor, scrape the visual capture motor,
-            # extract the discovery motor.
-            if job.mode == "mirror":
+            # "auto" is the default: the probe picked the motor above. The capture
+            # modes map to the motors by role: jump captures a reference card
+            # (screenshot + tokens), tongue extracts one component, mirror is the
+            # assets motor, singlepage the light motor, scrape the visual capture
+            # motor, extract the discovery motor.
+            if job.mode == "jump":
+                engine = get_engine("jump")
+            elif job.mode == "tongue":
+                engine = get_engine("tongue")
+            elif job.mode == "mirror":
                 engine = get_engine("wget")
             elif job.mode == "singlepage":
                 engine = get_engine("static_file")

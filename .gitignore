@@ -15,6 +15,8 @@
 # not covered by the rule above and get committed on the next `git add -A`.
 /metrics.db-*
 /search.db-*
+/catalog.db
+/catalog.db-*
 /audit.log
 /api_keys.json
 /marketplace/

@@ -25,6 +25,8 @@ from zfrog.engines.wget import WgetEngine
 from zfrog.engines.static_file import StaticFileEngine
 from zfrog.engines.playwright import PlaywrightEngine
 from zfrog.engines.scrapy import ScrapyEngine
+from zfrog.engines.jump import JumpEngine
+from zfrog.engines.tongue import TongueEngine
 from zfrog.engines.analyze import AnalyzeEngine
 from zfrog.engines.compare import CompareEngine
 from zfrog.engines.ask import AskEngine
@@ -47,12 +49,17 @@ logger = logging.getLogger(__name__)
 #   scrapy       discovery — maps which pages exist on a site before capture.
 #   static_file  light capture — pages that render without JavaScript.
 #   wget         assets — downloads the static files behind a reference.
+# Two more motors serve the design-reference use case directly:
+#   jump         captures a page as a reference card: screenshot + design tokens.
+#   tongue       extracts one component: its HTML and its computed CSS.
 # The remaining entries are analysis/export engines, not capture motors.
 _BUILTIN_ENGINES: dict[str, type[EngineAdapter]] = {
     "playwright": PlaywrightEngine,
     "scrapy": ScrapyEngine,
     "static_file": StaticFileEngine,
     "wget": WgetEngine,
+    "jump": JumpEngine,
+    "tongue": TongueEngine,
     "analyze": AnalyzeEngine,
     "compare": CompareEngine,
     "ask": AskEngine,

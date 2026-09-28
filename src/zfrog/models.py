@@ -23,7 +23,7 @@ class JobCreate(BaseModel):
     """Request to create a new extraction job."""
     
     url: HttpUrl
-    mode: Literal["auto", "mirror", "scrape", "singlepage", "extract", "analyze", "compare", "ask", "pdf", "summarize", "delta", "entities", "enrich", "translate", "sentiment", "tags", "video", "api_discovery"] = "auto"
+    mode: Literal["auto", "jump", "tongue", "mirror", "scrape", "singlepage", "extract", "analyze", "compare", "ask", "pdf", "summarize", "delta", "entities", "enrich", "translate", "sentiment", "tags", "video", "api_discovery"] = "auto"
     follow_links: bool = True
     max_depth: int = Field(default=3, ge=0, le=100)
     respect_robots: bool = True
@@ -35,6 +35,12 @@ class JobCreate(BaseModel):
     crawl_timeout_s: int = Field(default=600, ge=10, le=7200, description="Max crawl duration in seconds")
     # PDF mode: base name of the generated file (sanitized by the engine)
     pdf_filename: str | None = None
+    # tongue mode: the CSS selector whose component is extracted
+    selector: str | None = None
+    # jump mode: which breakpoint the screenshot is taken at (desktop/tablet/mobile)
+    token_breakpoint: str | None = None
+    # Tags applied to the reference card created by a capture
+    card_tags: list[str] = Field(default_factory=list)
     # Save a version (git-like history) after the crawl completes
     versioned: bool = False
     # Translate mode: target language code (defaults to settings.translation_target)

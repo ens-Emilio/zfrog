@@ -84,6 +84,14 @@ class Settings(BaseSettings):
     # Full-text / semantic search index
     search_db: Path = Path("search.db")
 
+    # Design reference catalog (cards: screenshot + tokens + tags)
+    catalog_db: Path = Path("catalog.db")
+
+    # Where captured screenshots are served from. The dashboard points <img> at the
+    # API, which resolves this root; keeping it a setting means the catalog can live
+    # on the state volume while the shots sit on a bigger disk.
+    catalog_media_dir: Path = Path("output")
+
     # Authenticated sessions (cookies + localStorage per domain)
     sessions_dir: Path = Path("sessions")
 
@@ -252,6 +260,7 @@ _STATE_PATH_FIELDS: tuple[str, ...] = (
     "versions_dir",
     "schedules_file",
     "search_db",
+    "catalog_db",
     "metrics_db",
     "audit_log",
     "api_keys_file",

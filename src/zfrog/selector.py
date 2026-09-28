@@ -96,6 +96,35 @@ def build_selector_preview(html: str, selector: str, limit: int = 50) -> dict:
     }
 
 
+def sanitize_fragment(html: str) -> str:
+    """Strip anything executable from an HTML fragment and return it.
+
+    The same rules as :func:`_sanitize` apply — scripts, inline event handlers,
+    ``javascript:`` URLs, meta refresh — but without the document scaffolding, so the
+    result is safe to paste into a report or render as a preview of one component.
+    Extracted components come from a live DOM, where inline handlers are common.
+
+    A fragment (no ``<html>``/``<!doctype>``) keeps its shape: the parser would
+    otherwise wrap it in ``<html><body>``, and reporting that wrapper as part of a
+    component would be wrong.
+    """
+    stripped = (html or "").lstrip()
+    is_document = stripped[:5].lower() == "<!doc" or "<html" in stripped[:200].lower()
+
+    soup = BeautifulSoup(html or "", "lxml")
+    for tag in soup.find_all(_REMOVED_TAGS):
+        tag.decompose()
+    for meta in soup.find_all("meta"):
+        if str(meta.get("http-equiv", "")).strip().lower() == "refresh":
+            meta.decompose()
+    for element in soup.find_all(True):
+        _strip_unsafe_attributes(element)
+
+    if is_document or soup.body is None:
+        return str(soup)
+    return soup.body.decode_contents().strip()
+
+
 def _sanitize(html: str, page_url: str) -> tuple[str, str]:
     """Return ``(sanitised_html, title)`` for a fetched page."""
     soup = BeautifulSoup(html or "", "lxml")
