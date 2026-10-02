@@ -62,16 +62,33 @@
 }
 
 @layer components {
-  /* The design system puts the topbar above `.views`; the panel renders it inside
-     the page so each route can supply its own actions, so it is pulled back out to
-     full-bleed and made sticky in the same spot. */
-  .topbar-inline {
-    margin: calc(-1 * var(--sp-6)) calc(-1 * var(--sp-6)) 0;
-    margin-bottom: 0;
+  /* No design system a topbar é irmã da `.views`: ela ocupa a largura inteira do
+     `.main`, enquanto o conteúdo é centrado em `--content-max`.
+     (protótipo, 1568px: topbar 252→1568, conteúdo 320→1500)
+
+     O painel renderiza a topbar *dentro* da página, porque cada rota traz a sua com
+     as próprias ações. Como `.views` tem `max-width`, a topbar ficava presa aos
+     1180px e sobrava faixa morta nas laterais. A largura é reconstruída aqui: a
+     `.views` vira full-bleed e quem centraliza é cada filho, exceto a topbar. */
+  .views {
+    max-width: none;
+    margin: 0;
+    padding: 0;
   }
+
+  .view-grid > :not(.topbar) {
+    width: 100%;
+    max-width: var(--content-max);
+    margin-inline: auto;
+    padding-inline: var(--sp-6);
+  }
+
+  /* A topbar não precisa de padding aqui: `.topbar` já traz o seu
+     (`var(--sp-4) var(--sp-6)`, e `var(--sp-3) var(--sp-4)` no celular). */
+
   @media (max-width: 1023px) {
-    .topbar-inline {
-      margin: calc(-1 * var(--sp-4)) calc(-1 * var(--sp-4)) 0;
+    .view-grid > :not(.topbar) {
+      padding-inline: var(--sp-4);
     }
   }
 }

@@ -257,9 +257,11 @@ function SignOut() {
  * The page header. Rendered by each page so it can carry its own actions.
  *
  * The quick-command button and the theme toggle belong to the shell, not to any
- * one page, so they are always here; `action` adds whatever the route needs. The
- * topbar is full-bleed and sticky above the padded content area, the way the
- * design system shows it.
+ * one page, so they are always here; `action` adds whatever the route needs.
+ *
+ * Full-bleed by construction: `.views` has no padding and each sibling of this
+ * header centres itself at `--content-max`, so the header spans the whole main
+ * column exactly as it does in the design system.
  */
 export function Topbar({
   title,
@@ -273,7 +275,7 @@ export function Topbar({
   const [theme, toggleTheme] = useTheme()
 
   return (
-    <header className="topbar topbar-inline">
+    <header className="topbar">
       <div className="topbar-title">
         <h1 tabIndex={-1}>{title}</h1>
         {description && <span className="topbar-sub">{description}</span>}
