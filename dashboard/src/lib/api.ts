@@ -11,7 +11,7 @@ export type JobStatus =
   | "failed"
   | "cancelled"
 
-export type JobMode = "auto" | "mirror" | "singlepage" | "scrape" | "extract" | "analyze" | "compare" | "ask" | "pdf" | "summarize" | "delta" | "entities" | "translate" | "sentiment" | "tags" | "video" | "api_discovery"
+export type JobMode = "auto" | "jump" | "tongue" | "mirror" | "singlepage" | "scrape" | "extract" | "analyze" | "compare" | "ask" | "pdf" | "summarize" | "delta" | "entities" | "translate" | "sentiment" | "tags" | "video" | "api_discovery"
 
 export interface ProbeResult {
   url: string
@@ -590,6 +590,16 @@ export const api = {
     mode: JobMode
     max_depth: number
     pdf_filename?: string
+    /** tongue: the CSS selector whose component is extracted. */
+    selector?: string
+    /** jump: which breakpoint the screenshot is taken at. */
+    token_breakpoint?: string
+    /** jump: capture the whole page (default) or only the viewport. */
+    screenshot_full_page?: boolean
+    /** jump: "png" (lossless) or "webp" (smaller). */
+    screenshot_format?: string
+    /** Etiquetas aplicadas ao card criado pela captura. */
+    card_tags?: string[]
   }) => fetcher<Job>("/jobs", { method: "POST", body: JSON.stringify(data) }),
   cancelJob: (id: string) => fetcher<{ message: string }>(`/jobs/${id}/cancel`, { method: "POST" }),
   downloadUrl: (id: string) => `${API_URL}/jobs/${id}/download`,

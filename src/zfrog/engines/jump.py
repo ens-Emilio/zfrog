@@ -13,13 +13,13 @@ by ``mirror`` or ``extract`` can be turned into a card afterwards with no re-dow
 from __future__ import annotations
 
 import logging
-import uuid
 from pathlib import Path
 
-from zfrog.catalog import Card, Catalog, site_of
+from zfrog.catalog import Catalog
 from zfrog.config import settings
 from zfrog.engines.base import EngineAdapter, EngineResult
 from zfrog.models import JobCreate, ProbeResult
+from zfrog.pipeline.reference import register_reference
 from zfrog.tokens import (
     collect_snapshot,
     extract_tokens,
@@ -85,7 +85,14 @@ class JumpEngine(EngineAdapter):
         shots_dir = output_dir / "screenshots"
         shots_dir.mkdir(exist_ok=True)
 
-        screenshot_path = shots_dir / f"{token}.png"
+        # PNG is lossless and is the default; WebP is roughly a third of the size for
+        # a screenshot, which matters once a catalog has hundreds of them.
+        image_format = (job.screenshot_format or "png").lower()
+        if image_format not in ("png", "webp"):
+            raise ValueError(f"Formato de imagem não suportado: {image_format} (use png ou webp)")
+
+        full_page = job.screenshot_full_page
+        screenshot_path = shots_dir / f"{token}.{image_format}"
         tokens = None
         try:
             await page.set_viewport_size({"width": width, "height": height})
@@ -95,8 +102,12 @@ class JumpEngine(EngineAdapter):
             # a second of waiting.
             await page.wait_for_timeout(600)
 
-            note("Capturando screenshot de página inteira")
-            await page.screenshot(path=str(screenshot_path), full_page=True)
+            note(
+                "Capturando screenshot de página inteira"
+                if full_page
+                else "Capturando screenshot do viewport"
+            )
+            await page.screenshot(path=str(screenshot_path), full_page=full_page)
 
             note("Lendo os tokens de design")
             snapshot = await collect_snapshot(page)
@@ -121,41 +132,24 @@ class JumpEngine(EngineAdapter):
             except Exception:  # pragma: no cover - closing a dead page is not an error
                 pass
 
-        # Register the card. A catalog failure must not lose the capture that is
-        # already on disk, so it is reported and skipped.
-        #
-        # The stored path is relative to the *media root*, not to this job's
-        # directory: the API resolves it against the root to serve the image, and a
-        # job-relative path would point at a file that does not exist there.
-        card_id = uuid.uuid4().hex
-        media_root = Path(settings.catalog_media_dir)
-        try:
-            screenshot_ref = str(screenshot_path.resolve().relative_to(media_root.resolve()))
-        except ValueError:
-            # The capture landed outside the media root; store the absolute path and
-            # let the endpoint's containment check decide whether it is servable.
-            screenshot_ref = str(screenshot_path)
-
-        try:
-            card = self.catalog.save(
-                Card(
-                    id=card_id,
-                    url=str(job.url),
-                    site=site_of(str(job.url)),
-                    title=tokens.title if tokens else "",
-                    mode=job.mode,
-                    engine=self.name,
-                    job_id=getattr(job, "job_id", "") or "",
-                    screenshot=screenshot_ref,
-                    tokens=tokens.to_dict() if tokens else {},
-                    tags=list(job.card_tags or []),
-                    bytes=screenshot_path.stat().st_size if screenshot_path.exists() else 0,
-                )
+        # Register the card through the shared step, so the card a `jump` writes and
+        # the card a regular clone writes are built by the same code.
+        if tokens is not None:
+            card = register_reference(
+                url=str(job.url),
+                mode=job.mode,
+                engine=self.name,
+                tokens=tokens,
+                screenshot=screenshot_path,
+                job_id=getattr(job, "job_id", "") or "",
+                tags=job.card_tags,
+                catalog=self.catalog,
             )
-            note(f"Referência registrada no catálogo: {card.id}")
-        except Exception as exc:
-            logger.warning("não foi possível registrar a referência: %s", exc)
-            note(f"Catálogo indisponível ({exc}); a captura continua em disco")
+            note(
+                f"Referência registrada no catálogo: {card.id}"
+                if card is not None
+                else "Catálogo indisponível; a captura continua em disco"
+            )
 
         files = [path for path in output_dir.rglob("*") if path.is_file()]
         return EngineResult(

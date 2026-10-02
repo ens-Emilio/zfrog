@@ -7,6 +7,25 @@ from pathlib import Path
 
 import pytest
 
+from zfrog.config import settings
+
+@pytest.fixture(scope="session", autouse=True)
+def _isolated_catalog(tmp_path_factory):
+    """Keep the catalog of the machine running the tests out of the run.
+
+    Every job now registers a reference card, so without this any test that runs one
+    writes into the developer's real catalog — and the card points at a temp directory
+    that is gone as soon as the run ends. Session-scoped because isolation from the
+    real catalog is what matters here; a test that needs a clean catalog of its own
+    builds one, as the catalog tests do.
+    """
+    root = tmp_path_factory.mktemp("catalog")
+    original = (settings.catalog_db, settings.catalog_media_dir)
+    settings.catalog_db = root / "catalog.db"
+    settings.catalog_media_dir = root
+    yield
+    settings.catalog_db, settings.catalog_media_dir = original
+
 
 # ── Fixture sites (static HTML served by local HTTP server) ──
 

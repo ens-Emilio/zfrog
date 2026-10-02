@@ -193,7 +193,7 @@ async def test_judge_significance_empty_never_calls_ai(monkeypatch):
     def boom(*args, **kwargs):
         raise AssertionError("the AI must not be consulted for empty candidates")
 
-    monkeypatch.setattr(sig, "is_available", boom)
+    monkeypatch.setattr(sig, "can_call", boom)
     monkeypatch.setattr(sig, "complete_structured", boom)
 
     assert await sig.judge_significance([]) == {
@@ -210,7 +210,7 @@ async def test_judge_significance_without_ai_uses_heuristic(monkeypatch):
     async def boom(*args, **kwargs):
         raise AssertionError("no model call when the AI is unavailable")
 
-    monkeypatch.setattr(sig, "is_available", lambda: False)
+    monkeypatch.setattr(sig, "can_call", lambda: False)
     monkeypatch.setattr(sig, "complete_structured", boom)
 
     monkeypatch.setattr(settings, "significance_threshold", 0.05)
@@ -244,7 +244,7 @@ async def test_judge_significance_uses_model_result(monkeypatch):
     def no_heuristic(*args, **kwargs):
         raise AssertionError("the model answered; the heuristic must not run")
 
-    monkeypatch.setattr(sig, "is_available", lambda: True)
+    monkeypatch.setattr(sig, "can_call", lambda: True)
     monkeypatch.setattr(sig, "complete_structured", fake_structured)
     monkeypatch.setattr(sig, "heuristic_significance", no_heuristic)
 
@@ -270,7 +270,7 @@ async def test_judge_significance_model_failure_falls_back_to_heuristic(monkeypa
     async def boom(*args, **kwargs):
         raise RuntimeError("nenhum modelo disponível")
 
-    monkeypatch.setattr(sig, "is_available", lambda: True)
+    monkeypatch.setattr(sig, "can_call", lambda: True)
     monkeypatch.setattr(sig, "complete_structured", boom)
 
     result = await sig.judge_significance(candidates, url=PRICE_URL)
@@ -288,7 +288,7 @@ async def test_judge_significance_error_text_is_bounded(monkeypatch):
     async def boom(*args, **kwargs):
         raise RuntimeError("falha no provedor\n" + "detalhe irrelevante " * 100)
 
-    monkeypatch.setattr(sig, "is_available", lambda: True)
+    monkeypatch.setattr(sig, "can_call", lambda: True)
     monkeypatch.setattr(sig, "complete_structured", boom)
 
     result = await sig.judge_significance(candidates)
@@ -308,7 +308,7 @@ async def test_judge_significance_prompt_is_bounded(monkeypatch):
         seen["prompt"] = messages[1]["content"]
         return SignificanceResult(significant=False, score=0.0, summary="", reasons=[])
 
-    monkeypatch.setattr(sig, "is_available", lambda: True)
+    monkeypatch.setattr(sig, "can_call", lambda: True)
     monkeypatch.setattr(sig, "complete_structured", fake_structured)
 
     await sig.judge_significance(candidates)
@@ -325,7 +325,7 @@ async def test_judge_significance_prompt_is_bounded(monkeypatch):
 
 
 async def test_significant_change_price_beats_footer(monkeypatch):
-    monkeypatch.setattr(sig, "is_available", lambda: False)
+    monkeypatch.setattr(sig, "can_call", lambda: False)
 
     footer_prev = _write_snapshot(
         FOOTER_URL, "2026-01-01T00:00:00Z", [_page("produto.html", FOOTER_PAGE)]
@@ -350,7 +350,7 @@ async def test_significant_change_price_beats_footer(monkeypatch):
 
 
 async def test_significant_change_identical_snapshots_returns_none(monkeypatch):
-    monkeypatch.setattr(sig, "is_available", lambda: False)
+    monkeypatch.setattr(sig, "can_call", lambda: False)
 
     prev = _write_snapshot(PRICE_URL, "2026-01-01T00:00:00Z", [_page("produto.html", PRICE_PAGE)])
     new = _write_snapshot(PRICE_URL, "2026-06-15T00:00:00Z", [_page("produto.html", PRICE_PAGE)])
@@ -359,7 +359,7 @@ async def test_significant_change_identical_snapshots_returns_none(monkeypatch):
 
 
 async def test_significant_change_unreadable_snapshot_returns_none(tmp_path, monkeypatch):
-    monkeypatch.setattr(sig, "is_available", lambda: False)
+    monkeypatch.setattr(sig, "can_call", lambda: False)
 
     prev = _write_snapshot(PRICE_URL, "2026-01-01T00:00:00Z", [_page("produto.html", PRICE_PAGE)])
     missing = tmp_path / "nao-existe.json"
@@ -369,7 +369,7 @@ async def test_significant_change_unreadable_snapshot_returns_none(tmp_path, mon
 
 async def test_significant_change_ignores_footer_only_change_of_a_long_page(monkeypatch):
     """Nothing worth alerting about: the only changed page is a huge page + a date."""
-    monkeypatch.setattr(sig, "is_available", lambda: False)
+    monkeypatch.setattr(sig, "can_call", lambda: False)
 
     body = "Conteúdo estável da página institucional. " * 40
     prev = _write_snapshot(

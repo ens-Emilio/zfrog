@@ -34,8 +34,9 @@ Cada motor mora no próprio arquivo: `jump.py`, `tongue.py`. Um arquivo com dois
 | Auto-detecção | probe escolhe o motor | ✅ (modo `auto` é o padrão) |
 
 ### ✅ §4.1 Captura visual
-`jump` faz screenshot full page em três resoluções (desktop 1440×900,
-tablet 834×1112, mobile 390×844) via `--breakpoint`.
+`jump` faz screenshot em três resoluções (desktop 1440×900, tablet 834×1112,
+mobile 390×844) via `--breakpoint`, em página inteira ou só o viewport
+(`--viewport-only`), em PNG ou WebP (`--format`).
 
 ### ✅ §4.2 Extração de design tokens — **`src/zfrog/tokens.py`**
 Paleta (contagem por cor, HEX, papel heurístico), tipografia (família, tamanhos,
@@ -74,6 +75,12 @@ feature degrada para algo útil em vez de para nada. `embeddings_configured()`
 existe porque `is_available()` só diz que o litellm está instalado, o que é
 verdade em toda instalação e imprimia a lista de providers no stderr.
 
+### ✅ §9 Fluxo de captura do plano
+A captura padrão produz design: `clone` (modos `auto`, `mirror`, `scrape`,
+`singlepage`, `delta`) roda a extração de tokens junto do screenshot, na mesma
+visita ao navegador, e registra um card. `jump` faz o mesmo dedicadamente, sem
+baixar o site. Análise de texto (analyze, compare, ask…) fica de fora de propósito.
+
 ### ✅ §5.1 CLI
 `jump`, `tongue`, `pond` (com `--search` e `--reindex`), `show`, `export`
 (json/md/html) — mais os ~45 comandos que já existiam.
@@ -90,10 +97,21 @@ com verificação de contenção no diretório de mídia).
 ### ✅ §6 Complementares
 delta ✅, versionamento ✅, PDF ✅, agendamento ✅, resumo IA ✅.
 
+### ✅ Painel e CLI com os modos de design
+`JobMode` do painel tem `jump` e `tongue`. O `/probe` oferece *Referência de
+design* (resolução, formato, página inteira ou viewport, etiquetas) e *Extrair
+componente* (campo do seletor CSS). Na CLI, `jump` aceita `--viewport-only` e
+`--format png|webp`.
+
+### ✅ API de indexação
+`POST /catalog/reindex` constrói os vetores e responde `indexed` + `reason`. O
+motivo distingue três situações que pedem ações diferentes: catálogo vazio, tudo
+já indexado, e modelo quebrado.
+
 ### ⬜ Não feito
 - **Clonagem delta visual** (comparar screenshots) — o delta existente é de páginas.
 - **Versionamento de referências** (múltiplas versões de uma captura no tempo).
-- **PDF de um conjunto de referências** (mini style guide).
+- **PDF de um conjunto de referências** (mini style guide de várias, não de uma).
 - **Mascote desenhado** — só o ícone SVG derivado do design system.
 
 ## Decisões arquiteturais que não devem ser revertidas
@@ -124,11 +142,16 @@ delta ✅, versionamento ✅, PDF ✅, agendamento ✅, resumo IA ✅.
 | `output_path` do `JobResult` é o ZIP | não é o diretório | helper `_job_dir()` na CLI |
 | Screenshot 404 | path salvo relativo ao diretório do job, não à raiz de mídia | gravado relativo a `catalog_media_dir` |
 | `TypeError: not 'NoneType'` no `/catalog` | `_scoped` devolve `None` na área compartilhada | traduzido para o default da setting |
-| Ruído do litellm no `pond --search` | `is_available()` é sempre verdadeiro | gate por `embeddings_configured()` |
+| Ruído do litellm no `pond --search` e em todo `clone` | `is_available()` só diz que o litellm está instalado, o que é verdade sempre; o gate passou a exigir modelo nomeado | `can_call()` / `embedding_configured()` em `ai/client.py` |
+| Testes escrevendo no catálogo real | o pipeline passou a registrar card em todo job, e o teste isolava só `output_dir` | fixture autouse no `conftest.py` aponta o catálogo para tmp |
+| Modelo de embeddings mal configurado derrubava o `pond --reindex` | `embed_catalog` deixava a exceção subir | devolve `IndexResult` com o motivo; só a primeira linha do erro do provedor entra na mensagem |
+| Banner "Provider List" do litellm no meio da saída | `litellm.suppress_debug_info` é atributo do módulo, não env var | `_litellm()` nas chamadas |
+| `public/` vazio quebraria o build da imagem | git não versiona diretório vazio e o Dockerfile faz `COPY /app/public` | `public/.gitkeep` |
 
 ## Verificação
 
-- `pytest tests/ -q` — 1679 testes (54 novos: tokens, componentes, catálogo, busca).
+- `pytest tests/ -q` — 1715 testes (90 novos: tokens, componentes, catálogo,
+  busca por descrição, captura→card, gates de IA).
 - `npx tsc --noEmit` e `npx next build` verdes.
 - `ruff check . --select F821,F811,F402,E9` verde (é o gate do CI).
 - Smoke real: `jump` numa página, `tongue` num seletor, `pond`/`pond --search`,

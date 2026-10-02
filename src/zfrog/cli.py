@@ -2198,6 +2198,14 @@ def jump(
         help="Resolução do screenshot: desktop, tablet ou mobile",
     ),
     tag: list[str] = typer.Option([], "--tag", "-t", help="Etiqueta para a referência (pode repetir)"),
+    viewport_only: bool = typer.Option(
+        False,
+        "--viewport-only",
+        help="Captura só o que cabe na tela, em vez da página inteira",
+    ),
+    image_format: str = typer.Option(
+        "png", "--format", "-f", help="Formato da imagem: png (sem perda) ou webp (menor)"
+    ),
     output: str = typer.Option("output", "--output", "-o", help="Diretório de saída"),
 ):
     """Capture uma página como referência: screenshot + tokens de design."""
@@ -2211,14 +2219,28 @@ def jump(
         )
         sys.exit(1)
 
+    if image_format.lower() not in ("png", "webp"):
+        console.print(f"[red]Formato desconhecido:[/] {image_format} (use png ou webp)")
+        sys.exit(1)
+
     settings_output = Path(output)
     from zfrog.config import settings
 
     settings.output_dir = settings_output
 
-    job = JobCreate(url=url, mode="jump", token_breakpoint=breakpoint_name, card_tags=list(tag))
+    job = JobCreate(
+        url=url,
+        mode="jump",
+        token_breakpoint=breakpoint_name,
+        screenshot_full_page=not viewport_only,
+        screenshot_format=image_format.lower(),
+        card_tags=list(tag),
+    )
 
-    console.print(f"Capturando [cyan]{url}[/] em {breakpoint_name}")
+    console.print(
+        f"Capturando [cyan]{url}[/] em {breakpoint_name}"
+        + ("" if not viewport_only else " (só o viewport)")
+    )
 
     with Progress(
         SpinnerColumn(),
@@ -2298,14 +2320,13 @@ def pond(
     if reindex:
         from zfrog.visual_search import embed_catalog_sync
 
-        written = embed_catalog_sync(catalog, force=True)
-        if written:
-            console.print(f"[green]{written} referência(s) indexada(s).[/]")
+        result = embed_catalog_sync(catalog, force=True)
+        if result.indexed:
+            console.print(f"[green]{result.indexed} referência(s) indexada(s).[/]")
         else:
-            console.print(
-                "[yellow]Nada indexado.[/] A busca por descrição precisa de um modelo de "
-                "embeddings configurado; sem ele a busca cai para comparação de palavras."
-            )
+            # Say *why*, not just "nothing happened": an empty catalog, an already
+            # indexed one and a broken model need three different actions.
+            console.print(f"[yellow]Nada indexado.[/] {result.reason}")
 
     if describe:
         from zfrog.visual_search import search_descriptive

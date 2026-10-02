@@ -21,7 +21,6 @@ from __future__ import annotations
 import asyncio
 import colorsys
 import math
-import os
 from dataclasses import dataclass
 
 from zfrog.catalog import Card, Catalog
@@ -203,40 +202,64 @@ def _lexical_score(query: str, text: str) -> float:
     return sum(1 for term in terms if term in haystack) / len(terms)
 
 
-def embeddings_configured() -> bool:
-    """Whether the user actually configured an embedding model.
+@dataclass
+class IndexResult:
+    """Outcome of an embedding pass over the catalog."""
 
-    ``ai.client.is_available()`` only reports that litellm is importable, so it is
-    true on every install — including one with no model running. Attempting an
-    embedding then prints litellm's provider list to stderr and fails, which reads as
-    a broken command. Treating "no explicit model configured" as "no embeddings" keeps
-    the fallback silent and honest: the search still answers, by words.
-    """
-    return bool(os.environ.get("ZFROG_AI_EMBEDDING") or os.environ.get("ZFROG_AI_MODEL"))
+    indexed: int = 0
+    #: Why nothing was indexed, when that is the case. Empty on success.
+    reason: str = ""
+
+    @property
+    def ok(self) -> bool:
+        return not self.reason
 
 
-async def embed_catalog(catalog: Catalog, *, force: bool = False) -> int:
+async def embed_catalog(catalog: Catalog, *, force: bool = False) -> IndexResult:
     """Embed every card in the catalog and store the vectors.
 
-    Returns how many vectors were written. Cards already embedded are skipped unless
-    ``force`` is set, so this is cheap to call again after a new capture.
-    """
-    from zfrog.ai.client import embed, get_embedding_model, is_available
+    Cards already embedded are skipped unless ``force`` is set, so this is cheap to
+    call again after a new capture.
 
-    if not (is_available() and embeddings_configured()):
-        return 0
+    A failure is *reported*, never raised: the caller is a search index, and a search
+    that cannot build vectors still works by words. Raising here turned a misconfigured
+    model into a traceback in the middle of a command that had another answer ready.
+    """
+    from zfrog.ai.client import embed, embedding_configured, get_embedding_model, is_available
+
+    if not is_available():
+        return IndexResult(reason="LiteLLM não está instalado.")
+    if not embedding_configured():
+        return IndexResult(
+            reason=(
+                "Nenhum modelo de embeddings configurado. Defina ZFROG_AI_EMBEDDING "
+                "para indexar; a busca por descrição segue respondendo por palavras."
+            )
+        )
+
+    cards = catalog.list(limit=10_000)
+    if not cards:
+        return IndexResult(reason="O catálogo está vazio: não há o que indexar.")
 
     existing = catalog.embeddings()
-    cards = catalog.list(limit=10_000)
     pending = [card for card in cards if force or card.id not in existing]
     if not pending:
-        return 0
+        return IndexResult(reason="Todas as referências já estão indexadas.")
 
-    vectors = await embed([describe(card) for card in pending])
+    try:
+        vectors = await embed([describe(card) for card in pending])
+    except Exception as exc:
+        # A model that is configured but unreachable or invalid lands here. The first
+        # line of the provider's error names the problem; the rest is its documentation
+        # links, which would bury the answer in the middle of a CLI message.
+        message = str(exc).strip() or exc.__class__.__name__
+        first_line = message.splitlines()[0]
+        return IndexResult(reason=f"O modelo de embeddings falhou: {first_line[:200]}")
+
     model = get_embedding_model()
     for card, vector in zip(pending, vectors):
         catalog.store_embedding(card.id, vector, model=model)
-    return len(pending)
+    return IndexResult(indexed=len(pending))
 
 
 def search(
@@ -279,10 +302,10 @@ def search(
 
 async def search_descriptive(catalog: Catalog, query: str, *, limit: int = 20) -> list[VisualHit]:
     """Search with the query embedded, falling back to the lexical ranking."""
-    from zfrog.ai.client import embed, is_available
+    from zfrog.ai.client import embed, embedding_configured, is_available
 
     query_vector: list[float] | None = None
-    if is_available() and embeddings_configured():
+    if is_available() and embedding_configured():
         try:
             vectors = await embed([query])
             query_vector = vectors[0] if vectors else None
@@ -294,14 +317,14 @@ async def search_descriptive(catalog: Catalog, query: str, *, limit: int = 20) -
     return search(catalog, query, limit=limit, query_vector=query_vector)
 
 
-def embed_catalog_sync(catalog: Catalog, *, force: bool = False) -> int:
+def embed_catalog_sync(catalog: Catalog, *, force: bool = False) -> IndexResult:
     """Blocking wrapper for callers that are not already in an event loop."""
     return asyncio.run(embed_catalog(catalog, force=force))
 
 
 __all__ = [
+    "IndexResult",
     "VisualHit",
-    "embeddings_configured",
     "describe",
     "embed_catalog",
     "embed_catalog_sync",

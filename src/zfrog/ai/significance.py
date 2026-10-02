@@ -21,7 +21,7 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 
-from zfrog.ai.client import complete_structured, is_available
+from zfrog.ai.client import can_call, complete_structured
 from zfrog.ai.schemas import SignificanceResult
 from zfrog.config import settings
 from zfrog.diff import DiffReport, diff_snapshots
@@ -307,7 +307,7 @@ async def judge_significance(candidates: list[ChangeCandidate], url: str = "") -
     if not candidates:
         return {"significant": False, "score": 0.0, "summary": "", "reasons": []}
 
-    if not is_available():
+    if not can_call():
         result = heuristic_significance(candidates)
         result["error"] = "AI indisponível"
         return result

@@ -762,6 +762,23 @@ async def catalog_search(body: CatalogSearchRequest, request: Request,
     }
 
 
+@app.post("/catalog/reindex")
+async def catalog_reindex(request: Request, force: bool = False,
+                          auth: AuthDecision = Depends(auth_dependency(ACTION_VERSION_MANAGE))):
+    """Build the embeddings of the catalog, so the descriptive search can rank by vector.
+
+    Without a configured embedding model this indexes nothing and says why, rather than
+    failing: the search still answers by word overlap, and a deployment should be able
+    to tell "nothing to index", "already indexed" and "the model is broken" apart.
+    """
+    from zfrog.visual_search import embed_catalog
+
+    result = await embed_catalog(_catalog(request), force=force)
+    if result.indexed:
+        _audit(request, "catalog.reindex", detail=f"{result.indexed} referência(s)")
+    return {"indexed": result.indexed, "reason": result.reason}
+
+
 @app.get("/catalog/{card_id}")
 async def get_catalog_card(card_id: str, request: Request,
                            auth: AuthDecision = Depends(auth_dependency(ACTION_READ))):

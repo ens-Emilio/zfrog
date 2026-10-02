@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { StatCard, StatStrip } from "@/components/ui/stat-card"
 import { ModeCard } from "@/components/ui/ds"
+import { Switch } from "@/components/ui/input"
 import { Icon } from "@/lib/icons"
 import { useToast } from "@/components/ToastRegion"
 
@@ -53,6 +54,11 @@ export default function ProbePage() {
   const [mode, setMode] = useState<JobMode>("auto")
   const [depth, setDepth] = useState(1)
   const [pdfName, setPdfName] = useState("")
+  const [selector, setSelector] = useState("")
+  const [breakpointName, setBreakpointName] = useState("desktop")
+  const [fullPage, setFullPage] = useState(true)
+  const [imageFormat, setImageFormat] = useState("png")
+  const [tags, setTags] = useState("")
   const [advancedOpen, setAdvancedOpen] = useState(false)
 
   const [creating, setCreating] = useState(false)
@@ -93,6 +99,12 @@ export default function ProbePage() {
       toast("Corrija o endereço para continuar.", "err")
       return
     }
+    // O seletor é o que define a extração do tongue: sem ele o job não tem o que
+    // procurar, e falharia só depois de abrir o navegador.
+    if (mode === "tongue" && !selector.trim()) {
+      toast("Informe o seletor CSS do componente.", "err")
+      return
+    }
     setCreating(true)
     setCreatedJob(null)
     setCreateError(null)
@@ -102,9 +114,25 @@ export default function ProbePage() {
         mode,
         max_depth: depthApplies ? depth : 0,
         ...(mode === "pdf" && pdfName.trim() ? { pdf_filename: pdfName.trim() } : {}),
+        ...(mode === "tongue" ? { selector: selector.trim() } : {}),
+        ...(mode === "jump"
+          ? {
+              token_breakpoint: breakpointName,
+              screenshot_full_page: fullPage,
+              screenshot_format: imageFormat,
+            }
+          : {}),
+        ...(mode === "jump" && tags.trim()
+          ? {
+              card_tags: tags
+                .split(",")
+                .map((tag) => tag.trim())
+                .filter(Boolean),
+            }
+          : {}),
       })
       setCreatedJob(job.id)
-      toast("Extração iniciada.")
+      toast(mode === "jump" ? "Captura iniciada — a referência entra na Coleção." : "Extração iniciada.")
     } catch (e) {
       setCreateError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -120,6 +148,9 @@ export default function ProbePage() {
     setMode("auto")
     setDepth(1)
     setPdfName("")
+    setSelector("")
+    setBreakpointName("desktop")
+    setTags("")
     setCreatedJob(null)
     setCreateError(null)
   }
@@ -382,21 +413,97 @@ export default function ProbePage() {
                   </span>
                 </div>
 
-                <div className="od-field" style={{ "--od-gap": "6px" } as React.CSSProperties}>
-                  <label className="label" htmlFor="adv-selector">
-                    Seletor de conteúdo (opcional)
-                  </label>
-                  <input
-                    id="adv-selector"
-                    className="input input-mono"
-                    placeholder="article.main-content"
-                    disabled
-                  />
-                  <span className="hint">
-                    Ainda não enviado pelo painel. Para escolher o que pegar clicando na página, use a tela{" "}
-                    <Link href="/captura">Captura</Link>.
-                  </span>
-                </div>
+                {mode === "tongue" && (
+                  <div className="od-field" style={{ "--od-gap": "6px" } as React.CSSProperties}>
+                    <label className="label" htmlFor="adv-tongue-selector">
+                      Seletor CSS do componente
+                    </label>
+                    <input
+                      id="adv-tongue-selector"
+                      className="input input-mono"
+                      placeholder=".hero, nav.main, #preco"
+                      value={selector}
+                      required
+                      aria-describedby="adv-tongue-hint"
+                      onChange={(event) => setSelector(event.target.value)}
+                    />
+                    <span className="hint" id="adv-tongue-hint">
+                      O primeiro elemento que casar é extraído, com o CSS que o navegador aplicou. Para
+                      montar o seletor clicando na página, use a tela{" "}
+                      <Link href="/captura">Captura</Link>.
+                    </span>
+                  </div>
+                )}
+
+                {mode === "jump" && (
+                  <>
+                    <div className="od-field" style={{ "--od-gap": "6px" } as React.CSSProperties}>
+                      <label className="label" htmlFor="adv-breakpoint">
+                        Resolução do screenshot
+                      </label>
+                      <span className="select-wrap">
+                        <select
+                          id="adv-breakpoint"
+                          className="select"
+                          value={breakpointName}
+                          onChange={(event) => setBreakpointName(event.target.value)}
+                        >
+                          <option value="desktop">Desktop (1440×900)</option>
+                          <option value="tablet">Tablet (834×1112)</option>
+                          <option value="mobile">Mobile (390×844)</option>
+                        </select>
+                        <Icon name="i-chevron" />
+                      </span>
+                      <span className="hint">
+                        A largura em que a página é medida. A altura vem da opção abaixo.
+                      </span>
+                    </div>
+
+                    <div className="od-field" style={{ "--od-gap": "6px" } as React.CSSProperties}>
+                      <label className="label" htmlFor="adv-format">
+                        Formato da imagem
+                      </label>
+                      <span className="select-wrap">
+                        <select
+                          id="adv-format"
+                          className="select"
+                          value={imageFormat}
+                          onChange={(event) => setImageFormat(event.target.value)}
+                        >
+                          <option value="png">PNG (sem perda)</option>
+                          <option value="webp">WebP (arquivo menor)</option>
+                        </select>
+                        <Icon name="i-chevron" />
+                      </span>
+                      <span className="hint">
+                        WebP costuma sair com um terço do tamanho, útil quando a coleção cresce.
+                      </span>
+                    </div>
+
+                    <Switch
+                      checked={fullPage}
+                      onChange={setFullPage}
+                      label="Capturar a página inteira"
+                      hint="Desligue para guardar só o que aparece na tela, do topo até a dobra."
+                    />
+
+                    <div className="od-field" style={{ "--od-gap": "6px" } as React.CSSProperties}>
+                      <label className="label" htmlFor="adv-tags">
+                        Etiquetas da referência (opcional)
+                      </label>
+                      <input
+                        id="adv-tags"
+                        className="input"
+                        placeholder="dashboard, escuro, fintech"
+                        value={tags}
+                        onChange={(event) => setTags(event.target.value)}
+                      />
+                      <span className="hint">
+                        Separe por vírgula. Elas aparecem na Coleção e servem para filtrar depois.
+                      </span>
+                    </div>
+                  </>
+                )}
 
                 {mode === "pdf" && (
                   <div className="od-field" style={{ "--od-gap": "6px" } as React.CSSProperties}>

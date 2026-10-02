@@ -39,6 +39,10 @@ class JobCreate(BaseModel):
     selector: str | None = None
     # jump mode: which breakpoint the screenshot is taken at (desktop/tablet/mobile)
     token_breakpoint: str | None = None
+    # jump mode: capture the whole page (default) or only the viewport
+    screenshot_full_page: bool = True
+    # jump mode: image format, "png" (lossless) or "webp" (smaller)
+    screenshot_format: str = "png"
     # Tags applied to the reference card created by a capture
     card_tags: list[str] = Field(default_factory=list)
     # Save a version (git-like history) after the crawl completes

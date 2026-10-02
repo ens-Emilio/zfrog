@@ -328,6 +328,7 @@ guardá-la num catálogo e encontrá-la depois.
 
 ```bash
 zfrog jump https://stripe.com --tag fintech --breakpoint desktop
+zfrog jump https://stripe.com --viewport-only --format webp   # mais leve
 ```
 
 Isso renderiza a página, tira um screenshot de página inteira e extrai os tokens
@@ -357,6 +358,16 @@ zfrog show <id>                        # detalhe, com a paleta
 zfrog export <id> --format html        # mini style guide autocontido
 ```
 
+A captura padrão também produz design: `zfrog clone <url>` roda a extração de
+tokens junto do screenshot, na mesma visita ao navegador, e registra um card — nos
+modos que capturam página (`auto`, `mirror`, `scrape`, `singlepage`, `delta`). Os
+motores de análise de texto não entram nessa, porque uma paleta vinda deles seria
+ruído.
+
+No painel, a tela **Nova extração** oferece o modo *Referência de design* (com
+resolução, formato, página inteira ou viewport, e etiquetas) e *Extrair componente*
+(com o campo do seletor CSS).
+
 **Como a busca por descrição funciona, e o que ela não faz.** Cada card é
 descrito em palavras a partir dos tokens medidos — luminosidade e matiz das
 cores, arredondamento dos cantos, vocabulário de sombras, serifa ou não. Essa
@@ -367,7 +378,9 @@ Para isso, `visual_search.describe()` é o único ponto que muda.
 
 Sem um modelo de embeddings configurado, a busca cai para comparação de palavras
 — degrada para algo útil, não para nada. Configure `ZFROG_AI_EMBEDDING` (e rode
-`zfrog pond --reindex`) para usar os vetores.
+`zfrog pond --reindex`) para usar os vetores. Pela API, `POST /catalog/reindex` faz
+o mesmo e informa quantos vetores escreveu; sem modelo, responde `indexed: 0` com o
+motivo, em vez de falhar.
 
 No painel, a rota **Coleção** é o moodboard: os screenshots em grade, filtros por
 etiqueta, cor e site, a busca por descrição e um painel de detalhe com paleta,
@@ -1276,7 +1289,7 @@ O que o CI roda, e o que se espera de cada passo:
 |---|---|---|
 | Lockfile | `uv lock --check` | verde |
 | Lint | `ruff check . --select F821,F811,F402,E9` | verde |
-| Testes | `pytest tests/ -q` | verde (1679) |
+| Testes | `pytest tests/ -q` | verde (1707) |
 | Tipos do painel | `tsc --noEmit` | verde |
 | Build do painel | `next build` | verde |
 

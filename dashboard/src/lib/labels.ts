@@ -65,6 +65,22 @@ export const MODES: Record<JobMode, ModeInfo> = {
     when: "Você não quer pensar em modos: cole o endereço e deixe o zfrog decidir.",
     output: "O mesmo resultado do modo ideal, escolhido pelo zfrog.",
   },
+  jump: {
+    label: "Referência de design",
+    icon: "i-target",
+    group: "rec",
+    what: "Renderiza a página num navegador, tira um screenshot de página inteira e extrai a paleta, a tipografia e as medidas dela.",
+    when: "Você quer guardar uma página como referência visual, para consultar ou se inspirar depois.",
+    output: "Um screenshot em alta resolução, os tokens de design em JSON e Markdown, e um card na Coleção.",
+  },
+  tongue: {
+    label: "Extrair componente",
+    icon: "i-code",
+    group: "adv",
+    what: "Pega um elemento da página pelo seletor CSS e devolve o HTML dele com o CSS que o navegador aplicou.",
+    when: "Você quer estudar um card, uma navbar ou um botão específico, e não a página inteira.",
+    output: "O HTML do elemento, o CSS computado agrupado em layout/cor/tipografia, e a caixa dele.",
+  },
   singlepage: {
     label: "Página única",
     icon: "i-file",

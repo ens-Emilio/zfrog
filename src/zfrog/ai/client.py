@@ -25,6 +25,23 @@ from typing import Any
 from zfrog.config import settings
 
 
+def _litellm():
+    """Import LiteLLM, with its provider banner turned off.
+
+    When a call fails to resolve a model, LiteLLM prints a provider list and a support
+    banner to stderr before raising. That is library advertising, not our output, and it
+    lands in the middle of commands whose real answer is the error message below it. The
+    switch is the module attribute — an env var does not control it.
+
+    Imported lazily, as the call sites already did: LiteLLM is heavy, and this module is
+    imported by code paths that never make a call.
+    """
+    import litellm
+
+    litellm.suppress_debug_info = True
+    return litellm
+
+
 def get_model() -> str:
     """Get the configured AI model string."""
     return os.environ.get("ZFROG_AI_MODEL", "ollama/qwen2.5")
@@ -56,7 +73,7 @@ async def complete(
     Returns:
         Model response as string.
     """
-    import litellm
+    litellm = _litellm()
 
     model = model or get_model()
 
@@ -96,7 +113,8 @@ async def complete_structured(
         Instance of response_model.
     """
     import instructor
-    import litellm
+
+    litellm = _litellm()
 
     model = model or get_model()
 
@@ -127,7 +145,7 @@ async def embed(
     Returns:
         List of embedding vectors.
     """
-    import litellm
+    litellm = _litellm()
 
     model = model or get_embedding_model()
 
@@ -140,12 +158,43 @@ async def embed(
 
 
 def is_available() -> bool:
-    """Check if AI module is usable (LiteLLM installed, model accessible)."""
+    """Whether LiteLLM is importable.
+
+    This is a *dependency* check, not a readiness check: it is true on every install,
+    including one where no model was ever started. Code that is about to make a call
+    must also ask :func:`model_configured` (or :func:`embedding_configured`), or it
+    reaches a default model the user never installed and reports a provider error for a
+    feature they did not ask for.
+    """
     try:
-        import litellm
+        _litellm()
         return True
     except ImportError:
         return False
+
+
+def model_configured() -> bool:
+    """Whether a chat model was pointed at explicitly (``ZFROG_AI_MODEL``).
+
+    The default is ``ollama/qwen2.5``; treating that default as "configured" is what
+    makes an unconfigured install print a provider error on a job that only wanted the
+    heuristic.
+    """
+    return bool(os.environ.get("ZFROG_AI_MODEL"))
+
+
+def embedding_configured() -> bool:
+    """Whether an embedding model was pointed at explicitly (``ZFROG_AI_EMBEDDING``)."""
+    return bool(os.environ.get("ZFROG_AI_EMBEDDING"))
+
+
+def can_call() -> bool:
+    """Whether a chat completion has a chance of working.
+
+    One predicate for the two conditions, so callers have one seam to stub and one
+    thing to check: litellm must be importable *and* a model must have been named.
+    """
+    return is_available() and model_configured()
 
 
 def provider_info() -> dict[str, str]:

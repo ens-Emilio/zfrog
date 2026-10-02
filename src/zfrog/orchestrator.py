@@ -18,6 +18,7 @@ from zfrog.engines import get_engine, get_engine_for_probe
 from zfrog.pipeline.link_rewriter import rewrite_links
 from zfrog.pipeline.privacy_cleaner import clean_privacy
 from zfrog.pipeline.packager import package_zip
+from zfrog.pipeline.reference import DESIGN_MODES, register_reference
 from zfrog.pipeline.screenshot import take_screenshots
 from zfrog.storage.local import get_output_dir
 from zfrog.utils.http import create_client
@@ -229,11 +230,30 @@ async def run_job(job: JobCreate) -> JobResult:
             trackers_removed = await clean_privacy(output_dir)
             await publish_job_event(job_id, "progress", {"message": "Privacy cleaned"})
 
-            # Take screenshots of every HTML page
+            # Visit every HTML page in a browser: a screenshot of each, and — for the
+            # modes that are about design — the tokens of the entry page. Both come
+            # out of the same visit, so the browser opens once.
             if on_progress:
                 on_progress("Capturando telas...")
-            screenshots = await take_screenshots(output_dir)
+            wants_design = job.mode in DESIGN_MODES
+            capture = await take_screenshots(output_dir, design=wants_design)
             await publish_job_event(job_id, "progress", {"message": "Screenshots taken"})
+
+            # A capture that knows its own design becomes a reference in the catalog.
+            if wants_design and capture.tokens is not None:
+                card = register_reference(
+                    url=str(job.url),
+                    mode=job.mode,
+                    engine=engine.name,
+                    tokens=capture.tokens,
+                    screenshot=capture.entry_screenshot,
+                    job_id=job_id,
+                    tags=job.card_tags,
+                )
+                if card is not None:
+                    await publish_job_event(
+                        job_id, "progress", {"message": f"Referência registrada: {card.id[:8]}"}
+                    )
 
             # Scan cloned content for malware/phishing indicators.
             # A scan failure must never fail the job.
