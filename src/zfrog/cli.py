@@ -507,6 +507,26 @@ async def _run_dev(host: str, api_port: int, web_port: int, dashboard_dir: Path,
     return exit_code
 
 
+def _redis_state() -> tuple[bool, str]:
+    """Whether Redis answers, and the URL it was asked at.
+
+    Checked from here rather than from the API because the point is to say it in the
+    `dev` banner: the status card in the panel already reports it, but that is behind
+    a browser tab, and the dev command is where someone looks when something is off.
+    """
+    from zfrog.config import settings
+
+    try:
+        import redis
+
+        client = redis.from_url(settings.redis_url, socket_connect_timeout=2)
+        client.ping()
+        client.close()
+        return True, settings.redis_url
+    except Exception:
+        return False, settings.redis_url
+
+
 @app.command()
 def dev(
     api_port: int = typer.Option(8000, "--api-port", help="API port"),
@@ -515,7 +535,12 @@ def dev(
     reload: bool = typer.Option(True, "--reload/--no-reload", help="Auto-reload API on changes"),
     install: bool = typer.Option(True, "--install/--no-install", help="Run npm install if needed"),
 ):
-    """Run API and dashboard together with one command."""
+    """Run API and dashboard together with one command.
+
+    Redis is not started here — `docker compose up` does that, and a local server may
+    already be the user's own. Its state is reported so the panel's "pendência" warning
+    is not a surprise discovered in another window.
+    """
     try:
         root = _find_project_root()
     except RuntimeError as e:
@@ -535,6 +560,18 @@ def dev(
         except subprocess.CalledProcessError:
             console.print("[bold red]npm install failed.[/]")
             raise typer.Exit(1)
+
+    redis_ok, redis_url = _redis_state()
+    if not redis_ok:
+        console.print(
+            f"[yellow]Redis não respondeu[/] em [cyan]{redis_url}[/]. "
+            "O painel e os jobs funcionam sem ele (rodam no processo); "
+            "o que fica de fora é a fila entre workers e o progresso ao vivo."
+        )
+        console.print(
+            "[dim]Para ligar:[/] [cyan]redis-server[/] "
+            "[dim]ou[/] [cyan]docker compose up -d redis[/]"
+        )
 
     try:
         exit_code = asyncio.run(_run_dev(host, api_port, web_port, dashboard_dir, reload))
