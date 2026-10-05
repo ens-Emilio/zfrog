@@ -75,17 +75,24 @@ def run_job_task(self, job_data: dict):
             "duration_seconds": result.duration_seconds,
         }
     except Exception as e:
+        from zfrog.utils.cleanup import CancellationError
+
+        cancelled = isinstance(e, CancellationError)
         # A crash has to land on the record too: otherwise the job sits in
         # `running` forever and the screen keeps promising progress that stopped.
+        # A cancellation is not a crash, though — `run_job` already wrote CANCELLED
+        # and the user asked for it, so overwriting it with FAILED would turn their
+        # own "stop" into an error. Terminal states are left alone.
         if job_id:
             from zfrog.models import JobStatus
-            failed = get_job(job_id)
-            if failed:
-                failed.status = JobStatus.FAILED
-                failed.error = str(e)
-                update_job(failed)
+
+            record = get_job(job_id)
+            if record and record.status not in (JobStatus.CANCELLED, JobStatus.COMPLETED):
+                record.status = JobStatus.FAILED
+                record.error = str(e)
+                update_job(record)
         return {
-            "status": "failed",
+            "status": "cancelled" if cancelled else "failed",
             "job_id": job_id,
             "error": str(e),
         }

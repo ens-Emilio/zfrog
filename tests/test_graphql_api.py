@@ -410,7 +410,10 @@ class TestRealStores:
         assert sources["wget"] == "built-in"
         assert "playwright" in sources
 
-    async def test_empty_stores_return_empty_lists(self, stores):
+    async def test_empty_stores_return_empty_lists(self, monkeypatch, stores):
+        # The job store reads Redis now, so "empty" has to be stated rather than
+        # assumed: a job left in a shared Redis by another run would leak in here.
+        _serve(monkeypatch, [])
         outcome = await execute(
             '{ jobs { id } snapshots { path } versions(url: "https://none.test") { id } '
             "schedules { id } conversations { id } }"

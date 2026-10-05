@@ -351,8 +351,18 @@ async def cancel_job_endpoint(job_id: str, request: Request,
         raise HTTPException(status_code=400, detail="Job already finished")
     
     await cancel_job(job_id)
+
+    # Reflect the intent on the record now, not only when the orchestrator notices.
+    # A worker that had died left the record `running` forever, and since the clear
+    # keeps work that is still going, that row could neither be cancelled nor
+    # cleared — the list became impossible to empty.
+    from zfrog.models import JobStatus
+
+    job.status = JobStatus.CANCELLED
+    update_job(job)
+
     _audit(request, "job.cancel", target=job_id, url=job.url)
-    return {"message": f"Job {job_id} marked for cancellation"}
+    return {"message": f"Job {job_id} cancelled"}
 
 
 @app.get("/jobs/{job_id}/result", response_model=JobResultResponse)

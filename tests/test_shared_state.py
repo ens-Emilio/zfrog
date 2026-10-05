@@ -51,6 +51,8 @@ def shared_redis():
         client.delete(key)
     for key in client.scan_iter(match="zfrog:result:*"):
         client.delete(key)
+    for key in client.scan_iter(match="zfrog:cancelled:*"):
+        client.delete(key)
 
 
 # ── webhooks ────────────────────────────────────────────────────────────────
@@ -254,4 +256,79 @@ def test_clear_jobs_keeps_work_that_has_not_finished(monkeypatch):
 
     assert clear_jobs() == 2
     assert sorted(j.id for j in list_jobs()) == ["queued", "running"]
+    _jobs.clear()
+
+# ── job cancellation ────────────────────────────────────────────────────────
+
+def test_cancelling_works_without_redis(monkeypatch):
+    """The local path must keep working: that is what `zfrog` alone relies on."""
+    import asyncio
+
+    from zfrog.utils import cleanup
+
+    monkeypatch.setattr(cleanup, "_redis", lambda: None)
+    cleanup._cancelled_jobs.clear()
+
+    asyncio.run(cleanup.cancel_job("local-cancel"))
+    assert asyncio.run(cleanup.is_cancelled("local-cancel")) is True
+
+    asyncio.run(cleanup.clear_cancellation("local-cancel"))
+    assert asyncio.run(cleanup.is_cancelled("local-cancel")) is False
+
+@requires_redis
+def test_a_cancellation_from_one_process_reaches_another(shared_redis):
+    """Regression: the flag was a module set living in the API process.
+
+    The job runs in a Celery worker, so the worker read `False` forever and
+    "Interromper" stopped nothing at all.
+    """
+    import asyncio
+
+    from zfrog.utils import cleanup
+
+    asyncio.run(cleanup.clear_cancellation("cross-cancel"))
+    cleanup._cancelled_jobs.clear()
+
+    asyncio.run(cleanup.cancel_job("cross-cancel"))
+    # Another process: same Redis, empty memory.
+    cleanup._cancelled_jobs.clear()
+
+    assert asyncio.run(cleanup.is_cancelled("cross-cancel")) is True
+
+    asyncio.run(cleanup.clear_cancellation("cross-cancel"))
+    cleanup._cancelled_jobs.clear()
+    assert asyncio.run(cleanup.is_cancelled("cross-cancel")) is False
+
+def test_a_cancelled_job_is_not_recorded_as_a_failure(monkeypatch):
+    """Regression: the task's crash handler overwrote CANCELLED with FAILED.
+
+    `CancellationError` is an `Exception`, so the broad handler caught the user's
+    own "stop" and the row showed "Falha" for something they had asked for.
+    """
+    from zfrog.models import JobStatus
+    from zfrog.orchestrator import _jobs, get_job, update_job
+    from zfrog.queue import run_job_task
+    from zfrog.utils.cleanup import CancellationError
+
+    monkeypatch.setattr("zfrog.storage.redis_store.save_job_to_redis", lambda job: None)
+    monkeypatch.setattr("zfrog.storage.redis_store.get_job_from_redis", lambda job_id: None)
+    _jobs.clear()
+    update_job(_job("cancelled-run", JobStatus.RUNNING))
+
+    async def _cancel_and_raise(job, job_id=None):
+        # What `run_job` does when it notices the cancellation flag.
+        record = get_job(job_id)
+        record.status = JobStatus.CANCELLED
+        record.error = f"Job {job_id} was cancelled"
+        update_job(record)
+        raise CancellationError(record.error)
+
+    monkeypatch.setattr("zfrog.orchestrator.run_job", _cancel_and_raise)
+
+    out = run_job_task.apply(
+        args=[{"job_id": "cancelled-run", "url": "https://example.com/", "mode": "scrape", "max_depth": 1}]
+    ).get()
+
+    assert out["status"] == "cancelled"
+    assert _jobs["cancelled-run"].status is JobStatus.CANCELLED
     _jobs.clear()

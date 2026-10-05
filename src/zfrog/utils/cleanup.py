@@ -14,7 +14,31 @@ _cancelled_jobs: Set[str] = set()
 # Lock for thread-safe access
 _cancel_lock = asyncio.Lock()
 
+# One key per cancelled job, so several jobs cancel independently and each expires
+# on its own instead of the whole set needing a rewrite on every change.
+_REDIS_PREFIX = "zfrog:cancelled:"
+_REDIS_TTL = 86400
 
+
+def _redis():
+    """A Redis client for the shared cancel flags, or None when unavailable."""
+    try:
+        import redis
+
+        from zfrog.config import settings
+
+        client = redis.from_url(settings.redis_url, decode_responses=True)
+        client.ping()
+        return client
+    except Exception:
+        return None
+
+
+# The flag has to cross processes: the API receives the cancel request, but the job
+# runs in a Celery worker. A module-level set lived only in the API, so the worker
+# read `False` forever and "Interromper" stopped nothing. Redis is the shared store,
+# same as the webhook registry and the pending SSO logins; the local set stays for
+# single-process use.
 async def cancel_job(job_id: str) -> bool:
     """Request cancellation of a job.
     
@@ -26,6 +50,12 @@ async def cancel_job(job_id: str) -> bool:
     """
     async with _cancel_lock:
         _cancelled_jobs.add(job_id)
+    client = _redis()
+    if client is not None:
+        try:
+            client.set(f"{_REDIS_PREFIX}{job_id}", "1", ex=_REDIS_TTL)
+        except Exception:
+            pass
     return True
 
 
@@ -39,13 +69,27 @@ async def is_cancelled(job_id: str) -> bool:
         True if job should be cancelled.
     """
     async with _cancel_lock:
-        return job_id in _cancelled_jobs
+        if job_id in _cancelled_jobs:
+            return True
+    client = _redis()
+    if client is not None:
+        try:
+            return bool(client.get(f"{_REDIS_PREFIX}{job_id}"))
+        except Exception:
+            pass
+    return False
 
 
 async def clear_cancellation(job_id: str):
     """Clear cancellation flag for a job."""
     async with _cancel_lock:
         _cancelled_jobs.discard(job_id)
+    client = _redis()
+    if client is not None:
+        try:
+            client.delete(f"{_REDIS_PREFIX}{job_id}")
+        except Exception:
+            pass
 
 
 class CancellationError(Exception):
