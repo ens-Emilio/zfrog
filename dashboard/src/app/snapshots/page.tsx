@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { api, DiffReport, SnapshotEntry } from "@/lib/api"
 import { Topbar } from "@/components/Navbar"
 import { Button } from "@/components/ui/button"
-import { Select } from "@/components/ui/input"
+import { Select } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { EmptyState } from "@/components/ui/empty"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -209,14 +209,12 @@ export default function SnapshotsPage() {
                 <Select
                   label="Site acompanhado"
                   value={slug}
-                  onChange={(event) => setSlug(event.target.value)}
-                >
-                  {slugs.map((item) => (
-                    <option key={item} value={item}>
-                      {snapshots.find((entry) => entry.slug === item)?.url || item}
-                    </option>
-                  ))}
-                </Select>
+                  onChange={setSlug}
+                  options={slugs.map((item) => ({
+                    value: item,
+                    label: snapshots.find((entry) => entry.slug === item)?.url || item,
+                  }))}
+                />
               </div>
               <Button
                 className="od-touch"

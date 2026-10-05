@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { EmptyState } from "@/components/ui/empty"
 import { ModeCard } from "@/components/ui/ds"
+import { Select } from "@/components/ui/select"
 import { Icon, type IconName } from "@/lib/icons"
 import { useToast } from "@/components/ToastRegion"
 import { formatNumber } from "@/lib/utils"
@@ -246,27 +247,25 @@ export default function CapturaPage() {
           <span className="label" id="blocks-legend">
             O que pegar na página
           </span>
-          <span className="select-wrap" style={{ flex: "0 1 220px" }}>
-            <select
-              className="select"
-              aria-label="Preset de captura"
+          <div style={{ flex: "0 1 240px" }}>
+            <Select
               value={presetId}
-              onChange={(event) => handlePreset(event.target.value)}
-            >
-              {PRESETS.map((preset) => (
-                <option key={preset.id} value={preset.id}>
-                  {preset.label}
-                </option>
-              ))}
-              {savedPresets.map((preset) => (
-                <option key={preset.id} value={preset.id}>
-                  {preset.label}
-                </option>
-              ))}
-              <option value="custom">Personalizado</option>
-            </select>
-            <Icon name="i-chevron" />
-          </span>
+              onChange={handlePreset}
+              placeholder="Preset de captura"
+              panelMinWidth={260}
+              options={[
+                ...PRESETS.map((preset) => ({ value: preset.id, label: preset.label, group: "Presets" })),
+                ...(savedPresets.length
+                  ? savedPresets.map((preset) => ({
+                      value: preset.id,
+                      label: preset.label,
+                      group: "Salvos por você",
+                    }))
+                  : []),
+                { value: "custom", label: "Personalizado", hint: "escolher os blocos abaixo" },
+              ]}
+            />
+          </div>
         </div>
 
         <div className="mode-grid" style={{ marginBottom: "var(--sp-3)" }} role="group" aria-labelledby="blocks-legend">

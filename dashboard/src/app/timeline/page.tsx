@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { api, ArchivedPage, SnapshotEntry, TimelineEntry } from "@/lib/api"
 import { Topbar } from "@/components/Navbar"
 import { Button } from "@/components/ui/button"
-import { Input, Select } from "@/components/ui/input"
+import { Input } from "@/components/ui/input"
+import { Select } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { DetailGrid, DetailRow } from "@/components/DetailRow"
 import { EmptyState } from "@/components/ui/empty"
@@ -263,18 +264,13 @@ export default function TimelinePage() {
               <Select
                 label="Site acompanhado"
                 value={slug}
-                onChange={(event) => {
+                onChange={(value) => {
                   setNotice(null)
                   setResolveError(null)
-                  setSlug(event.target.value)
+                  setSlug(value)
                 }}
-              >
-                {siteOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </Select>
+                options={siteOptions}
+              />
             </div>
           </div>
 

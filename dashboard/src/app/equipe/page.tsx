@@ -3,7 +3,8 @@ import { useEffect, useState } from "react"
 import { api, AppUser, Organization } from "@/lib/api"
 import { Topbar } from "@/components/Navbar"
 import { Button } from "@/components/ui/button"
-import { Input, Select } from "@/components/ui/input"
+import { Input } from "@/components/ui/input"
+import { Select } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { EmptyState } from "@/components/ui/empty"
@@ -370,13 +371,12 @@ export default function EquipePage() {
                 onChange={(event) => setName(event.target.value)}
                 hint="Opcional, só para identificar a pessoa na tela."
               />
-              <Select label="Papel" value={role} onChange={(event) => setRole(event.target.value)}>
-                {ROLE_ORDER.map((value) => (
-                  <option key={value} value={value}>
-                    {ROLE_LABELS[value]}
-                  </option>
-                ))}
-              </Select>
+              <Select
+                label="Papel"
+                value={role}
+                onChange={setRole}
+                options={ROLE_ORDER.map((value) => ({ value, label: ROLE_LABELS[value] }))}
+              />
               <Input
                 label="Senha (opcional)"
                 type="password"
@@ -602,13 +602,12 @@ export default function EquipePage() {
                     : "O id aparece na tabela de membros acima."
                 }
               />
-              <Select label="Papel" value={memberRole} onChange={(event) => setMemberRole(event.target.value)}>
-                {ROLE_ORDER.map((value) => (
-                  <option key={value} value={value}>
-                    {ROLE_LABELS[value]}
-                  </option>
-                ))}
-              </Select>
+              <Select
+                label="Papel"
+                value={memberRole}
+                onChange={setMemberRole}
+                options={ROLE_ORDER.map((value) => ({ value, label: ROLE_LABELS[value] }))}
+              />
             </div>
 
             {memberError && (

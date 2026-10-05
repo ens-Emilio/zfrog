@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { StatCard, StatStrip } from "@/components/ui/stat-card"
 import { ModeCard } from "@/components/ui/ds"
 import { Switch } from "@/components/ui/input"
+import { Select } from "@/components/ui/select"
 import { Icon } from "@/lib/icons"
 import { useToast } from "@/components/ToastRegion"
 
@@ -301,25 +302,19 @@ export default function ProbePage() {
               <span className="label" id="mode-legend">
                 O que você quer fazer?
               </span>
-              <span className="select-wrap" style={{ flex: "0 1 220px" }}>
-                <select
-                  className="select"
-                  aria-label="Mais modos de extração"
+              <div style={{ flex: "0 1 240px" }}>
+                <Select
                   value={ADVANCED_MODES.includes(mode) ? mode : ""}
-                  onChange={(event) => {
-                    const next = event.target.value as JobMode
-                    if (next) setMode(next)
-                  }}
-                >
-                  <option value="">Mais modos…</option>
-                  {ADVANCED_MODES.map((id) => (
-                    <option key={id} value={id}>
-                      {MODES[id].label}
-                    </option>
-                  ))}
-                </select>
-                <Icon name="i-chevron" />
-              </span>
+                  onChange={(next) => next && setMode(next as JobMode)}
+                  placeholder="Mais modos…"
+                  panelMinWidth={280}
+                  options={ADVANCED_MODES.map((id) => ({
+                    value: id,
+                    label: MODES[id].label,
+                    icon: MODES[id].icon,
+                  }))}
+                />
+              </div>
             </div>
 
             <div className="mode-grid">
@@ -437,48 +432,30 @@ export default function ProbePage() {
 
                 {mode === "jump" && (
                   <>
-                    <div className="od-field" style={{ "--od-gap": "6px" } as React.CSSProperties}>
-                      <label className="label" htmlFor="adv-breakpoint">
-                        Resolução do screenshot
-                      </label>
-                      <span className="select-wrap">
-                        <select
-                          id="adv-breakpoint"
-                          className="select"
-                          value={breakpointName}
-                          onChange={(event) => setBreakpointName(event.target.value)}
-                        >
-                          <option value="desktop">Desktop (1440×900)</option>
-                          <option value="tablet">Tablet (834×1112)</option>
-                          <option value="mobile">Mobile (390×844)</option>
-                        </select>
-                        <Icon name="i-chevron" />
-                      </span>
-                      <span className="hint">
-                        A largura em que a página é medida. A altura vem da opção abaixo.
-                      </span>
-                    </div>
+                    <Select
+                      id="adv-breakpoint"
+                      label="Resolução do screenshot"
+                      value={breakpointName}
+                      onChange={setBreakpointName}
+                      hint="A largura em que a página é medida. A altura vem da opção abaixo."
+                      options={[
+                        { value: "desktop", label: "Desktop", hint: "1440×900" },
+                        { value: "tablet", label: "Tablet", hint: "834×1112" },
+                        { value: "mobile", label: "Mobile", hint: "390×844" },
+                      ]}
+                    />
 
-                    <div className="od-field" style={{ "--od-gap": "6px" } as React.CSSProperties}>
-                      <label className="label" htmlFor="adv-format">
-                        Formato da imagem
-                      </label>
-                      <span className="select-wrap">
-                        <select
-                          id="adv-format"
-                          className="select"
-                          value={imageFormat}
-                          onChange={(event) => setImageFormat(event.target.value)}
-                        >
-                          <option value="png">PNG (sem perda)</option>
-                          <option value="webp">WebP (arquivo menor)</option>
-                        </select>
-                        <Icon name="i-chevron" />
-                      </span>
-                      <span className="hint">
-                        WebP costuma sair com um terço do tamanho, útil quando a coleção cresce.
-                      </span>
-                    </div>
+                    <Select
+                      id="adv-format"
+                      label="Formato da imagem"
+                      value={imageFormat}
+                      onChange={setImageFormat}
+                      hint="WebP costuma sair com um terço do tamanho, útil quando a coleção cresce."
+                      options={[
+                        { value: "png", label: "PNG", hint: "sem perda" },
+                        { value: "webp", label: "WebP", hint: "arquivo menor" },
+                      ]}
+                    />
 
                     <Switch
                       checked={fullPage}

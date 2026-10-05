@@ -4,7 +4,8 @@ import type { CSSProperties } from "react"
 import { api, AuditEntry, WebhookEntry } from "@/lib/api"
 import { Topbar } from "@/components/Navbar"
 import { Button } from "@/components/ui/button"
-import { Input, Select, Switch } from "@/components/ui/input"
+import { Input, Switch } from "@/components/ui/input"
+import { Select } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { EmptyState } from "@/components/ui/empty"
@@ -235,18 +236,16 @@ export default function WebhooksPage() {
           <Select
             label="Evento"
             value={primaryEvent}
-            onChange={(event) => {
-              const value = event.target.value
+            onChange={(value) => {
               setPrimaryEvent(value)
               setExtraEvents((current) => current.filter((name) => name !== value))
             }}
-          >
-            {EVENTS.map((event) => (
-              <option key={event.name} value={event.name}>
-                {event.label}
-              </option>
-            ))}
-          </Select>
+            options={EVENTS.map((event) => ({
+              value: event.name,
+              label: event.label,
+              hint: event.what,
+            }))}
+          />
         </div>
 
         <div className="od-field">

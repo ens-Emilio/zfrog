@@ -13,7 +13,8 @@ import { MODES, MODE_ORDER, RECOMMENDED_MODES, ADVANCED_MODES } from "@/lib/labe
 import { Topbar } from "@/components/Navbar"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input, Select } from "@/components/ui/input"
+import { Input } from "@/components/ui/input"
+import { Select } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { EmptyState } from "@/components/ui/empty"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -810,18 +811,17 @@ export default function FluxosPage() {
                               <Select
                                 label="Mais modos"
                                 value={ADVANCED_MODES.includes(String(step.params.mode ?? "") as JobMode) ? String(step.params.mode) : ""}
-                                onChange={(e) => {
-                                  if (e.target.value) updateParam(index, "mode", e.target.value)
+                                onChange={(value) => {
+                                  if (value) updateParam(index, "mode", value)
                                 }}
                                 hint="Modos avançados para casos específicos."
-                              >
-                                <option value="">Usar um dos modos acima</option>
-                                {ADVANCED_MODES.map((m) => (
-                                  <option key={m} value={m}>
-                                    {MODES[m].label}
-                                  </option>
-                                ))}
-                              </Select>
+                                placeholder="Usar um dos modos acima"
+                                options={ADVANCED_MODES.map((m) => ({
+                                  value: m,
+                                  label: MODES[m].label,
+                                  icon: MODES[m].icon,
+                                }))}
+                              />
                             )}
                             <p className="hint">{MODES[String(step.params.mode ?? "auto") as JobMode]?.what ?? ""}</p>
                           </div>
@@ -1094,14 +1094,13 @@ export default function FluxosPage() {
             <Select
               label="Modo"
               value={schedMode}
-              onChange={(e) => setSchedMode(e.target.value as JobMode)}
-            >
-              {MODE_ORDER.map((m) => (
-                <option key={m} value={m}>
-                  {MODES[m].label}
-                </option>
-              ))}
-            </Select>
+              onChange={(value) => setSchedMode(value as JobMode)}
+              options={MODE_ORDER.map((m) => ({
+                value: m,
+                label: MODES[m].label,
+                icon: MODES[m].icon,
+              }))}
+            />
             <Input
               label="Quantas páginas percorrer"
               type="number"

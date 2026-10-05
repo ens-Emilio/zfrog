@@ -9,6 +9,7 @@ import { Chip } from "@/components/ui/ds"
 import { Skeleton } from "@/components/ui/skeleton"
 import { EmptyState } from "@/components/ui/empty"
 import { Modal } from "@/components/ui/modal"
+import { Select } from "@/components/ui/select"
 import { useToast } from "@/components/ToastRegion"
 import { formatNumber } from "@/lib/utils"
 
@@ -214,25 +215,22 @@ export default function CollectionPage() {
         )}
 
         {sites.length > 0 && (
-          <div className="search-wrap" style={{ flex: "0 1 320px" }}>
-            <label className="field">
-              <span className="label">Site</span>
-              <span className="select-wrap">
-                <select
-                  className="select"
-                  value={site ?? ""}
-                  onChange={(event) => setSite(event.target.value || null)}
-                >
-                  <option value="">Todos os sites</option>
-                  {sites.map((entry) => (
-                    <option key={entry.site} value={entry.site}>
-                      {entry.site} ({entry.count})
-                    </option>
-                  ))}
-                </select>
-                <Icon name="i-chevron" />
-              </span>
-            </label>
+          <div style={{ flex: "0 1 320px" }}>
+            <Select
+              label="Site"
+              value={site ?? ""}
+              onChange={(next) => setSite(next || null)}
+              placeholder="Todos os sites"
+              panelMinWidth={280}
+              options={[
+                { value: "", label: "Todos os sites" },
+                ...sites.map((entry) => ({
+                  value: entry.site,
+                  label: entry.site,
+                  hint: `${entry.count} referência(s)`,
+                })),
+              ]}
+            />
           </div>
         )}
       </div>

@@ -3,7 +3,8 @@
 import { useState, type CSSProperties } from "react"
 import { Topbar } from "@/components/Navbar"
 import { Button } from "@/components/ui/button"
-import { Input, Select, Switch, Textarea } from "@/components/ui/input"
+import { Input, Switch, Textarea } from "@/components/ui/input"
+import { Select } from "@/components/ui/select"
 import { Badge, StatusBadge } from "@/components/ui/badge"
 import { Chip, ModeCard, Progress, Stepper } from "@/components/ui/ds"
 import { ICONS, Icon, type IconName } from "@/lib/icons"
@@ -448,15 +449,15 @@ export default function DesignPage() {
             <div className="grid gap-4 sm:grid-cols-2">
               <Select
                 label="Modo de captura"
-                defaultValue={RECOMMENDED_MODES[0]}
+                value={mode}
+                onChange={(next) => setMode(next as JobMode)}
                 hint="O modo escolhido para a execução."
-              >
-                {RECOMMENDED_MODES.map((key) => (
-                  <option key={key} value={key}>
-                    {MODES[key].label}
-                  </option>
-                ))}
-              </Select>
+                options={RECOMMENDED_MODES.map((key) => ({
+                  value: key,
+                  label: MODES[key].label,
+                  icon: MODES[key].icon,
+                }))}
+              />
               <Textarea label="Proxies" placeholder="http://usuario:senha@host:porta" hint="Um por linha." />
             </div>
             <div className={styles.demoRow}>

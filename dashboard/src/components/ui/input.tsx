@@ -1,5 +1,5 @@
 import * as React from "react"
-import { AlertTriangle, ChevronDown } from "lucide-react"
+import { AlertTriangle } from "lucide-react"
 
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string
@@ -53,27 +53,6 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
   }
 )
 Input.displayName = "Input"
-
-/** The `.select` plus its chevron; the wrapper is a `<label>` for the same reason. */
-export const Select = React.forwardRef<
-  HTMLSelectElement,
-  React.SelectHTMLAttributes<HTMLSelectElement> & { label?: string; hint?: string }
->(({ className, label, hint, children, ...props }, ref) => {
-  const Wrapper = (label ? "label" : "div") as "label"
-  return (
-    <Wrapper className="field">
-      {label && <span className="label">{label}</span>}
-      <span className="select-wrap">
-        <select ref={ref} className={["select", className].filter(Boolean).join(" ")} {...props}>
-          {children}
-        </select>
-        <ChevronDown className="ic" aria-hidden="true" />
-      </span>
-      {hint && <span className="hint">{hint}</span>}
-    </Wrapper>
-  )
-})
-Select.displayName = "Select"
 
 /** The `.textarea` (mono, for JSON and lists of proxies). */
 export const Textarea = React.forwardRef<

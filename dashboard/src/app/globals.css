@@ -115,64 +115,115 @@
     display: block;
   }
 
-  /* Dropdowns.
+  /* Dropdown (components/ui/select.tsx).
 
-     O protótipo desenha o `<select>` como uma caixa chapada com um chevron solto, e
-     o popup de opções fica com a cara do sistema operacional — claro no meio de uma
-     interface escura. Aqui o controle passa a ler como os outros campos e as opções
-     acompanham o tema.
+     O `<select>` nativo foi trocado porque o popup é desenhado pelo sistema
+     operacional: fundo chapado, seleção no azul do sistema, e nada de raio, ícone
+     ou agrupamento. O que dava para estilizar nele era fundo, cor e padding — não
+     era falta de CSS, era limite do controle. */
 
-     O limite, dito com todas as letras: o popup é desenhado pelo navegador e aceita
-     só um punhado de propriedades (fundo, cor, padding). Não dá para arredondar,
-     animar nem posicionar; quem precisar disso tem de escrever um listbox próprio —
-     com teclado, foco e ARIA de verdade, que é onde mora o risco. */
-  .select {
-    padding-right: calc(var(--sp-8) + var(--sp-3));
-    font-weight: 500;
-    text-overflow: ellipsis;
-  }
-
-  /* O chevron deixa de ser um ícone solto e vira parte do controle: superfície
-     própria, alinhada à linguagem de vidro que o resto do painel usa. */
-  .select-wrap .ic {
-    right: var(--sp-2);
-    width: 26px;
-    height: 26px;
-    padding: 4px;
-    border-radius: var(--r-sm);
-    background: var(--glass);
+  .select-trigger {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    width: 100%;
+    min-height: 42px;
+    padding: var(--sp-2) var(--sp-3);
+    border-radius: var(--r-control);
     border: 1px solid var(--glass-border);
-    transition: background var(--t-fast) var(--ease-out),
-      border-color var(--t-fast) var(--ease-out), color var(--t-fast) var(--ease-out);
+    background: var(--glass-strong);
+    color: var(--text-1);
+    font: inherit;
+    font-size: var(--fs-14);
+    text-align: left;
+    cursor: pointer;
+    backdrop-filter: blur(var(--blur));
+    -webkit-backdrop-filter: blur(var(--blur));
+    transition: border-color var(--t-fast) var(--ease-out), background var(--t-fast) var(--ease-out);
   }
   @media (hover: hover) {
-    .select-wrap:hover .ic {
-      background: var(--glass-hover);
-      border-color: var(--glass-border-strong);
-      color: var(--text-2);
-    }
+    .select-trigger:hover:not(:disabled) { border-color: var(--glass-border-strong); }
   }
-  .select-wrap:focus-within .ic {
+  .select-trigger[aria-expanded="true"] {
     border-color: var(--accent-line);
-    color: var(--accent-strong);
+    box-shadow: 0 0 0 3px var(--accent-soft);
   }
+  .select-trigger:disabled { opacity: 0.5; cursor: not-allowed; }
 
-  /* As opções: o mínimo que o navegador deixa, e o que ele deixa já tira o popup
-     do tema claro padrão. */
-  .select option {
+  .select-trigger-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .select-trigger-label.is-placeholder { color: var(--text-3); }
+
+  .select-trigger-chevron {
+    flex: none;
+    color: var(--text-3);
+    transition: transform var(--t-base) var(--ease-out), color var(--t-fast) var(--ease-out);
+  }
+  .select-trigger-chevron.is-open { transform: rotate(180deg); color: var(--accent-strong); }
+
+  /* O painel.
+
+     Não é vidro: `.glass` sobre conteúdo denso deixa o texto de trás atravessar e
+     o menu vira uma sopa. Uma sobreposição que precisa ser lida tem fundo opaco —
+     o vidro do design system serve para camadas flutuantes sobre o fundo da
+     página, não para um menu em cima de texto e cards. */
+  .select-panel {
+    position: absolute;
+    z-index: 60;
+    top: calc(100% + var(--sp-1));
+    left: 0;
+    right: 0;
+    max-height: 320px;
+    overflow-y: auto;
+    padding: var(--sp-1);
+    display: grid;
+    gap: 2px;
+    align-content: start;
     background: var(--bg-2);
-    color: var(--text-1);
-    padding: var(--sp-2) var(--sp-3);
-  }
-  .select option:checked {
-    background: var(--accent);
-    color: var(--accent-ink);
+    border: 1px solid var(--glass-border-strong);
+    border-radius: var(--r-card);
+    box-shadow: var(--shadow-pop);
+    animation: rise var(--t-base) var(--ease-out);
   }
 
-  .select:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+  .select-item {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-3);
+    border-radius: var(--r-sm);
+    color: var(--text-1);
+    font-size: var(--fs-13);
+    cursor: pointer;
+    transition: background var(--t-fast) var(--ease-out), color var(--t-fast) var(--ease-out);
   }
+  /* A opção sob o cursor é a que Enter escolhe, então ela precisa ser visível —
+     é a mesma coisa que o `aria-activedescendant` anuncia ao leitor de tela. */
+  .select-item.is-active { background: var(--glass-hover); }
+  .select-item.is-selected { color: var(--accent-strong); font-weight: 600; }
+  .select-item.is-selected.is-active { background: var(--accent-soft); }
+  .select-item .ic { flex: none; color: var(--text-3); }
+  .select-item.is-selected .ic { color: var(--accent-strong); }
+
+  .select-item-text { flex: 1 1 auto; min-width: 0; display: grid; gap: 1px; }
+  .select-item-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .select-item-hint { font-size: var(--fs-11); color: var(--text-3); font-weight: 400; }
+  .select-item-check { color: var(--accent-strong); }
+
+  .select-group-label {
+    padding: var(--sp-2) var(--sp-3) var(--sp-1);
+    font-size: var(--fs-11);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-3);
+  }
+
+  .field { position: relative; }
 
   /* Estado que o protótipo não tem: ele é um mock, então nunca ficou degradado.
      O produto fica — a API responde mas o Redis caiu, por exemplo — e pintar isso
