@@ -1,7 +1,0 @@
-# Este arquivo existe para manter `public/` versionado: git não versiona diretório
-# vazio, e o Dockerfile desta app faz `COPY --from=builder /app/public ./public` —
-# sem a pasta, o build da imagem falha num clone limpo.
-#
-# O diretório ficou vazio quando os cinco SVGs de exemplo do create-next-app saíram
-# (não eram referenciados por nenhuma tela). Ele volta a ter conteúdo no dia em que
-# houver um asset estático de verdade para servir.

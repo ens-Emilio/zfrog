@@ -3,7 +3,6 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useEffect, useState } from "react"
-import { BrandMark } from "@/components/BrandMark"
 import { Icon } from "@/lib/icons"
 import { BOTTOM_NAV, NAV_GROUP_LABEL, NAV_GROUP_ORDER, NAV_VISIBLE, SHEET_NAV } from "@/lib/nav"
 import { useTheme } from "@/lib/prefs"
@@ -42,9 +41,13 @@ export function Navbar() {
       <aside className="sidebar" aria-label="Navegação principal">
         <div className="brand">
           <span className="brand-mark" aria-hidden="true">
-            <BrandMark className="ic ic-lg" />
+            {/* eslint-disable-next-line @next/next/no-img-element -- asset estático local, o otimizador do Next não acrescenta nada aqui */}
+            <img src="/mascot.png" alt="" width={38} height={38} />
           </span>
-          <span>
+          {/* Título e subtítulo em linhas próprias: como spans inline dentro de um
+              span, eles quebravam onde coubessem, e o subtítulo longo empurrava o
+              título para uma linha e ele mesmo para duas. */}
+          <span className="brand-text">
             <span className="brand-name">zfrog</span>
             <span className="brand-sub">Capturar e adaptar referências</span>
           </span>

@@ -1,5 +1,7 @@
 # Zfrog - Design Reference Engine
 
+<img src="docs/mascot.png" alt="Mascote do zfrog: um sapinho com uma lupa e uma folha em branco" width="140" align="right">
+
 Ferramenta de coleta, organização e adaptação de referências de design da web. Capture
 qualquer página, guarde o visual como referência offline e consulte o que foi capturado
 depois.

@@ -86,6 +86,94 @@
   /* A topbar não precisa de padding aqui: `.topbar` já traz o seu
      (`var(--sp-4) var(--sp-6)`, e `var(--sp-3) var(--sp-4)` no celular). */
 
+  /* Uma linha cada: o nome em cima, o subtítulo embaixo. Sem isto os dois são
+     spans inline e quebram onde couberem — foi o que fez o título e o subtítulo
+     se misturarem numa linha só. */
+  .brand-text {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+  }
+  .brand-text .brand-name,
+  .brand-text .brand-sub {
+    display: block;
+  }
+
+  /* O sapo é arte, não glifo de traço. A caixa que o design system define existe
+     para dar fundo a um ícone de 22px que herda `currentColor`; com a arte real
+     ela só moldura — o gradiente compete com o verde do sapo. */
+  .brand-mark {
+    background: none;
+    border: 0;
+    box-shadow: none;
+    overflow: hidden;
+  }
+  .brand-mark img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+
+  /* Dropdowns.
+
+     O protótipo desenha o `<select>` como uma caixa chapada com um chevron solto, e
+     o popup de opções fica com a cara do sistema operacional — claro no meio de uma
+     interface escura. Aqui o controle passa a ler como os outros campos e as opções
+     acompanham o tema.
+
+     O limite, dito com todas as letras: o popup é desenhado pelo navegador e aceita
+     só um punhado de propriedades (fundo, cor, padding). Não dá para arredondar,
+     animar nem posicionar; quem precisar disso tem de escrever um listbox próprio —
+     com teclado, foco e ARIA de verdade, que é onde mora o risco. */
+  .select {
+    padding-right: calc(var(--sp-8) + var(--sp-3));
+    font-weight: 500;
+    text-overflow: ellipsis;
+  }
+
+  /* O chevron deixa de ser um ícone solto e vira parte do controle: superfície
+     própria, alinhada à linguagem de vidro que o resto do painel usa. */
+  .select-wrap .ic {
+    right: var(--sp-2);
+    width: 26px;
+    height: 26px;
+    padding: 4px;
+    border-radius: var(--r-sm);
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    transition: background var(--t-fast) var(--ease-out),
+      border-color var(--t-fast) var(--ease-out), color var(--t-fast) var(--ease-out);
+  }
+  @media (hover: hover) {
+    .select-wrap:hover .ic {
+      background: var(--glass-hover);
+      border-color: var(--glass-border-strong);
+      color: var(--text-2);
+    }
+  }
+  .select-wrap:focus-within .ic {
+    border-color: var(--accent-line);
+    color: var(--accent-strong);
+  }
+
+  /* As opções: o mínimo que o navegador deixa, e o que ele deixa já tira o popup
+     do tema claro padrão. */
+  .select option {
+    background: var(--bg-2);
+    color: var(--text-1);
+    padding: var(--sp-2) var(--sp-3);
+  }
+  .select option:checked {
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+
+  .select:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
   /* Estado que o protótipo não tem: ele é um mock, então nunca ficou degradado.
      O produto fica — a API responde mas o Redis caiu, por exemplo — e pintar isso
      de vermelho ("fora do ar") manda a pessoa procurar o problema no lugar errado. */
