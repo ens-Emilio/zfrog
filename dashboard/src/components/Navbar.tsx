@@ -147,20 +147,74 @@ export function Navbar() {
   )
 }
 
-type Health = "checking" | "online" | "offline"
+type Health = "checking" | "online" | "degraded" | "offline"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
+/** One failing check from `/health`, already turned into something actionable. */
+interface Failure {
+  label: string
+  hint: string
+}
+
+/**
+ * The `/health` body, as far as this card reads it.
+ *
+ * The endpoint answers 503 when a dependency is down, deliberately: the container
+ * healthcheck polls it, so a fixed "healthy" would keep a broken instance in the load
+ * balancer. But 503 here does not mean "the API is down" — `/jobs` keeps answering
+ * from memory — so the card must not say it is.
+ */
+interface HealthBody {
+  status?: string
+  checks?: Record<string, { ok?: boolean; url?: string; path?: string; error?: string }>
+}
+
+/** The failing checks of a health body, each with what to do about it. */
+function failuresOf(body: HealthBody): Failure[] {
+  const checks = body.checks ?? {}
+  const failures: Failure[] = []
+
+  if (checks.redis && checks.redis.ok === false) {
+    failures.push({
+      label: "Redis",
+      hint: "A fila de jobs e o progresso ao vivo caem sem ele. Inicie com redis-server ou suba pelo docker compose.",
+    })
+  }
+  if (checks.data_dir && checks.data_dir.ok === false) {
+    failures.push({
+      label: "Volume de estado",
+      hint: `Não aceita escrita em ${checks.data_dir.path ?? "data_dir"}. Chaves, sessões e versões se perdem a cada reinício.`,
+    })
+  }
+  if (failures.length === 0) {
+    failures.push({ label: "Uma dependência", hint: "Veja o detalhe em /health." })
+  }
+  return failures
+}
+
 function ServerStatus() {
   const [health, setHealth] = useState<Health>("checking")
+  const [failures, setFailures] = useState<Failure[]>([])
   const [checkedAt, setCheckedAt] = useState<number | null>(null)
 
   const ping = async () => {
     try {
       const res = await fetch(`${API_URL}/health`)
-      setHealth(res.ok ? "online" : "offline")
+      if (res.ok) {
+        setHealth("online")
+        setFailures([])
+      } else {
+        // 503 from this endpoint means a dependency is down, not the API: read the
+        // body to say *which* one, or the user goes looking in the wrong place.
+        const body: HealthBody = await res.json().catch(() => ({}))
+        setHealth("degraded")
+        setFailures(failuresOf(body))
+      }
     } catch {
+      // The fetch itself failed: nothing is answering on that port.
       setHealth("offline")
+      setFailures([])
     }
     setCheckedAt(Date.now())
   }
@@ -171,28 +225,50 @@ function ServerStatus() {
     return () => clearInterval(id)
   }, [])
 
-  const label = { checking: "Verificando servidor…", online: "Servidor conectado", offline: "Servidor fora do ar" }[health]
+  const label = {
+    checking: "Verificando servidor…",
+    online: "Servidor conectado",
+    degraded: "API no ar, com pendência",
+    offline: "Servidor fora do ar",
+  }[health]
 
   return (
     <div className="status-card">
       <div className="status-row">
-        <span className={`status-dot ${health === "online" ? "online" : health === "offline" ? "offline" : ""}`} aria-hidden="true" />
+        <span className={`status-dot ${health === "online" ? "online" : health === "offline" ? "offline" : health === "degraded" ? "degraded" : ""}`} aria-hidden="true" />
         <span>{label}</span>
       </div>
-      {health === "offline" ? (
+
+      {health === "offline" && (
         <p className="status-help">
           Inicie a API com <span className="mono">./zfrog dev</span> ou <span className="mono">./zfrog serve</span>.
         </p>
-      ) : (
+      )}
+
+      {health === "degraded" && (
         <>
+          {failures.map((failure) => (
+            <p className="status-help" key={failure.label}>
+              <strong>{failure.label}</strong> não respondeu. {failure.hint}
+            </p>
+          ))}
           <p className="status-help">
-            API em <span className="mono">{API_URL.replace(/^https?:\/\//, "")}</span>
-            {checkedAt !== null ? ` · verificado ${secondsAgo(checkedAt)}` : ""}
+            A API segue atendendo em <span className="mono">{API_URL.replace(/^https?:\/\//, "")}</span>.
           </p>
-          <button className="btn btn-ghost btn-sm" type="button" onClick={ping}>
-            <RefreshCw className="ic ic-sm" aria-hidden="true" /> verificar de novo
-          </button>
         </>
+      )}
+
+      {health !== "offline" && health !== "degraded" && (
+        <p className="status-help">
+          API em <span className="mono">{API_URL.replace(/^https?:\/\//, "")}</span>
+          {checkedAt !== null ? ` · verificado ${secondsAgo(checkedAt)}` : ""}
+        </p>
+      )}
+
+      {health !== "checking" && (
+        <button className="btn btn-ghost btn-sm" type="button" onClick={ping}>
+          <RefreshCw className="ic ic-sm" aria-hidden="true" /> verificar de novo
+        </button>
       )}
     </div>
   )

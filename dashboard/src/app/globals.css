@@ -86,6 +86,14 @@
   /* A topbar não precisa de padding aqui: `.topbar` já traz o seu
      (`var(--sp-4) var(--sp-6)`, e `var(--sp-3) var(--sp-4)` no celular). */
 
+  /* Estado que o protótipo não tem: ele é um mock, então nunca ficou degradado.
+     O produto fica — a API responde mas o Redis caiu, por exemplo — e pintar isso
+     de vermelho ("fora do ar") manda a pessoa procurar o problema no lugar errado. */
+  .status-dot.degraded {
+    background: var(--warning);
+    box-shadow: 0 0 0 3px var(--warning-soft);
+  }
+
   @media (max-width: 1023px) {
     .view-grid > :not(.topbar) {
       padding-inline: var(--sp-4);
