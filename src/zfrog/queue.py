@@ -42,10 +42,12 @@ def run_job_task(self, job_data: dict):
     """
     from zfrog.models import JobCreate
     from zfrog.orchestrator import run_job, get_job, update_job, update_result
-    
+
+    # Read before the try so the failure path below can always name the record.
+    job_id = job_data.get("job_id")
+
     try:
         # Get existing job record (created by API)
-        job_id = job_data.get("job_id")
         job_record = get_job(job_id) if job_id else None
         
         if job_record:
@@ -58,8 +60,10 @@ def run_job_task(self, job_data: dict):
         # bookkeeping for the job record, not a JobCreate field).
         job = JobCreate(**{k: v for k, v in job_data.items() if k != "job_id"})
         
-        # Run the job
-        result = asyncio.run(run_job(job))
+        # Run under the id the API already created, so its `pending` record is the
+        # one that ends up `completed` instead of a second record appearing while
+        # the first one stays pending forever.
+        result = asyncio.run(run_job(job, job_id=job_id))
         
         return {
             "status": "completed",
@@ -71,8 +75,18 @@ def run_job_task(self, job_data: dict):
             "duration_seconds": result.duration_seconds,
         }
     except Exception as e:
+        # A crash has to land on the record too: otherwise the job sits in
+        # `running` forever and the screen keeps promising progress that stopped.
+        if job_id:
+            from zfrog.models import JobStatus
+            failed = get_job(job_id)
+            if failed:
+                failed.status = JobStatus.FAILED
+                failed.error = str(e)
+                update_job(failed)
         return {
             "status": "failed",
+            "job_id": job_id,
             "error": str(e),
         }
 

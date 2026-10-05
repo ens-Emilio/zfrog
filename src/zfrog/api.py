@@ -15,7 +15,7 @@ from pydantic import BaseModel, HttpUrl
 
 from zfrog.models import JobCreate, Job, JobResult
 from zfrog.auth import AuthDecision
-from zfrog.orchestrator import get_job, get_result, run_job, list_jobs, update_job
+from zfrog.orchestrator import get_job, get_result, run_job, list_jobs, update_job, clear_jobs
 from zfrog.probe import probe_url
 from zfrog.utils.http import create_client
 from zfrog.utils.cleanup import cancel_job, start_cleanup_scheduler
@@ -2367,6 +2367,20 @@ async def list_all_jobs(
         )
         for job in jobs
     ]
+
+
+@app.delete("/jobs")
+async def clear_all_jobs(request: Request,
+                         auth: AuthDecision = Depends(auth_dependency(ACTION_JOB_CANCEL))):
+    """Clear the job list.
+
+    Removes every job that is not in flight — finished ones and ones still queued
+    but not started. A job the process is actively running is kept, because the
+    record is the only thing pointing at output being written right now.
+    """
+    removed = clear_jobs()
+    _audit(request, "job.clear", target=f"{removed} job(s)")
+    return {"removed": removed}
 
 
 @app.get("/probe/{url:path}", response_model=ProbeResponse)

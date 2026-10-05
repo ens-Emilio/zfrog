@@ -14,7 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { EmptyState } from "@/components/ui/empty"
 import { Modal } from "@/components/ui/modal"
 import { StatusBadge } from "@/components/ui/badge"
-import { Activity, AlertTriangle, Download, Eye, Filter, Play, RefreshCw, RotateCw, Search, SearchX, X } from "lucide-react"
+import { Activity, AlertTriangle, Download, Eye, Filter, Play, RefreshCw, RotateCw, Search, SearchX, Trash2, X } from "lucide-react"
 
 /** The four filters of the prototype, each one a rank over the real statuses. */
 type FilterKey = "all" | "done" | "active" | "failed"
@@ -48,6 +48,8 @@ export default function JobsPage() {
   const [filter, setFilter] = useState<FilterKey>("all")
   const [polling, setPolling] = useState(true)
   const [confirming, setConfirming] = useState<Job | null>(null)
+  /** Separate from `confirming`: clearing the list is a different promise than cancelling one job. */
+  const [confirmingClear, setConfirmingClear] = useState(false)
   /** Files and bytes per finished job, read once from the real result endpoint. */
   const [results, setResults] = useState<Record<string, { files: number; bytes: number }>>({})
   const askedResults = useRef<Set<string>>(new Set())
@@ -163,6 +165,18 @@ export default function JobsPage() {
     }
   }
 
+  const handleClear = async () => {
+    try {
+      const { removed } = await api.clearJobs()
+      setResults({})
+      askedResults.current.clear()
+      toast(removed === 1 ? "1 execução removida." : `${removed} execuções removidas.`)
+      await fetchJobs()
+    } catch (e) {
+      toast(e instanceof Error ? e.message : String(e), "err")
+    }
+  }
+
   const handleRerun = async (job: Job) => {
     try {
       await api.createJob({ url: job.url, mode: job.mode, max_depth: job.max_depth })
@@ -196,6 +210,16 @@ export default function JobsPage() {
               />
               {polling ? "Ao vivo" : "Pausado"}
             </Button>
+            {jobs.length > 0 && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setConfirmingClear(true)}
+                title="Remover da lista as execuções que já terminaram"
+              >
+                <Trash2 className="ic ic-sm" aria-hidden="true" /> Limpar lista
+              </Button>
+            )}
             <Link href="/probe">
               <Button size="sm">
                 <Play className="ic ic-sm" aria-hidden="true" /> Nova extração
@@ -402,6 +426,25 @@ export default function JobsPage() {
           })}
         </div>
       )}
+
+      <Modal
+        open={confirmingClear}
+        title="Limpar a lista de execuções?"
+        body={
+          stats.settled === 1
+            ? "A execução que já terminou sai da lista. Uma execução em andamento continua aparecendo. Os arquivos baixados não são apagados do disco."
+            : stats.settled > 1
+              ? `As ${stats.settled} execuções que já terminaram saem da lista. Uma execução em andamento continua aparecendo. Os arquivos baixados não são apagados do disco.`
+              : "A lista sai da tela. Uma execução em andamento continua aparecendo, e os arquivos baixados não são apagados do disco."
+        }
+        confirmLabel="Limpar"
+        danger
+        onConfirm={() => {
+          setConfirmingClear(false)
+          void handleClear()
+        }}
+        onClose={() => setConfirmingClear(false)}
+      />
 
       <Modal
         open={confirming !== null}

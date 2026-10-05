@@ -403,8 +403,15 @@ async def _terminate(proc) -> None:
         await proc.wait()
 
 
-async def _run_dev(host: str, api_port: int, web_port: int, dashboard_dir: Path, reload: bool) -> int:
-    """Run API and dashboard concurrently until either exits or user interrupts."""
+async def _run_dev(host: str, api_port: int, web_port: int, dashboard_dir: Path, reload: bool,
+                   redis_ok: bool = False) -> int:
+    """Run API, dashboard and — when Redis answers — a worker, until one exits.
+
+    The worker is not optional polish: the API dispatches to Celery whenever Redis
+    answers and returns `pending` immediately. Without a worker consuming the
+    queue, every extraction started from the panel sits at `pending` forever with
+    nothing anywhere saying why. Either both run or neither does.
+    """
     # The dashboard calls the API from the browser with the session cookie, and a
     # browser only attaches that cookie when the response names its exact origin —
     # the spec forbids pairing credentials with "*". Without this the default
@@ -429,6 +436,11 @@ async def _run_dev(host: str, api_port: int, web_port: int, dashboard_dir: Path,
 
     web_cmd = ["npm", "run", "dev", "--", "-p", str(web_port)]
 
+    # `-m celery` rather than the console script: a virtualenv that was moved or
+    # renamed keeps absolute paths in `bin/celery`'s shebang, and the script then
+    # fails with "bad interpreter" while `python -m` works.
+    worker_cmd = [sys.executable, "-m", "celery", "-A", "zfrog.queue", "worker", "-l", "info", "-c", "2"]
+
     api_proc = await asyncio.create_subprocess_exec(
         *api_cmd,
         env=child_env,
@@ -444,6 +456,17 @@ async def _run_dev(host: str, api_port: int, web_port: int, dashboard_dir: Path,
         stderr=asyncio.subprocess.STDOUT,
         start_new_session=True,
     )
+    worker_proc = None
+    if redis_ok:
+        worker_proc = await asyncio.create_subprocess_exec(
+            *worker_cmd,
+            env=child_env,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+            start_new_session=True,
+        )
+
+    children = [p for p in (api_proc, web_proc, worker_proc) if p is not None]
 
     # Install signal handlers to kill child process groups when terminal closes.
     # Without this, SIGHUP kills the parent but orphaned children survive.
@@ -452,7 +475,7 @@ async def _run_dev(host: str, api_port: int, web_port: int, dashboard_dir: Path,
     _original_sigterm = signal.getsignal(signal.SIGTERM)
 
     def _signal_cleanup(sig, frame):
-        for proc in (api_proc, web_proc):
+        for proc in children:
             if proc.returncode is None:
                 try:
                     os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
@@ -469,25 +492,33 @@ async def _run_dev(host: str, api_port: int, web_port: int, dashboard_dir: Path,
     console.print()
     console.print(f"  API       [cyan]http://{host}:{api_port}[/]  [dim](docs: /docs)[/]")
     console.print(f"  Dashboard [magenta]http://localhost:{web_port}[/]")
-    console.print("  [dim]Ctrl+C to stop both[/]")
+    if worker_proc is not None:
+        console.print("  Worker    [green]celery[/]  [dim](consome a fila; sem ele o job fica 'na fila')[/]")
+    else:
+        console.print("  Worker    [yellow]sem Redis, jobs rodam no processo da API[/]")
+    console.print("  [dim]Ctrl+C to stop all[/]")
     console.print()
 
     pumps = [
         asyncio.create_task(_pump_output(api_proc.stdout, "api", "cyan")),
         asyncio.create_task(_pump_output(web_proc.stdout, "web", "magenta")),
     ]
-    waits = [
-        asyncio.create_task(api_proc.wait()),
-        asyncio.create_task(web_proc.wait()),
-    ]
+    if worker_proc is not None:
+        pumps.append(asyncio.create_task(_pump_output(worker_proc.stdout, "worker", "green")))
+    waits = [asyncio.create_task(proc.wait()) for proc in children]
+    labels = {id(api_proc): "API", id(web_proc): "dashboard"}
+    if worker_proc is not None:
+        labels[id(worker_proc)] = "worker"
 
     exit_code = 0
     try:
         done, _ = await asyncio.wait(waits, return_when=asyncio.FIRST_COMPLETED)
         finished = done.pop()
         exit_code = finished.result() or 0
-        name = "API" if finished is waits[0] else "dashboard"
-        console.print(f"\n[yellow]{name} exited (code {exit_code}); stopping the other.[/]")
+        # `waits[i]` belongs to `children[i]`, so the finished future names the
+        # process through its position.
+        name = labels.get(id(children[waits.index(finished)]), "processo")
+        console.print(f"\n[yellow]{name} exited (code {exit_code}); stopping the rest.[/]")
     except asyncio.CancelledError:
         raise
     finally:
@@ -495,8 +526,8 @@ async def _run_dev(host: str, api_port: int, web_port: int, dashboard_dir: Path,
         signal.signal(signal.SIGTERM, _original_sigterm)
         if hasattr(signal, "SIGHUP"):
             signal.signal(signal.SIGHUP, _original_sighup)
-        await _terminate(api_proc)
-        await _terminate(web_proc)
+        for proc in children:
+            await _terminate(proc)
         for task in pumps:
             task.cancel()
         await asyncio.gather(*pumps, return_exceptions=True)
@@ -574,7 +605,7 @@ def dev(
         )
 
     try:
-        exit_code = asyncio.run(_run_dev(host, api_port, web_port, dashboard_dir, reload))
+        exit_code = asyncio.run(_run_dev(host, api_port, web_port, dashboard_dir, reload, redis_ok))
     except KeyboardInterrupt:
         console.print("\n[dim]Stopped.[/]")
         return

@@ -47,6 +47,10 @@ def shared_redis():
         client.delete(key)
     for key in client.scan_iter(match="zfrog:sso:state:*"):
         client.delete(key)
+    for key in client.scan_iter(match="zfrog:job:*"):
+        client.delete(key)
+    for key in client.scan_iter(match="zfrog:result:*"):
+        client.delete(key)
 
 
 # ── webhooks ────────────────────────────────────────────────────────────────
@@ -170,3 +174,84 @@ def test_sso_state_cannot_be_replayed_across_processes(shared_redis):
     api._pending_logins.clear()
     with pytest.raises(ValueError):
         api._consume_login("state-replay")
+
+# ── job records ─────────────────────────────────────────────────────────────
+
+def _job(job_id: str, status=None):
+    from datetime import datetime, timezone
+
+    from zfrog.models import Job, JobStatus
+
+    return Job(
+        id=job_id,
+        url="https://example.com/",
+        mode="scrape",
+        max_depth=1,
+        status=status or JobStatus.PENDING,
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+    )
+
+@requires_redis
+def test_a_job_record_survives_a_round_trip(shared_redis):
+    """Regression: the write raised and a bare `except` hid it.
+
+    `model_dump(mode="json")` already renders datetimes as ISO strings, and the
+    store called `.isoformat()` on them — AttributeError on a `str`, swallowed, so
+    no job record ever reached Redis. Every job stayed `pending` on screen while
+    the extraction had in fact finished.
+    """
+    from zfrog.models import JobStatus
+    from zfrog.storage.redis_store import get_job_from_redis, save_job_to_redis
+
+    save_job_to_redis(_job("round-trip", JobStatus.COMPLETED))
+
+    back = get_job_from_redis("round-trip")
+    assert back is not None
+    assert back.status is JobStatus.COMPLETED
+    assert back.created_at.tzinfo is not None or back.created_at.year > 2000
+
+@requires_redis
+def test_a_job_created_by_one_process_is_visible_to_another(shared_redis):
+    """The API and the Celery worker are separate processes.
+
+    The API creates the record and dispatches; the worker writes the new status.
+    Reading only the local dict meant the API answered `pending` forever.
+    """
+    from zfrog.models import JobStatus
+    from zfrog.orchestrator import _jobs, clear_jobs, list_jobs, update_job
+
+    update_job(_job("cross-process", JobStatus.COMPLETED))
+    # Another process: same Redis, empty memory.
+    _jobs.clear()
+
+    assert "cross-process" in [j.id for j in list_jobs()]
+
+    # And the clear reaches the shared store too, not just local memory.
+    assert clear_jobs() >= 1
+    _jobs.clear()
+    assert "cross-process" not in [j.id for j in list_jobs()]
+
+def test_clear_jobs_keeps_work_that_has_not_finished(monkeypatch):
+    """Clearing must not drop a job that is still going to run.
+
+    A queued job removed from the list and then executed reappears on its own, and
+    a list that refills itself right after "clear" reads as a bug.
+    """
+    from zfrog.models import JobStatus
+    from zfrog.orchestrator import _jobs, _results, clear_jobs, list_jobs
+
+    monkeypatch.setattr("zfrog.storage.redis_store.save_job_to_redis", lambda job: None)
+    monkeypatch.setattr("zfrog.storage.redis_store.delete_job_from_redis", lambda job_id: None)
+    monkeypatch.setattr("zfrog.storage.redis_store.list_jobs_from_redis", lambda: [])
+
+    _jobs.clear()
+    _results.clear()
+    _jobs["done"] = _job("done", JobStatus.COMPLETED)
+    _jobs["failed"] = _job("failed", JobStatus.FAILED)
+    _jobs["queued"] = _job("queued", JobStatus.PENDING)
+    _jobs["running"] = _job("running", JobStatus.RUNNING)
+
+    assert clear_jobs() == 2
+    assert sorted(j.id for j in list_jobs()) == ["queued", "running"]
+    _jobs.clear()

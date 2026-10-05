@@ -62,8 +62,50 @@ def get_result(job_id: str) -> JobResult | None:
 
 
 def list_jobs() -> list[Job]:
-    """List all jobs from memory."""
-    return list(_jobs.values())
+    """Every known job, from Redis and from this process.
+
+    Redis is the shared view. The API and the Celery worker are separate
+    processes, so reading only the local dict meant a job dispatched to the queue
+    never left `pending` on screen: the worker wrote the new status to Redis and
+    the API answered from its own memory. Redis wins where both know an id; the
+    local copy only covers a job written a moment ago whose Redis write has not
+    landed yet.
+    """
+    merged: dict[str, Job] = {}
+    try:
+        from zfrog.storage.redis_store import list_jobs_from_redis
+        for job in list_jobs_from_redis():
+            merged[job.id] = job
+    except Exception:
+        pass
+    for job in _jobs.values():
+        merged.setdefault(job.id, job)
+    return list(merged.values())
+
+
+def clear_jobs() -> int:
+    """Drop every finished job. Returns how many were removed.
+
+    Anything still going to run — queued, probing, running or processing — stays.
+    A queued job that is removed and then executed by the worker would reappear on
+    its own, and a list that refills itself right after "clear" reads as a bug. A
+    running job is kept for a stronger reason: the record is the only thing
+    pointing at output being written to disk right now.
+    """
+    in_flight = {JobStatus.PENDING, JobStatus.PROBING, JobStatus.RUNNING, JobStatus.PROCESSING}
+    removed = 0
+    for job in list_jobs():
+        if job.status in in_flight:
+            continue
+        _jobs.pop(job.id, None)
+        _results.pop(job.id, None)
+        try:
+            from zfrog.storage.redis_store import delete_job_from_redis
+            delete_job_from_redis(job.id)
+        except Exception:
+            pass
+        removed += 1
+    return removed
 
 
 def update_job(job: Job):
@@ -86,22 +128,25 @@ def update_result(result: JobResult):
         pass
 
 
-async def run_job(job: JobCreate) -> JobResult:
+async def run_job(job: JobCreate, job_id: str | None = None) -> JobResult:
     """Execute a complete extraction job.
     
     Flow: Probe → Route → Execute → Pipeline → Package
     
     Args:
         job: Job configuration.
-        
+        job_id: Record to run under. A Celery worker passes the id the API already
+            created, so the pending record becomes the completed one instead of a
+            second record appearing and the first one staying pending forever.
+    
     Returns:
         JobResult with output details.
-        
+    
     Raises:
         Exception: If job execution fails.
     """
     # Generate job ID
-    job_id = str(uuid.uuid4())
+    job_id = job_id or str(uuid.uuid4())
     
     # Create job record
     job_record = Job(

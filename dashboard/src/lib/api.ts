@@ -602,6 +602,7 @@ export const api = {
     card_tags?: string[]
   }) => fetcher<Job>("/jobs", { method: "POST", body: JSON.stringify(data) }),
   cancelJob: (id: string) => fetcher<{ message: string }>(`/jobs/${id}/cancel`, { method: "POST" }),
+  clearJobs: () => fetcher<{ removed: number }>("/jobs", { method: "DELETE" }),
   downloadUrl: (id: string) => `${API_URL}/jobs/${id}/download`,
   pdfUrl: (id: string) => `${API_URL}/jobs/${id}/pdf`,
   getSnapshots: (url?: string) =>

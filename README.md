@@ -65,8 +65,13 @@ zfrog dev
 ```
 
 Sobe a API (`http://127.0.0.1:8000`) e o dashboard (`http://localhost:3000`) com um único
-comando. O output de cada serviço vem prefixado (`api` / `web`). Ctrl+C para ambos; se um
-cair, o outro é encerrado automaticamente.
+comando. O output de cada serviço vem prefixado (`api` / `web` / `worker`). Ctrl+C para todos;
+se um cair, os outros são encerrados automaticamente.
+
+Com o Redis respondendo, um worker Celery sobe junto. Ele não é opcional: a API despacha
+para a fila e devolve `pending` na hora, então sem alguém consumindo a fila toda extração
+começada no painel fica "na fila" para sempre, sem nada dizendo por quê. Sem Redis, os jobs
+rodam no processo da API e não há worker.
 
 ```bash
 ./zfrog dev --api-port 9000 --web-port 4000   # portas customizadas
@@ -660,7 +665,7 @@ O que cada ação exige além de `read:jobs` (o papel `viewer` basta para ler):
 
 | Rota | Ação | Por quê |
 |---|---|---|
-| `POST /jobs`, `POST /jobs/{id}/cancel` | `job:create` / `job:cancel` | consome banda e disco do servidor |
+| `POST /jobs`, `POST /jobs/{id}/cancel`, `DELETE /jobs` | `job:create` / `job:cancel` | consome banda e disco do servidor |
 | `POST /watermark` | `version:manage` | reescreve os arquivos guardados |
 | `POST /ipfs/publish` | `admin:all` | manda a cópia para terceiros |
 | `POST /webhooks`, `DELETE /webhooks/{id}` | `admin:all` | o registro é global e o servidor passa a fazer POST para a URL escolhida |
@@ -1100,6 +1105,7 @@ cp .env.example .env
 | GET | `/jobs` | Listar jobs |
 | GET | `/jobs/{id}` | Status do job |
 | POST | `/jobs/{id}/cancel` | Cancelar job |
+| DELETE | `/jobs` | Limpar a lista (mantém o que ainda vai rodar) |
 | GET | `/jobs/{id}/result` | Resultado do job |
 | GET | `/jobs/{id}/download` | Download ZIP |
 | GET | `/jobs/{id}/pdf` | Baixar PDF (modo `pdf`) |
