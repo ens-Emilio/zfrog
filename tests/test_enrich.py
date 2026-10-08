@@ -48,8 +48,8 @@ async def test_unavailable_ai_reports_error_without_raising(monkeypatch):
     sentiment = await analyze_sentiment("O preço caiu e a promoção é excelente.")
     tags = await suggest_tags("O preço caiu e a promoção é excelente.")
 
-    assert sentiment == {**NEUTRAL, "error": "AI indisponível"}
-    assert tags == {"tags": [], "error": "AI indisponível"}
+    assert sentiment == {**NEUTRAL, "error": "AI unavailable"}
+    assert tags == {"tags": [], "error": "AI unavailable"}
 
 
 async def test_structured_sentiment_is_normalised_and_clamped(monkeypatch):
@@ -167,10 +167,10 @@ async def test_both_attempts_failing_returns_defaults_with_error(monkeypatch):
 
     assert sentiment["sentiment"] == "neutral"
     assert sentiment["score"] == 0.0
-    assert "Falha na análise de sentimento" in sentiment["error"]
+    assert "Sentiment analysis failed" in sentiment["error"]
     assert "modelo fora do ar" in sentiment["error"]
     assert tags["tags"] == []
-    assert "Falha na sugestão de assuntos" in tags["error"]
+    assert "Tag suggestion failed" in tags["error"]
 
 
 async def test_reply_without_json_returns_defaults_with_error(monkeypatch):
@@ -186,11 +186,11 @@ async def test_reply_without_json_returns_defaults_with_error(monkeypatch):
 
     assert await analyze_sentiment("conteúdo") == {
         **NEUTRAL,
-        "error": "Resposta da IA sem JSON válido",
+        "error": "AI response without valid JSON",
     }
     assert await suggest_tags("conteúdo") == {
         "tags": [],
-        "error": "Resposta da IA sem JSON válido",
+        "error": "AI response without valid JSON",
     }
 
 
@@ -245,7 +245,7 @@ async def test_engine_writes_json_and_markdown(tmp_path, monkeypatch):
     assert {path.name for path in result.files} == {"enrichment.json", "enrichment.md"}
     assert all(path.exists() for path in result.files)
     assert result.total_bytes == sum(path.stat().st_size for path in result.files)
-    assert progress == ["Analisando sentimento e assuntos...", "Enriquecimento concluído"]
+    assert progress == ["Analyzing sentiment and topics...", "Enrichment complete"]
 
     payload = json.loads((output_dir / "enrichment.json").read_text(encoding="utf-8"))
     assert payload == {
@@ -257,9 +257,9 @@ async def test_engine_writes_json_and_markdown(tmp_path, monkeypatch):
 
     md = (output_dir / "enrichment.md").read_text(encoding="utf-8")
     assert PAGE_URL in md
-    assert "- Sentimento: positive" in md
-    assert "- Pontuação: 0.75" in md
-    assert "- Justificativa: promoção vantajosa" in md
+    assert "- Sentiment: positive" in md
+    assert "- Score: 0.75" in md
+    assert "- Rationale: promoção vantajosa" in md
     assert "- preço" in md
     assert "- promoção" in md
     assert "## Erros" not in md
@@ -278,22 +278,22 @@ async def test_engine_with_unreachable_url_still_writes_both_files(tmp_path, mon
 
     assert {path.name for path in result.files} == {"enrichment.json", "enrichment.md"}
     assert all(path.exists() for path in result.files)
-    assert any("Falha ao buscar" in line for line in result.logs)
+    assert any("Failed to fetch" in line for line in result.logs)
 
     payload = json.loads((output_dir / "enrichment.json").read_text(encoding="utf-8"))
     assert payload == {"url": PAGE_URL, "sentiment": NEUTRAL, "tags": [], "errors": []}
 
     md = (output_dir / "enrichment.md").read_text(encoding="utf-8")
-    assert "- Sentimento: neutral" in md
-    assert "Nenhum assunto identificado." in md
+    assert "- Sentiment: neutral" in md
+    assert "No topics identified." in md
 
 
 async def test_engine_surfaces_ai_errors_in_both_files(tmp_path, monkeypatch):
     async def failing_sentiment(text, max_chars=6000):
-        return {**NEUTRAL, "error": "AI indisponível"}
+        return {**NEUTRAL, "error": "AI unavailable"}
 
     async def failing_tags(text, max_tags=8, max_chars=6000):
-        return {"tags": [], "error": "AI indisponível"}
+        return {"tags": [], "error": "AI unavailable"}
 
     monkeypatch.setattr(engine_mod, "analyze_sentiment", failing_sentiment)
     monkeypatch.setattr(engine_mod, "suggest_tags", failing_tags)
@@ -306,16 +306,16 @@ async def test_engine_surfaces_ai_errors_in_both_files(tmp_path, monkeypatch):
         result = await EnrichEngine().execute(JobCreate(url=PAGE_URL, mode="sentiment"), output_dir)
 
     payload = json.loads((output_dir / "enrichment.json").read_text(encoding="utf-8"))
-    assert payload["errors"] == ["AI indisponível"]
-    assert payload["sentiment"]["error"] == "AI indisponível"
+    assert payload["errors"] == ["AI unavailable"]
+    assert payload["sentiment"]["error"] == "AI unavailable"
     assert payload["tags"] == []
 
-    assert any("AI (sentimento): AI indisponível" in line for line in result.logs)
-    assert any("AI (assuntos): AI indisponível" in line for line in result.logs)
+    assert any("AI (sentiment): AI unavailable" in line for line in result.logs)
+    assert any("AI (topics): AI unavailable" in line for line in result.logs)
 
     md = (output_dir / "enrichment.md").read_text(encoding="utf-8")
-    assert "## Erros" in md
-    assert "- AI indisponível" in md
+    assert "## Errors" in md
+    assert "- AI unavailable" in md
 
 
 def test_engine_can_handle_any_probe():

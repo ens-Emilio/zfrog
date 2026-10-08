@@ -350,10 +350,10 @@ def test_dispatch_summary_counts_the_accepted_and_names_the_regions():
 
     summary = dispatch_summary(results)
 
-    assert "2 de 3" in summary
+    assert "2 of 3" in summary
     assert "local: 1" in summary
     assert "sa-east: 1" in summary
-    assert "1 falhou" in summary
+    assert "1 failed" in summary
     assert summary.endswith(".") and summary.count(".") == 1
 
 
@@ -365,9 +365,9 @@ def test_dispatch_summary_without_a_single_acceptance():
         ]
     )
 
-    assert "Nenhum dos 2 jobs foi aceito" in summary
-    assert "2 falharam" in summary
+    assert "None of the 2 jobs were accepted" in summary
+    assert "2 failed" in summary
 
 
 def test_dispatch_summary_of_an_empty_batch():
-    assert dispatch_summary([]) == "Nenhum job para enviar."
+    assert dispatch_summary([]) == "No jobs to send."

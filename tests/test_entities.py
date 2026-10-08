@@ -47,7 +47,7 @@ async def test_unavailable_ai_reports_error_without_raising(monkeypatch):
 
     assert result["entities"] == []
     assert result["counts"] == {}
-    assert result["error"] == "AI indisponível"
+    assert result["error"] == "AI unavailable"
 
 
 async def test_structured_result_is_returned_with_counts(monkeypatch):
@@ -199,7 +199,7 @@ async def test_engine_writes_json_and_markdown(tmp_path, monkeypatch):
     assert {path.name for path in result.files} == {"entities.json", "entities.md"}
     assert all(path.exists() for path in result.files)
     assert result.total_bytes == sum(path.stat().st_size for path in result.files)
-    assert progress == ["Extraindo entidades...", "Entidades concluídas"]
+    assert progress == ["Extracting entities...", "Entities complete"]
 
     raw = (output_dir / "entities.json").read_text(encoding="utf-8")
     assert "João Souza" in raw  # ensure_ascii=False keeps accents readable
@@ -231,13 +231,13 @@ async def test_engine_with_unreachable_url_still_writes_both_files(tmp_path, mon
 
     assert {path.name for path in result.files} == {"entities.json", "entities.md"}
     assert all(path.exists() for path in result.files)
-    assert any("Falha ao buscar" in line for line in result.logs)
+    assert any("Failed to fetch" in line for line in result.logs)
 
     payload = json.loads((output_dir / "entities.json").read_text(encoding="utf-8"))
     assert payload == {"url": PAGE_URL, "entities": [], "counts": {}}
 
     md = (output_dir / "entities.md").read_text(encoding="utf-8")
-    assert "Nenhuma entidade encontrada." in md
+    assert "No entities found." in md
 
 
 async def test_engine_surfaces_ai_error_in_both_files(tmp_path, monkeypatch):
@@ -251,10 +251,10 @@ async def test_engine_surfaces_ai_error_in_both_files(tmp_path, monkeypatch):
         result = await EntitiesEngine().execute(JobCreate(url=PAGE_URL, mode="entities"), output_dir)
 
     payload = json.loads((output_dir / "entities.json").read_text(encoding="utf-8"))
-    assert payload["error"] == "AI indisponível"
+    assert payload["error"] == "AI unavailable"
     assert payload["entities"] == []
-    assert "AI indisponível" in (output_dir / "entities.md").read_text(encoding="utf-8")
-    assert any("AI indisponível" in line for line in result.logs)
+    assert "AI unavailable" in (output_dir / "entities.md").read_text(encoding="utf-8")
+    assert any("AI unavailable" in line for line in result.logs)
 
 
 def test_engine_can_handle_any_probe():

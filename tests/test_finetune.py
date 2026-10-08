@@ -117,26 +117,26 @@ def test_validate_accepts_a_good_example():
 def test_validate_flags_empty_instruction():
     problems = validate_example(_example(instruction="   "))
 
-    assert any("instrução vazia" in problem for problem in problems)
+    assert any("empty instruction" in problem for problem in problems)
 
 
 def test_validate_flags_empty_output():
     problems = validate_example(_example(output=""))
 
-    assert any("saída vazia" in problem for problem in problems)
+    assert any("empty or whitespace-only output" in problem for problem in problems)
 
 
 def test_validate_flags_whitespace_only_output():
     problems = validate_example(_example(output="  \n\t "))
 
-    assert any("saída vazia" in problem for problem in problems)
+    assert any("empty or whitespace-only output" in problem for problem in problems)
 
 
 def test_validate_flags_output_identical_to_input():
     text = "O prazo de entrega é de cinco dias úteis em todo o território nacional."
     problems = validate_example(_example(input=text, output=text))
 
-    assert any("idêntica" in problem for problem in problems)
+    assert any("identical" in problem for problem in problems)
 
 
 def test_validate_flags_output_shorter_than_the_minimum():
@@ -175,8 +175,8 @@ def test_qa_examples_come_from_the_page_headings(tmp_path, no_ai):
 
     examples = builder.examples()
     assert {example.instruction for example in examples} == {
-        "O que o documento diz sobre «Entrega e devolução»?",
-        "O que o documento diz sobre «Prazo de garantia»?",
+        "What does the document say about «Entrega e devolução»?",
+        "What does the document say about «Prazo de garantia»?",
     }
     for example in examples:
         assert example.output in PAGE_A_TEXT
@@ -323,7 +323,7 @@ def test_export_alpaca_writes_the_alpaca_keys(tmp_path, no_ai):
 
     assert len(records) == 2
     assert all(set(record) == {"instruction", "input", "output"} for record in records)
-    assert records[0]["instruction"].startswith("Extraia os dados principais")
+    assert records[0]["instruction"].startswith("Extract the main data")
     assert "cinco dias úteis" in records[0]["output"]
 
 
@@ -391,15 +391,15 @@ def test_dataset_summary_mentions_count_and_kinds(tmp_path, no_ai):
     path = builder.export()
     summary = dataset_summary(path)
 
-    assert "com 4 exemplos" in summary
-    assert "2 de extração" in summary
-    assert "2 de resumo" in summary
+    assert "with 4 examples" in summary
+    assert "2 extraction" in summary
+    assert "2 summary" in summary
 
 
 def test_dataset_summary_of_an_empty_file(tmp_path):
     path = tmp_path / "vazio.jsonl"
     path.write_text("", encoding="utf-8")
 
-    assert "sem exemplos" in dataset_summary(path)
+    assert "no examples" in dataset_summary(path)
 
 

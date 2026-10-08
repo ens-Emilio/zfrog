@@ -205,7 +205,7 @@ async def test_sheets_push_reports_an_unreachable_host():
 
     assert result.created == 0
     assert len(result.errors) == 1
-    assert "rede" in result.errors[0]
+    assert "network" in result.errors[0]
 
 
 async def test_sheets_push_without_credentials_reports_instead_of_calling_out():
@@ -216,7 +216,7 @@ async def test_sheets_push_without_credentials_reports_instead_of_calling_out():
         result = await SheetsClient().push(destination, [{"a": 1}])
 
     assert route.call_count == 0
-    assert result.errors == ["destino sheets sem spreadsheet_id ou token"]
+    assert result.errors == ["sheets destination missing spreadsheet_id or token"]
 
 
 # ── airtable ────────────────────────────────────────────────────────
@@ -228,7 +228,7 @@ async def test_airtable_push_batches_records_in_tens():
         name="Base",
         config={"base_id": "app-1", "table": "Leads", "token": "key-123"},
     )
-    rows = [{"nome": f"n{index}", "valor": index} for index in range(25)]
+    rows = [{"name": f"n{index}", "valor": index} for index in range(25)]
 
     def handler(request: httpx.Request) -> httpx.Response:
         sent = json.loads(request.content)["records"]
@@ -243,7 +243,7 @@ async def test_airtable_push_batches_records_in_tens():
     assert batches == [10, 10, 5]
     assert route.calls[0].request.headers["authorization"] == "Bearer key-123"
     assert json.loads(route.calls[0].request.content)["records"][0] == {
-        "fields": {"nome": "n0", "valor": 0}
+        "fields": {"name": "n0", "valor": 0}
     }
     assert (result.rows, result.created, result.updated, result.errors) == (25, 25, 0, [])
 
@@ -254,7 +254,7 @@ async def test_airtable_keeps_pushing_after_a_failed_batch():
         name="Base",
         config={"base_id": "app-1", "table": "Leads", "token": "key-123"},
     )
-    rows = [{"nome": f"n{index}"} for index in range(25)]
+    rows = [{"name": f"n{index}"} for index in range(25)]
     batches: list[int] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -271,7 +271,7 @@ async def test_airtable_keeps_pushing_after_a_failed_batch():
     assert batches == [10, 10, 5]
     assert result.created == 15
     assert len(result.errors) == 1
-    assert "lote 2" in result.errors[0]
+    assert "batch 2" in result.errors[0]
     assert "422" in result.errors[0]
 
 
@@ -286,10 +286,10 @@ async def test_airtable_leaves_blank_values_out_of_the_fields():
         route = mock.post(AIRTABLE_URL).mock(
             return_value=httpx.Response(200, json={"records": [{"id": "rec1"}]})
         )
-        result = await AirtableClient().push(destination, [{"nome": "Ana", "email": ""}])
+        result = await AirtableClient().push(destination, [{"name": "Ana", "email": ""}])
 
     assert json.loads(route.calls[0].request.content) == {
-        "records": [{"fields": {"nome": "Ana"}}]
+        "records": [{"fields": {"name": "Ana"}}]
     }
     assert result.created == 1
 
@@ -342,7 +342,7 @@ async def test_notion_records_a_failing_row_and_keeps_going():
     assert titles == ["Um", "Dois", "Tres"]
     assert result.created == 2
     assert len(result.errors) == 1
-    assert "linha 2" in result.errors[0]
+    assert "row 2" in result.errors[0]
     assert "400" in result.errors[0]
 
 
@@ -362,7 +362,7 @@ async def test_notion_reports_rows_without_a_title_and_pushes_the_rest():
     assert route.call_count == 1
     assert result.created == 1
     assert len(result.errors) == 1
-    assert "linha 1" in result.errors[0]
+    assert "row 1" in result.errors[0]
 
 
 async def test_notion_honours_a_configured_title_property():

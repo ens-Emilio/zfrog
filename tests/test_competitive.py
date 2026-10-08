@@ -245,7 +245,7 @@ def test_content_gaps_reports_a_site_without_prices():
 
     comparison = comp.compare([a, b])
 
-    assert comparison.content_gaps == ["lojaB não tem nenhum preço detectado."]
+    assert comparison.content_gaps == ["lojaB has no detected price."]
 
 
 def test_compare_with_one_site_returns_an_empty_analysis():

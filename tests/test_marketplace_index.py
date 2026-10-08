@@ -467,4 +467,4 @@ def test_index_summary_of_an_empty_index(market):
     summary = index_summary(index_from_marketplace(market, source="https://market.test/vazio.json"))
 
     assert "https://market.test/vazio.json" in summary
-    assert "nenhum item" in summary
+    assert "no published items" in summary

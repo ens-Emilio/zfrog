@@ -121,14 +121,14 @@ class TestComponentReport:
     def test_markdown_shows_geometry_styles_children_and_markup(self):
         component = build_extract(_raw(), selector=".hero")
         report = component_to_markdown(component)
-        assert "# Componente — div.hero" in report
+        assert "# Component — div.hero" in report
         assert "300×200 px" in report
         assert "```html" in report
-        assert "Filhos diretos" in report
+        assert "Direct children" in report
 
     def test_multiple_matches_are_disclosed(self):
         report = component_to_markdown(build_extract(_raw(count=3), selector=".card"))
-        assert "3 correspondência(s)" in report
+        assert "3 match(es)" in report
 
     def test_json_round_trips(self):
         import json

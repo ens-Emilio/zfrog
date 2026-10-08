@@ -117,7 +117,7 @@ def test_broken_settings_degrade_to_zero_and_do_not_raise(monkeypatch, caplog):
     assert totals["cost"] == 0.0
     assert totals["currency"] == "BRL"
     assert garbage.total == 0.0
-    assert any("custo" in record.getMessage() for record in caplog.records)
+    assert any("cost" in record.getMessage() for record in caplog.records)
 
 
 def test_engine_stats_costs_agree_with_the_hand_computed_price():

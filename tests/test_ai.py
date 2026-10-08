@@ -22,7 +22,7 @@ async def test_summarize_text_unavailable(monkeypatch):
 
     result = await summarize_mod.summarize_text("x" * 100)
 
-    assert result["error"] == "AI indisponível"
+    assert result["error"] == "AI unavailable"
     assert result["summary"] == ""
 
 
@@ -113,8 +113,8 @@ async def test_summarize_directory_surfaces_ai_error(tmp_path, monkeypatch):
     result = await summarize_mod.summarize_directory(tmp_path, "https://example.com")
 
     assert len(result["pages"]) == 1
-    assert result["global_summary"]["error"] == "AI indisponível"
-    assert "AI indisponível" in summarize_mod.to_markdown(
+    assert result["global_summary"]["error"] == "AI unavailable"
+    assert "AI unavailable" in summarize_mod.to_markdown(
         "https://example.com", result["global_summary"], result["pages"]
     )
 
@@ -122,10 +122,10 @@ async def test_summarize_directory_surfaces_ai_error(tmp_path, monkeypatch):
 def test_to_markdown_includes_points_and_error():
     md = summarize_mod.to_markdown(
         "https://example.com",
-        {"title": "T", "summary": "S", "key_points": ["k1", "k2"], "error": "AI indisponível"},
+        {"title": "T", "summary": "S", "key_points": ["k1", "k2"], "error": "AI unavailable"},
     )
 
     assert "https://example.com" in md
-    assert "AI indisponível" in md
+    assert "AI unavailable" in md
     assert "- k1" in md
     assert "S" in md

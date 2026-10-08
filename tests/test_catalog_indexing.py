@@ -57,7 +57,7 @@ class TestEmbedCatalogReporting:
         result = await embed_catalog(Catalog(tmp_path / "vazio.db"))
 
         assert result.indexed == 0
-        assert "vazio" in result.reason
+        assert "empty" in result.reason.lower()
         assert "EMBEDDING" not in result.reason
 
     async def test_a_failing_model_is_reported_with_its_first_line(self, catalog, monkeypatch):
@@ -83,7 +83,7 @@ class TestEmbedCatalogReporting:
         result = await embed_catalog(catalog)
 
         assert result.indexed == 0
-        assert "indexadas" in result.reason
+        assert "indexed" in result.reason.lower()
 
     async def test_force_reindexes_an_already_indexed_card(self, catalog, monkeypatch):
         monkeypatch.setattr("zfrog.ai.client.embedding_configured", lambda: True)

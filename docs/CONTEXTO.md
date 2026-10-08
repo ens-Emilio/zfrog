@@ -148,12 +148,11 @@ já indexado, e modelo quebrado.
 | Banner "Provider List" do litellm no meio da saída | `litellm.suppress_debug_info` é atributo do módulo, não env var | `_litellm()` nas chamadas |
 | `public/` vazio quebraria o build da imagem | git não versiona diretório vazio e o Dockerfile faz `COPY /app/public` | `public/.gitkeep` |
 
-## Verificação
-
-- `pytest tests/ -q` — 1715 testes (90 novos: tokens, componentes, catálogo,
-  busca por descrição, captura→card, gates de IA).
-- `npx tsc --noEmit` e `npx next build` verdes.
-- `ruff check . --select F821,F811,F402,E9` verde (é o gate do CI).
-- Smoke real: `jump` numa página, `tongue` num seletor, `pond`/`pond --search`,
-  `/colecao` no navegador com screenshot, filtro por cor, etiqueta e painel de
-  detalhe.
+ ## Verificação
+ 
+ - `pytest tests/ -q` — 1713 passed, 63 warnings (pós-tradução EN: `src/zfrog` + `dashboard` + `landing` trilíngue, correções de regressão `workers/enrich/versioning/workflows`).
+ - `npx tsc --noEmit` (no `dashboard/`) e `cargo check` (no `src-tauri/`) verdes.
+ - `ruff check . --select F821,F811,F402,E9` verde (é o gate do CI).
+ - Smoke real: `jump` numa página, `tongue` num seletor, `pond`/`pond --search`,
+ `/colecao` no navegador com screenshot, filtro por cor, etiqueta e painel de
+ detalhe. `src-tauri/src/lib.rs` com sidecar loopback + tray + `tauri dev` ok.

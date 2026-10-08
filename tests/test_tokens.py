@@ -184,7 +184,7 @@ class TestMarkdown:
         assert "# Design tokens — Exemplo" in report
         assert "`#0B120E` ×10" in report
         assert "*primary*" in report
-        assert "3 uso(s) de cor em sintaxe não suportada" in report
+        assert "3 color use(s) in unsupported syntax" in report
 
     def test_empty_token_set_does_not_crash(self):
         report = tokens_to_markdown(DesignTokens())

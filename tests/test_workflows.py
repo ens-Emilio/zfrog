@@ -104,7 +104,7 @@ class TestValidateSteps:
                 {"type": "compare", "params": {"url": "https://example.com"}},
                 {"type": "pdf", "params": {"url": "https://example.com", "pdf_filename": "site"}},
                 {"type": "search", "params": {}},
-                {"type": "commit", "params": {"message": "primeira versão"}},
+                {"type": "commit", "params": {"message": "first version"}},
             ]
         )
 
@@ -128,7 +128,7 @@ class TestValidateSteps:
         assert [step.params for step in steps] == [{}, {}]
 
     def test_rejects_unknown_step_type(self):
-        with pytest.raises(ValueError, match="desconhecido"):
+        with pytest.raises(ValueError, match="unknown"):
             validate_steps([{"type": "teleport", "params": {}}])
 
     def test_rejects_unknown_param_key(self):
@@ -140,7 +140,7 @@ class TestValidateSteps:
             validate_steps([{"type": "search", "params": {"url": "https://example.com"}}])
 
     def test_rejects_empty_step_list(self):
-        with pytest.raises(ValueError, match="passo"):
+        with pytest.raises(ValueError, match="step"):
             validate_steps([])
 
     def test_rejects_probe_without_url(self):
@@ -148,7 +148,7 @@ class TestValidateSteps:
             validate_steps([{"type": "probe", "params": {}}])
 
     def test_names_the_offending_step(self):
-        with pytest.raises(ValueError, match="passo 2"):
+        with pytest.raises(ValueError, match="step 2"):
             validate_steps([{"type": "search"}, {"type": "clone", "params": {"depth": 1}}])
 
 # ── WorkflowStore ───────────────────────────────────────────────────
@@ -213,7 +213,7 @@ class TestWorkflowStore:
     def test_save_rejects_invalid_steps_without_writing(self, tmp_path):
         store = WorkflowStore(root=tmp_path)
 
-        with pytest.raises(ValueError, match="desconhecido"):
+        with pytest.raises(ValueError, match="unknown"):
             store.save("ruim", [{"type": "teleport", "params": {}}])
 
         assert list(tmp_path.glob("*.json")) == []
@@ -221,7 +221,7 @@ class TestWorkflowStore:
     def test_save_rejects_an_empty_name(self, tmp_path):
         store = WorkflowStore(root=tmp_path)
 
-        with pytest.raises(ValueError, match="nome"):
+        with pytest.raises(ValueError, match="name"):
             store.save("   ", [{"type": "search"}])
 
         assert list(tmp_path.glob("*.json")) == []
@@ -229,7 +229,7 @@ class TestWorkflowStore:
     def test_unreadable_files_are_ignored(self, tmp_path):
         root = tmp_path / "flows"
         root.mkdir()
-        (root / "deadbeef.json").write_text("{ isto não é json", encoding="utf-8")
+        (root / "deadbeef.json").write_text("{ this is not json", encoding="utf-8")
         store = WorkflowStore(root=root)
 
         assert store.list() == []
@@ -287,9 +287,9 @@ class TestRunWorkflow:
 
         # Exactly one progress message per step.
         assert messages == [
-            "Passo 1/3: probe",
-            "Passo 2/3: clone",
-            "Passo 3/3: summarize",
+            "Step 1/3: probe",
+            "Step 2/3: clone",
+            "Step 3/3: summarize",
         ]
 
     async def test_clone_output_dir_reaches_a_later_search(self, output_dir, probes, jobs, monkeypatch):
@@ -318,7 +318,7 @@ class TestRunWorkflow:
         assert result.status == "ok"
         assert recorded["directory"] == output_dir / "jobs" / "job1"
         assert recorded["url"] == "https://example.com"
-        assert "4 páginas indexadas" in result.steps[2].detail
+        assert "4 pages indexed" in result.steps[2].detail
 
     async def test_clone_output_dir_reaches_a_later_commit(self, output_dir, probes, jobs, monkeypatch):
         commits: list[tuple] = []
@@ -338,7 +338,7 @@ class TestRunWorkflow:
             [
                 Step("probe", {"url": "https://example.com/site"}),
                 Step("clone", {}),
-                Step("commit", {"message": "primeira versão"}),
+                Step("commit", {"message": "first version"}),
             ],
         )
 
@@ -351,7 +351,7 @@ class TestRunWorkflow:
         url, snapshot_path, committed_dir, message = commits[0]
         assert url == "https://example.com/site"
         assert committed_dir == output_dir / "jobs" / "job1"
-        assert message == "primeira versão"
+        assert message == "first version"
         assert snapshot_path.is_file()
         snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
         assert snapshot["engine"] == "workflow"
@@ -381,8 +381,8 @@ class TestRunWorkflow:
         assert "rede fora do ar" in result.steps[0].detail
         # The skip detail must say what it was waiting for and why; the exact
         # wording is not part of the contract.
-        assert "pulado" in result.steps[1].detail
-        assert "passo 1" in result.steps[1].detail
+        assert "skipped" in result.steps[1].detail
+        assert "step 1" in result.steps[1].detail
         assert result.error is not None
         assert "probe" in result.error and "rede fora do ar" in result.error
         assert jobs == []
@@ -400,7 +400,7 @@ class TestRunWorkflow:
         assert jobs == []
 
     async def test_invalid_step_fails_without_raising(self, output_dir):
-        workflow = Workflow("ffffffff", "inválido", [Step("teleport", {})])
+        workflow = Workflow("ffffffff", "invalid", [Step("teleport", {})])
 
         result = await run_workflow(workflow)
 

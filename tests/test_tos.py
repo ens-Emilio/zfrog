@@ -91,7 +91,7 @@ def test_clean_legal_page_only_carries_the_notice():
 
     assert [f.kind for f in findings] == ["legal_notice"]
     assert findings[0].severity == "info"
-    assert "não substitui orientação jurídica" in findings[0].detail
+    assert "not a substitute for legal advice" in findings[0].detail
 
 
 def test_terms_signals_cover_the_warning_phrases():
@@ -143,7 +143,7 @@ def test_check_text_risk_transitions():
     assert caution.risk == "caution"
     assert clean.risk == "clear"
     assert [f.kind for f in clean.findings] == ["legal_notice"]
-    assert all("não constitui orientação jurídica" in report.summary for report in (blocked, caution, clean))
+    assert all("does not constitute legal advice" in report.summary for report in (blocked, caution, clean))
     assert blocked.error is None
 
 

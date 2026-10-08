@@ -262,8 +262,8 @@ async def test_video_engine_downloads_the_best_variant_end_to_end(tmp_path):
         result = await VideoEngine().execute(_job(), output_dir, on_progress=progress.append)
 
     assert master_route.called and high_route.called
-    assert progress[0] == "Procurando streams..."
-    assert progress[-1] == "Streams concluídos"
+    assert progress[0] == "Scanning for streams..."
+    assert progress[-1] == "Streams complete"
 
     assert (output_dir / "video.ts").read_bytes() == b"AAABBBBCC"
 
@@ -296,7 +296,7 @@ async def test_video_engine_downloads_the_best_variant_end_to_end(tmp_path):
 
     markdown = (output_dir / "streams.md").read_text(encoding="utf-8")
     assert MASTER_URL in markdown
-    assert "Baixado: sim (9 bytes)" in markdown
+    assert "Downloaded: yes (9 bytes)" in markdown
 
     assert set(result.files) >= {
         output_dir / "streams.json",
@@ -327,13 +327,13 @@ async def test_video_engine_skips_encrypted_streams(tmp_path):
     assert not (output_dir / "segments").exists()
     assert not (output_dir / "video.ts").exists()
     assert (output_dir / "streams.md").exists()
-    assert any("criptografado" in log for log in result.logs)
+    assert any("Encrypted stream" in log for log in result.logs)
 
 
 @pytest.mark.asyncio
 async def test_video_engine_page_without_streams_writes_empty_report(tmp_path):
     output_dir = tmp_path / "job"
-    page = "<html><body><p>sem vídeo aqui</p></body></html>"
+    page = "<html><body><p>no video here</p></body></html>"
 
     with respx.mock(assert_all_called=False) as mock:
         mock.get(PAGE_URL).mock(return_value=httpx.Response(200, text=page))
@@ -342,7 +342,7 @@ async def test_video_engine_page_without_streams_writes_empty_report(tmp_path):
     report = _read_json(output_dir / "streams.json")
     assert report == {"url": PAGE_URL, "streams": [], "errors": []}
     assert (output_dir / "streams.md").read_text(encoding="utf-8").count(
-        "Nenhum stream encontrado."
+        "No streams found."
     ) == 1
     assert not (output_dir / "video.ts").exists()
 
@@ -435,4 +435,4 @@ async def test_video_engine_stops_at_the_segment_limit(tmp_path, monkeypatch):
     assert (output_dir / "video.ts").read_bytes() == b"AAA"
     report = _read_json(output_dir / "streams.json")
     assert report["streams"][0]["bytes"] == 3
-    assert any("truncado" in log for log in result.logs)
+    assert any("truncated" in log for log in result.logs)

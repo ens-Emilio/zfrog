@@ -177,8 +177,8 @@ async def test_delta_engine_downloads_only_the_changed_page(tmp_path):
 
     assert result.files == [output_dir / "site.test" / "b.html"]
     assert result.total_bytes == (output_dir / "site.test" / "b.html").stat().st_size
-    assert result.logs[0] == "Revalidando 2 páginas conhecidas..."
-    assert result.logs[-1] == "Delta concluído: 0 novas, 1 alteradas"
+    assert result.logs[0] == "Revalidating 2 known pages..."
+    assert result.logs[-1] == "Delta complete: 0 added, 1 changed"
 
 @pytest.mark.asyncio
 async def test_delta_engine_first_run_without_snapshot_writes_everything(tmp_path):

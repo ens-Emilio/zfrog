@@ -222,7 +222,7 @@ async def test_judge_significance_without_ai_uses_heuristic(monkeypatch):
     assert low["significant"] is True
     assert high["significant"] is False
     assert low["score"] == high["score"] == sig.heuristic_significance(candidates)["score"]
-    assert low["error"] == "AI indisponível"
+    assert low["error"] == "AI unavailable"
     assert "index.html" in low["summary"]
 
 
@@ -278,7 +278,7 @@ async def test_judge_significance_model_failure_falls_back_to_heuristic(monkeypa
 
     assert result["score"] == expected["score"]
     assert result["significant"] == expected["significant"]
-    assert "Falha na avaliação" in result["error"]
+    assert "Significance evaluation failed" in result["error"]
     assert "nenhum modelo disponível" in result["error"]
 
 
@@ -315,7 +315,7 @@ async def test_judge_significance_prompt_is_bounded(monkeypatch):
 
     prompt = seen["prompt"]
     assert len(prompt) < 4000
-    assert prompt.startswith(f"Site: (desconhecido)\n\n### Página 1: grande.html")
+    assert prompt.startswith(f"Site: (unknown)\n\n### Page 1: grande.html")
     # Head and tail of both sides survive, so an end-of-page change is visible.
     assert "A" * 100 in prompt and "fim do texto antigo" in prompt
     assert "B" * 100 in prompt and "fim do texto novo" in prompt
@@ -345,7 +345,7 @@ async def test_significant_change_price_beats_footer(monkeypatch):
 
     assert footer is not None and price is not None
     assert footer["score"] < price["score"]
-    assert footer["error"] == "AI indisponível" and price["error"] == "AI indisponível"
+    assert footer["error"] == "AI unavailable" and price["error"] == "AI unavailable"
     assert "produto.html" in price["summary"]
 
 

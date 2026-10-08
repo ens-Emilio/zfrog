@@ -107,7 +107,7 @@ async def test_unavailable_ai_reports_error_without_raising(monkeypatch):
     result = await translate_text("Hello world", target="pt")
 
     assert result["text"] == ""
-    assert result["error"] == "AI indisponível"
+    assert result["error"] == "AI unavailable"
     assert result["target_language"] == "pt"
 
 
@@ -281,12 +281,12 @@ async def test_engine_with_unreachable_url_still_writes_both_files(tmp_path, mon
 
     assert {path.name for path in result.files} == {"translation.json", "translation.md"}
     assert all(path.exists() for path in result.files)
-    assert any("Falha ao buscar" in line for line in result.logs)
+    assert any("Failed to fetch" in line for line in result.logs)
 
     payload = json.loads((output_dir / "translation.json").read_text(encoding="utf-8"))
     assert payload["url"] == PAGE_URL
     assert payload["text"] == ""
-    assert "Nenhum texto traduzido." in (output_dir / "translation.md").read_text(encoding="utf-8")
+    assert "No translated text." in (output_dir / "translation.md").read_text(encoding="utf-8")
 
 
 async def test_engine_surfaces_ai_error_in_both_files(tmp_path, monkeypatch):
@@ -301,10 +301,10 @@ async def test_engine_surfaces_ai_error_in_both_files(tmp_path, monkeypatch):
         result = await TranslateEngine().execute(JobCreate(url=PAGE_URL, mode="translate"), output_dir)
 
     payload = json.loads((output_dir / "translation.json").read_text(encoding="utf-8"))
-    assert payload["error"] == "AI indisponível"
+    assert payload["error"] == "AI unavailable"
     assert payload["text"] == ""
-    assert "AI indisponível" in (output_dir / "translation.md").read_text(encoding="utf-8")
-    assert any("AI indisponível" in line for line in result.logs)
+    assert "AI unavailable" in (output_dir / "translation.md").read_text(encoding="utf-8")
+    assert any("AI unavailable" in line for line in result.logs)
 
 
 async def test_engine_reports_progress_and_translates_through_the_ai_module(tmp_path, monkeypatch):
@@ -327,7 +327,7 @@ async def test_engine_reports_progress_and_translates_through_the_ai_module(tmp_
             on_progress=messages.append,
         )
 
-    assert messages == ["Traduzindo...", "Tradução concluída"]
+    assert messages == ["Translating...", "Translation complete"]
     payload = json.loads((output_dir / "translation.json").read_text(encoding="utf-8"))
     assert payload["text"] == "João Souza anunciou o produto Zeta."
     assert payload["source_language"] == "en"

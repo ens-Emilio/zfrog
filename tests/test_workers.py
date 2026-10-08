@@ -186,7 +186,7 @@ def test_assign_without_workers_does_not_raise(registry):
 
     assert assignment.worker is None
     assert assignment.region == "local"
-    assert assignment.reason == "nenhum worker disponível"
+    assert assignment.reason == "no worker available"
 
 
 def test_preferred_region_overrides_routing(registry, monkeypatch):
@@ -284,7 +284,7 @@ def test_registry_file_is_private_and_corruption_is_survivable(registry, tmp_pat
         assert recovered.list(alive_only=False) == []
         assert recovered.get("w1") is None
         assert recovered.reap() == []
-    assert "ilegível" in caplog.text
+    assert "Unreadable" in caplog.text
 
     recovered.register("w2", "local")
 
@@ -302,7 +302,7 @@ def test_registry_file_survives_an_unusable_record(registry, tmp_path, caplog):
         loaded = WorkerRegistry().list(alive_only=False)
 
     assert [worker.id for worker in loaded] == ["w1"]
-    assert "inválido" in caplog.text
+    assert "invalid" in caplog.text
 
 
 # ── identity and the background loop ─────────────────────────────────────────

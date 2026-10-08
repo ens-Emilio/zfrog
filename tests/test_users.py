@@ -40,7 +40,7 @@ def test_hash_password_is_pbkdf2_with_a_fresh_salt():
     second = hash_password("correct horse battery staple")
 
     assert first.startswith("pbkdf2$200000$")
-    assert first != second, "o sal deve ser aleatório a cada chamada"
+    assert first != second, "the salt must be random on every call"
     assert first.split("$")[2] != second.split("$")[2]
 
 def test_verify_password_accepts_the_right_one_and_rejects_the_rest():
@@ -190,12 +190,12 @@ def test_users_file_is_owner_only_and_never_holds_the_plaintext(users):
     assert user.password_hash.encode() in raw
 
 def test_a_corrupt_users_file_starts_empty_with_a_warning(users, caplog):
-    settings.users_file.write_text("{ isto não é json", encoding="utf-8")
+    settings.users_file.write_text("{ this is not json", encoding="utf-8")
 
     with caplog.at_level(logging.WARNING):
         assert users.list() == []
 
-    assert "corrompido" in caplog.text
+    assert "corrupted" in caplog.text
 
 # ── redaction ──
 

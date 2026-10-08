@@ -176,8 +176,8 @@ def test_to_markdown_lists_each_term_and_notes_short_history():
     assert URL in md
     assert "| preço | 1 | 5 | +400.0% | rising |" in md
     assert "| entrega | 2 | 2 | +0.0% | unknown |" in md
-    assert "apenas 1 amostra" in md
-    assert "Nenhum termo" in trends_mod.to_markdown(URL, [])
+    assert "only 1 sample" in md
+    assert "No term" in trends_mod.to_markdown(URL, [])
 
 
 def test_summarize_names_the_strongest_mover():
@@ -189,16 +189,16 @@ def test_summarize_names_the_strongest_mover():
     assert "preço" in text
     assert "entrega" not in text
     assert "400.0%" in text
-    assert "alta" in text
+    assert "up" in text
 
     fall = trends_mod.summarize([trends_mod.compute_trend("preço", _points(10, 4))])
-    assert "queda" in fall
+    assert "down" in fall
 
 
 def test_summarize_admits_when_history_is_too_short():
     text = trends_mod.summarize([trends_mod.compute_trend("preço", _points(3))])
 
-    assert "insuficiente" in text
+    assert "Not enough history" in text
     assert "preço" not in text
     assert trends_mod.summarize([]) == text
 

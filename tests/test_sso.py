@@ -405,7 +405,7 @@ async def test_exchange_code_reports_the_provider_error():
 
 
 async def test_exchange_code_rejects_an_empty_code():
-    with pytest.raises(ValueError, match="código"):
+    with pytest.raises(ValueError, match="code"):
         await exchange_code(config_from_settings(), _discovery(), "")
 
 
@@ -483,7 +483,7 @@ async def test_verify_rejects_an_es256_signature_of_the_wrong_length():
     bad_signature = _b64url(b"\x01\x02\x03")
     token = f"{header}.{payload}.{bad_signature}"
 
-    with pytest.raises(ValueError, match="assinatura"):
+    with pytest.raises(ValueError, match="signature"):
         await _verify_with(token, [_ec_jwk(key)])
 
 
@@ -500,7 +500,7 @@ async def test_verify_rejects_a_token_signed_by_another_key():
     key, attacker = _rsa_key(), _rsa_key()
     token = _rs256_token(attacker)
 
-    with pytest.raises(ValueError, match="assinatura"):
+    with pytest.raises(ValueError, match="signature"):
         await _verify_with(token, [_rsa_jwk(key)])
 
 
@@ -510,7 +510,7 @@ async def test_verify_rejects_a_tampered_payload():
     header, payload, signature = token.split(".")
     tampered = f"{header}.{_segment(_claims(sub='admin-1', groups=['admins']))}.{signature}"
 
-    with pytest.raises(ValueError, match="assinatura"):
+    with pytest.raises(ValueError, match="signature"):
         await _verify_with(tampered, [_rsa_jwk(key)])
 
 
@@ -526,7 +526,7 @@ async def test_verify_rejects_an_es256_token_signed_by_another_key():
     key, attacker = _ec_key(), _ec_key()
     token = _sign(attacker, {"alg": "ES256", "kid": KID, "typ": "JWT"}, _claims())
 
-    with pytest.raises(ValueError, match="assinatura"):
+    with pytest.raises(ValueError, match="signature"):
         await _verify_with(token, [_ec_jwk(key)])
 
 
@@ -534,7 +534,7 @@ async def test_verify_rejects_an_rsa_signature_checked_against_an_ec_key():
     key, other = _rsa_key(), _ec_key()
     token = _rs256_token(key)
 
-    with pytest.raises(ValueError, match="assinatura"):
+    with pytest.raises(ValueError, match="signature"):
         await _verify_with(token, [_ec_jwk(other)])
 
 
@@ -592,7 +592,7 @@ async def test_verify_rejects_unsupported_algorithms(alg):
     key = _rsa_key()
     token = _sign(key, {"alg": alg, "kid": KID}, _claims())
 
-    with pytest.raises(ValueError, match="algoritmo"):
+    with pytest.raises(ValueError, match="algorithm"):
         await _verify_with(token, [_rsa_jwk(key)])
 
 

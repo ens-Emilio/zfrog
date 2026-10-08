@@ -37,7 +37,7 @@ ABOUT = "<html><head><title>Sobre</title></head><body><p>Somos a loja</p></body>
 
 @pytest.fixture(autouse=True)
 def _isolated_state(tmp_path, monkeypatch):
-    """Nenhum teste toca o output/versions real do repositório."""
+    """No test touches the repository's real output/versions."""
     monkeypatch.setattr(settings, "output_dir", tmp_path / "output")
     monkeypatch.setattr(settings, "versions_dir", tmp_path / "versions")
     return tmp_path
@@ -106,7 +106,7 @@ def test_timeline_lists_every_version_oldest_first(tmp_path):
     assert [entry.message for entry in entries] == ["primeiro", "segundo"]
     assert [entry.branch for entry in entries] == ["main", "main"]
 
-    # pages/size_bytes vêm do snapshot de cada versão.
+    # pages/size_bytes come from the snapshot of each version.
     assert [entry.pages for entry in entries] == [1, 2]
     assert entries[0].size_bytes == len(V1_INDEX.encode("utf-8"))
     assert entries[1].size_bytes == len(V2_INDEX.encode("utf-8")) + len(ABOUT.encode("utf-8"))
@@ -139,7 +139,7 @@ def test_at_reads_the_version_not_the_current_disk(tmp_path):
     assert [page.path for page in pages_v1] == ["index.html"]
     assert [page.path for page in pages_v2] == ["about.html", "index.html"]
 
-    # A página nova existe no diretório atual do job, mas não na versão 1.
+    # The new page exists in the job's current directory, but not in version 1.
     assert (job / "about.html").is_file()
     assert machine.page(first.id, "about.html") is None
     assert "Somos a loja" in machine.page(second.id, "about.html").text
@@ -187,7 +187,7 @@ def test_content_returns_the_original_html(tmp_path):
 
     assert html == V1_INDEX
     assert "<script>" in html and "var track=1;" in html
-    # O texto guardado no snapshot é o extraído: a tag não sobrevive a ele.
+    # The text stored in the snapshot is the extracted text: the tag does not survive it.
     assert "var track" not in extract_text(html)
 
 
@@ -217,7 +217,7 @@ def test_page_and_at_reject_what_is_not_there(tmp_path):
     with pytest.raises(ValueError):
         machine.at("nao-e-versao")
 
-    # Um ref inválido no visualizador degrada para "não encontrado".
+    # An invalid ref in the viewer degrades to "not found".
     assert machine.page("0" * 12, "index.html") is None
     assert machine.content("0" * 12, "index.html") is None
 
@@ -255,7 +255,7 @@ def test_parse_when_accepts_the_documented_formats():
 
     parsed = parse_when("2026-09-01")
     assert parsed.tzinfo is not None and parsed.hour == 23 and parsed.minute == 59
-    # O fim do dia é maior que qualquer captura daquele dia.
+    # The end of the day is later than any capture from that day.
     assert parsed > datetime(2026, 9, 1, 12, 0, tzinfo=timezone.utc)
 
 

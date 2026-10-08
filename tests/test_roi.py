@@ -164,8 +164,8 @@ def test_per_engine_rows_carry_the_value_side_and_sum_to_the_totals():
 
 def test_roi_from_metrics_note_says_the_page_count_is_an_estimate():
     note = roi_from_metrics(store=_recorded_store()).note
-    assert "páginas estimadas pelos arquivos gerados" in note
-    assert "min por página" in note
+    assert "pages estimated by the files generated" in note
+    assert "min per page" in note
     assert "BRL" in note
 
 def test_roi_from_metrics_without_any_run_is_zero_and_not_an_error():
@@ -208,8 +208,8 @@ def test_to_markdown_shows_value_cost_assumptions_and_the_engine_table():
     assert "R$ 0.73" in report  # cost: 0.7255 rounded to cents for display
     assert "R$ 17.27" in report  # net
     assert "24.81×" in report  # ratio
-    assert "Premissas" in report
-    assert "Minutos por página: 2" in report
+    assert "Assumptions" in report
+    assert "Minutes per page: 2" in report
     assert "R$ 30.00" in report
     assert "BRL" in report
     assert "| wget | 2 | 16 | 3000000000 | 2700 | R$ 16.00 |" in report
@@ -217,13 +217,13 @@ def test_to_markdown_shows_value_cost_assumptions_and_the_engine_table():
 
 def test_to_markdown_renders_a_dash_for_a_missing_ratio():
     report = to_markdown(compute_roi(18, 0.0, _inputs()))
-    assert "| Retorno (valor ÷ custo) | — |" in report
-    assert "Nenhuma execução registrada." in report
+    assert "| Return (value ÷ cost) | — |" in report
+    assert "No runs recorded." in report
 
 def test_to_markdown_of_a_zero_cost_report_still_shows_the_value():
     report = to_markdown(compute_roi(0, 0.0, _inputs()))
-    assert "| Valor do trabalho manual evitado | R$ 0.0000 |" in report
-    assert "| Custo estimado | R$ 0.0000 |" in report
+    assert "| Avoided manual work value | R$ 0.0000 |" in report
+    assert "| Estimated cost | R$ 0.0000 |" in report
 
 def test_rates_from_settings_are_the_ones_priced_into_the_report():
     assert rates_from_settings().currency == "BRL"

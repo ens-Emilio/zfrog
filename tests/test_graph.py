@@ -246,8 +246,8 @@ def test_describe_mentions_the_counts_and_the_top_entities():
 
     summary = describe(graph)
 
-    assert "3 entidades" in summary
-    assert "2 relações" in summary
+    assert "3 entities" in summary
+    assert "2 relations" in summary
     assert "Ana (3)" in summary
     assert "co_occurrence" in summary
 
@@ -255,10 +255,10 @@ def test_describe_mentions_the_counts_and_the_top_entities():
 def test_describe_handles_the_singular_and_the_empty_graph():
     single = build_graph([_page("https://a.test/1", [("Zeta", "product")])])
 
-    assert "1 entidade" in describe(single)
-    assert "0 relações" in describe(single)
+    assert "1 entity" in describe(single)
+    assert "0 relations" in describe(single)
     empty = describe(KnowledgeGraph(nodes=[], edges=[]))
-    assert empty == "Grafo vazio: nenhuma entidade encontrada."
+    assert empty == "Empty graph: no entities found."
 
 
 # ── to_dot / to_json ──────────────────────────────────────────────────────

@@ -198,7 +198,7 @@ def test_system_prompt_includes_instructions_terminology_and_entities(profile):
     assert "Extraia cláusulas com a numeração original." in prompt
     assert "cláusula: disposição contratual" in prompt
     assert "prazo: data-limite de um ato" in prompt
-    assert "Tipos de entidade a procurar: cláusula, prazo." in prompt
+    assert "Entity types to look for: cláusula, prazo." in prompt
     assert len(prompt) <= MAX_PROMPT_CHARS
 
 
@@ -334,7 +334,7 @@ async def test_extract_with_profile_blank_text_skips_the_ai(monkeypatch):
     assert result["items"] == []
     assert result["summary"] == ""
     assert result["page_title"] == ""
-    assert result["error"] == "Texto vazio"
+    assert result["error"] == "Empty text"
 
 
 async def test_extract_with_profile_reports_unavailable_ai(monkeypatch):
@@ -344,7 +344,7 @@ async def test_extract_with_profile_reports_unavailable_ai(monkeypatch):
     result = await extract_with_profile("Cláusula 5ª: prazo de 30 dias.", None)
 
     assert result["items"] == []
-    assert result["error"] == "AI indisponível"
+    assert result["error"] == "AI unavailable"
 
 
 async def test_extract_with_profile_carries_terminology_in_the_prompt(monkeypatch, store, profile):
@@ -370,7 +370,7 @@ async def test_extract_with_profile_carries_terminology_in_the_prompt(monkeypatc
     assert system["content"].startswith(domains_mod.BASE_EXTRACTION_PROMPT)
     assert "cláusula: disposição contratual" in system["content"]
     assert "prazo: data-limite de um ato" in system["content"]
-    assert "Tipos de entidade a procurar: cláusula, prazo." in system["content"]
+    assert "Entity types to look for: cláusula, prazo." in system["content"]
     assert captured["messages"][-1]["role"] == "user"
     assert "Cláusula 5ª" in captured["messages"][-1]["content"]
 

@@ -78,7 +78,7 @@ def engines(monkeypatch):
             )
 
             if log["fail_on"] and str(job.url).endswith(log["fail_on"]):
-                raise RuntimeError(f"motor caiu em {job.url}")
+                raise RuntimeError(f"engine crashed at {job.url}")
 
             output_dir.mkdir(parents=True, exist_ok=True)
             written = output_dir / f"{self.name}.txt"
@@ -93,7 +93,7 @@ def call_of(engines: dict, label: str) -> dict:
     for call in engines["calls"]:
         if call["label"] == label:
             return call
-    raise AssertionError(f"o passo {label} não rodou (rodaram: {[c['label'] for c in engines['calls']]})")
+    raise AssertionError(f"the step {label} did not run (ran: {[c['label'] for c in engines['calls']]})")
 
 # ── execution_waves ─────────────────────────────────────────────────
 
@@ -188,13 +188,13 @@ class TestExecutionWaves:
             execution_waves(steps)
 
         message = str(error.value)
-        assert "ciclo" in message
+        assert "cycle" in message
         assert "step-0" in message and "step-1" in message
 
     def test_unknown_dependency_is_refused(self):
-        steps = [Step("search", {}, needs=["passo-inexistente"], id="sonda")]
+        steps = [Step("search", {}, needs=["missing-step"], id="sonda")]
 
-        with pytest.raises(ValueError, match="passo-inexistente"):
+        with pytest.raises(ValueError, match="missing-step"):
             execution_waves(steps)
 
 # ── validate_steps ──────────────────────────────────────────────────
@@ -234,7 +234,7 @@ class TestValidateStepsGraph:
         assert steps[1].needs == ["coleta"]
 
     def test_rejects_a_cycle(self):
-        with pytest.raises(ValueError, match="ciclo"):
+        with pytest.raises(ValueError, match="cycle"):
             validate_steps(
                 [
                     {"type": "summarize", "params": {"url": "https://example.com"}, "needs": ["step-1"]},
@@ -243,7 +243,7 @@ class TestValidateStepsGraph:
             )
 
     def test_rejects_a_step_that_needs_itself(self):
-        with pytest.raises(ValueError, match="ciclo"):
+        with pytest.raises(ValueError, match="cycle"):
             validate_steps([{"type": "search", "params": {}, "needs": ["step-0"]}])
 
     def test_rejects_needs_that_is_not_a_list_of_ids(self):
@@ -251,7 +251,7 @@ class TestValidateStepsGraph:
             validate_steps([{"type": "search", "params": {}, "needs": "step-0"}])
 
     def test_rejects_a_repeated_id(self):
-        with pytest.raises(ValueError, match="repetido"):
+        with pytest.raises(ValueError, match="duplicate"):
             validate_steps(
                 [
                     {"type": "search", "params": {}, "id": "x"},
@@ -328,7 +328,7 @@ class TestWorkflowStoreGraph:
     def test_save_refuses_a_cyclic_graph(self, tmp_path):
         store = WorkflowStore(root=tmp_path / "flows")
 
-        with pytest.raises(ValueError, match="ciclo"):
+        with pytest.raises(ValueError, match="cycle"):
             store.save(
                 "ruim",
                 [
@@ -393,16 +393,16 @@ class TestRunWorkflowGraph:
 
         assert result.status == "failed"
         assert [step.status for step in result.steps] == ["failed", "skipped", "ok", "skipped"]
-        assert "rede" not in result.steps[0].detail and "motor caiu" in result.steps[0].detail
+        assert "network" not in result.steps[0].detail and "engine crashed" in result.steps[0].detail
 
-        assert "passo 1" in result.steps[1].detail
+        assert "step 1" in result.steps[1].detail
         assert "summarize" in result.steps[1].detail
-        assert "falhou" in result.steps[1].detail
+        assert "failed" in result.steps[1].detail
         # d waits on a step that was itself skipped.
-        assert "passo 2" in result.steps[3].detail and "pulado" in result.steps[3].detail
+        assert "step 2" in result.steps[3].detail and "skipped" in result.steps[3].detail
 
         assert result.error is not None
-        assert "passo 1" in result.error and "motor caiu" in result.error
+        assert "step 1" in result.error and "engine crashed" in result.error
 
         # The independent branch still ran, the dependants never started.
         assert sorted(call["label"] for call in engines["calls"]) == ["1-summarize", "3-compare"]
@@ -458,9 +458,9 @@ class TestRunWorkflowGraph:
 
         # Wave 1 holds steps 1 and 3, wave 2 holds step 2.
         assert messages == [
-            "Passo 1/3: summarize",
-            "Passo 3/3: extract",
-            "Passo 2/3: analyze",
+            "Step 1/3: summarize",
+            "Step 3/3: extract",
+            "Step 2/3: analyze",
         ]
 
     async def test_a_dependent_step_sees_the_clone_output_dir(self, output_dir, jobs, monkeypatch):
@@ -481,7 +481,7 @@ class TestRunWorkflowGraph:
         result = await run_workflow(workflow)
 
         assert result.status == "ok"
-        assert "1 páginas indexadas" in result.steps[1].detail
+        assert "1 pages indexed" in result.steps[1].detail
         assert str(output_dir / "jobs" / "job1") in result.steps[1].detail
 
         hits = search_mod.SearchIndex().search("olá")
@@ -512,7 +512,7 @@ class TestRunWorkflowGraph:
         """`needs: []` opts out of the linear default, so nothing is inherited."""
         workflow = Workflow(
             "88888888",
-            "sem dependência",
+            "no dependency",
             [
                 Step("clone", {"url": "https://example.com"}, id="coleta"),
                 Step("search", {}, needs=[]),

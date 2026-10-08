@@ -1,160 +1,160 @@
 # Zfrog - Design Reference Engine
 
-<img src="docs/mascot.png" alt="Mascote do zfrog: um sapinho com uma lupa e uma folha em branco" width="140" align="right">
+<img src="docs/mascot.png" alt="Zfrog mascot: a little frog with a magnifying glass and a blank sheet of paper" width="140" align="right">
 
-Ferramenta de coleta, organização e adaptação de referências de design da web. Capture
-qualquer página, guarde o visual como referência offline e consulte o que foi capturado
-depois.
+Tool for collecting, organizing, and adapting web design references. Capture
+any page, save its look as an offline reference, and browse what you've captured
+afterwards.
 
-## Funcionalidades
+## Features
 
-- **4 motores com papéis distintos**: Playwright (captura visual, o padrão), Scrapy
-  (descoberta), StaticFile (páginas leves), wget (assets)
-- **Auto-detecção**: escolhe o motor conforme a página precisa ou não de JavaScript
-- **Captura visual**: screenshot full page de cada página capturada
-- **Pipeline completo**: reescrita de links, limpeza de trackers, empacotamento ZIP
-- **API REST**: endpoints para jobs, probe, download, health check, metrics
-- **Dashboard UI**: interface web para gerenciar jobs
-- **Produção**: rate limiting, retry com circuit breaker, cleanup automático, webhooks
+- **4 engines with distinct roles**: Playwright (visual capture, the default), Scrapy
+  (discovery), StaticFile (lightweight pages), wget (assets)
+- **Auto-detection**: chooses the engine depending on whether the page needs JavaScript
+- **Visual capture**: full-page screenshot of each captured page
+- **Complete pipeline**: link rewriting, tracker cleanup, ZIP packaging
+- **API REST**: endpoints for jobs, probe, download, health check, metrics
+- **Dashboard UI**: web interface to manage jobs
+- **Production**: rate limiting, retry with circuit breaker, automatic cleanup, webhooks
 
-## Instalação
+## Installation
 
 ```bash
-# Clonar repositório
+# Clone the repository
 git clone <repo-url>
 cd zfrog
 
-# Criar ambiente virtual e instalar dependências
+# Create a virtual environment and install dependencies
 python -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 
-# Instalar navegador do Playwright
+# Install the Playwright browser
 .venv/bin/playwright install chromium
 ```
 
-O repositório traz um launcher `./zfrog` na raiz que usa o virtualenv do projeto, então
-**não é preciso ativar o venv** para rodar os comandos:
+The repository ships a `./zfrog` launcher at the root that uses the project's virtualenv, so
+**you don't need to activate the venv** to run commands:
 
 ```bash
 ./zfrog dev
 ```
 
-Para usar como `zfrog` (sem o `./`), adicione a raiz do projeto ao `PATH` ou crie um alias:
+To use it as `zfrog` (without `./`), add the project root to your `PATH` or create an alias:
 
 ```bash
-# Opção 1: alias no shell (~/.bashrc, ~/.zshrc)
+# Option 1: shell alias (~/.bashrc, ~/.zshrc)
 alias zfrog="$PWD/zfrog"
 
-# Opção 2: link simbólico em um diretório que já está no PATH
+# Option 2: symlink in a directory on PATH
 ln -s "$PWD/zfrog" ~/.local/bin/zfrog
 ```
 
-Alternativamente, ative o venv e use o comando instalado:
+Alternatively, activate the venv and use the installed command:
 
 ```bash
 source .venv/bin/activate
 zfrog dev
 ```
 
-## Uso Rápido
+## Quick Start
 
-### Tudo junto (API + Dashboard)
+### All together (API + Dashboard)
 
 ```bash
 ./zfrog dev
 ```
 
-Sobe a API (`http://127.0.0.1:8000`) e o dashboard (`http://localhost:3000`) com um único
-comando. O output de cada serviço vem prefixado (`api` / `web` / `worker`). Ctrl+C para todos;
-se um cair, os outros são encerrados automaticamente.
+Starts the API (`http://127.0.0.1:8000`) and the dashboard (`http://localhost:3000`) with a single
+command. Each service's output is prefixed (`api` / `web` / `worker`). Ctrl+C stops all;
+if one crashes, the others are terminated automatically.
 
-Com o Redis respondendo, um worker Celery sobe junto. Ele não é opcional: a API despacha
-para a fila e devolve `pending` na hora, então sem alguém consumindo a fila toda extração
-começada no painel fica "na fila" para sempre, sem nada dizendo por quê. Sem Redis, os jobs
-rodam no processo da API e não há worker.
+With Redis available, a Celery worker starts alongside. It is not optional: the API dispatches
+to the queue and returns `pending` immediately, so without a consumer every extraction
+started in the dashboard stays "queued" forever with no explanation. Without Redis, jobs
+run inside the API process and there is no worker.
 
 ```bash
-./zfrog dev --api-port 9000 --web-port 4000   # portas customizadas
-./zfrog dev --no-reload                       # sem auto-reload da API
-./zfrog dev --no-install                      # não roda npm install
+./zfrog dev --api-port 9000 --web-port 4000   # custom ports
+./zfrog dev --no-reload                       # without API auto-reload
+./zfrog dev --no-install                      # skip npm install
 ```
 
 ### CLI
 
 ```bash
-# Captura automática (padrão): o probe escolhe o motor
+# Auto capture (default): probe picks the engine
 zfrog clone https://example.com
 
-# Capturar uma referência de design: screenshot + tokens + card no catálogo
+# Capture a design reference: screenshot + tokens + catalog card
 zfrog jump https://stripe.com
 zfrog jump https://stripe.com --breakpoint mobile --tag fintech
 
-# Extrair um componente: o HTML e o CSS que o navegador aplicou nele
+# Extract a component: the element's HTML and its computed CSS
 zfrog tongue https://stripe.com ".hero"
 
-# A coleção: listar, filtrar e buscar por descrição visual
+# The collection: list, filter, and search by visual description
 zfrog pond                                   # todas as referências
-zfrog pond --tag fintech                     # por etiqueta
-zfrog pond --color "#635BFF"                 # por cor
+zfrog pond --tag fintech                     # by tag
+zfrog pond --color "#635BFF"                 # by color
 zfrog pond --search "layouts escuros com cards arredondados"
 zfrog show 9cc7eb98                          # detalhes de uma referência
 zfrog export 9cc7eb98 --format html          # mini style guide
 
-# Clonar site estático
+# Clone a static site
 zfrog clone https://example.com --mode singlepage
 
-# Espelhar site recursivamente
+# Mirror site recursively
 zfrog clone https://example.com --mode mirror --depth 2
 
-# Clonar SPA (React/Vue/Next.js)
+# Clone an SPA (React/Vue/Next.js)
 zfrog clone https://nextjs.org --mode scrape
 
-# Extrair dados estruturados
+# Extract structured data
 zfrog clone https://products.com --mode extract --depth 1
 
-# Gerar PDF da página
+# Render page as PDF
 zfrog clone https://example.com --mode pdf
 
-# Gerar PDF com nome escolhido
+# Render PDF with a custom filename
 zfrog clone https://example.com --mode pdf --pdf-filename relatorio
 
-# Resumir a página com IA
+# Summarize the page with AI
 zfrog clone https://example.com --mode summarize
 
-# Analisar URL
+# Analyze a URL
 zfrog probe https://example.com
 
-# Guardar uma versão do site (histórico com rollback)
+# Save a versioned copy (history with rollback)
 zfrog clone https://example.com --mode mirror --versioned
 zfrog versions https://example.com
 zfrog rollback https://example.com HEAD --dest ./restaurado
 
-# Baixar só o que mudou desde a última cópia
+# Download only what changed since the last copy
 zfrog clone https://example.com --mode delta
 
-# Agendar cópias recorrentes
+# Schedule recurring copies
 zfrog schedule add https://example.com --cron "0 2 * * *"
 zfrog scheduler                      # daemon que executa os agendamentos
 
-# Procurar dentro do que já foi baixado
+# Search inside downloaded content
 zfrog search "política de privacidade" --dir output
 zfrog search "preço do produto" --semantic
 
-# Perguntar a vários sites ao mesmo tempo (com citações)
+# Ask across multiple sites at once (with citations)
 zfrog chat "quanto custa?" --site lojaA=output/lojaA --site lojaB=output/lojaB
 
-# Entrar em um site e guardar a sessão (sites com login)
+# Log into a site and save the session (login-required sites)
 zfrog login https://site-com-login.com
 zfrog sessions
 
-# Sequências de passos salvas
+# Saved step sequences
 zfrog workflow list
 zfrog workflow run <id>
 
-# Listar jobs
+# List jobs
 zfrog jobs
 
-# Qualidade e conformidade
+# Quality & compliance
 zfrog safety output/meusite            # sinais de página perigosa
 zfrog analytics                        # qual motor funciona melhor
 zfrog audit --limit 20                 # quem fez o quê
@@ -165,25 +165,25 @@ zfrog cost                             # custo estimado
 zfrog key create painel -r operator    # chave de API
 zfrog market list                      # itens compartilhados
 
-# Cancelar job
+# Cancel a job
 zfrog cancel <job-id>
 
-# Ver configuração
+# Show configuration
 zfrog config
 ```
 
 ### API
 
 ```bash
-# Iniciar servidor
+# Start server
 zfrog serve
 
-# Criar job
+# Create job
 curl -X POST http://localhost:8000/jobs \
   -H "Content-Type: application/json" \
   -d '{"url":"https://example.com","mode":"mirror","max_depth":2}'
 
-# Verificar status
+# Check status
 curl http://localhost:8000/jobs/<job-id>
 
 # Download
@@ -201,7 +201,7 @@ curl http://localhost:8000/metrics
 
 ### Dashboard
 
-Forma recomendada — sobe API e dashboard juntos:
+Recommended way — start API and dashboard together:
 
 ```bash
 zfrog dev
@@ -209,7 +209,7 @@ zfrog dev
 # Dashboard: http://localhost:3000
 ```
 
-Manualmente (dois terminais):
+Manually (two terminals):
 
 ```bash
 # Terminal 1
@@ -221,26 +221,11 @@ npm install
 npm run dev
 ```
 
-**Páginas do dashboard:**
+ **Dashboard pages (27 routes):** `execuções` (`/`), `coleção` (`/colecao`), `extrair` (`/probe`), `captura` (`/captura`), `busca` (`/busca`), `fluxos` (`/fluxos`), `chat` (`/chat`), `comparar` (`/comparar`), `grafo` (`/grafo`), `precos` (`/precos`), `datasets` (`/datasets`), `graphql` (`/graphql`), `qualidade` (`/qualidade`), `analytics` (`/analytics`), `stats` (`/stats`), `timeline` (`/timeline`), `snapshots` (`/snapshots`), `workers` (`/workers`), `revisao` (`/revisao`), `roi` (`/roi`), `equipe` (`/equipe`), `config` (`/config`), `ajuda` (`/ajuda`), `webhooks` (`/webhooks`), `marketplace` (`/marketplace`), `design` (`/design`). Every CLI operation has an equivalent in the dashboard; remaining routes are reachable via palette `ctrl+k`.
+ 
+ **Design system (TUI):** terminal-native tokens in `dashboard/src/styles/tui.css` (`#f4f2ec` paper, `#4f6b3a` / `#93b27b` accent, Iosevka 400/500, hairline 1px, radius 0) wired via `dashboard/src/routes/__root.tsx` + `globals.css`. Primitives in `dashboard/src/components/ui/tui.tsx` (`Gut`, `Sym`, `Spinner`, `Swatch`, `DetailLine`, `CodeBlock`, `Prompt`, `TuiModal`) and typed API client in `dashboard/src/lib/api.ts`. The `/design` page documents tokens, typography and all components.
 
-| Página | Rota | Equivalente CLI |
-|--------|------|-----------------|
-| Jobs | `/` | `zfrog jobs` |
-| Detalhe do job | `/jobs/{id}` | — |
-| Probe & Create | `/probe` | `zfrog probe` + `zfrog clone` |
-| Analytics | `/stats` | — |
-| Config | `/config` | `zfrog config` |
-| Design System | `/design` | — (referência de tokens/componentes) |
-
-Todas as operações da CLI têm equivalente no dashboard: criar job (clone), listar jobs,
-cancelar, baixar resultado, analisar URL e ver/alterar configuração (rate limit).
-
-**Design system:** dark-first com tokens oklch (`src/app/globals.css`), primitivos em
-`src/components/ui/` (Button, StatusBadge, Card, Input/Select, StatCard, EmptyState,
-Skeleton) e cliente de API tipado em `src/lib/api.ts`. A página `/design` documenta
-tokens, tipografia e todos os componentes.
-
-> O dashboard precisa do CORS habilitado na API (já configurado via `CORSMiddleware`).
+> The dashboard requires CORS enabled on the API (already configured via `CORSMiddleware`).
 
 ### Docker
 
@@ -255,23 +240,23 @@ docker compose logs -f
 docker compose down
 ```
 
-## Motores
+## Engines
 
-Cada motor tem um papel distinto e não concorre com os outros.
+Each engine has a distinct role and does not compete with the others.
 
-| Motor | Papel | Quando usar | Modo |
+| Engine | Role | When to use | Mode |
 |-------|-------|-------------|------|
-| **jump** | Referência: renderiza a página, tira screenshot full page e extrai os tokens de design | Quando o alvo é uma referência visual | `jump` |
-| **tongue** | Componente: devolve o HTML e o CSS computado de um seletor | Para estudar um card, navbar ou botão específico | `tongue` |
-| **Playwright** | Captura visual: renderiza e guarda o HTML renderizado + CSS/JS/imagens que o navegador carregou | Sempre. É o motor padrão. | `scrape` |
-| **Scrapy** | Descoberta: mapeia quais páginas existem no site | Site inteiro ou lote de URLs | `extract` |
-| **StaticFile** | Captura leve: página única, com os assets embutidos | Quando a página não depende de JavaScript | `singlepage` |
-| **wget** | Assets: baixa imagens, CSS, fontes e ícones | Complemento para consulta offline | `mirror` |
+| **jump** | Reference: renders the page, takes a full-page screenshot and extracts design tokens | When the target is a visual reference | `jump` |
+| **tongue** | Component: returns the HTML and computed CSS for a selector | To inspect a specific card, navbar or button | `tongue` |
+| **Playwright** | Visual capture: renders and saves the rendered HTML + CSS/JS/images the browser loaded | Always. This is the default engine. | `scrape` |
+| **Scrapy** | Discovery: maps which pages exist on the site | Entire site or batch of URLs | `extract` |
+| **StaticFile** | Lightweight capture: single page with embedded assets | When the page does not depend on JavaScript | `singlepage` |
+| **wget** | Assets: downloads images, CSS, fonts and icons | Companion for offline browsing | `mirror` |
 
-O modo `auto` (padrão) não escolhe motor por conta própria: ele roda o probe e deixa a
-decisão acima acontecer. Sem modo informado, `zfrog clone <url>` captura visualmente.
+Mode `auto` (the default) doesn't pick an engine on its own: it runs the probe and lets the
+decision above happen. Without a mode, `zfrog clone <url>` captures visually.
 
-Fluxo de captura:
+Capture flow:
 
 ```
 Usuário informa URL
@@ -283,122 +268,122 @@ Usuário informa URL
                                               wget baixa os assets
 ```
 
-Além dos quatro motores de captura, o Zfrog traz motores de análise e exportação:
+Beyond the four capture engines, Zfrog also provides analysis and export engines:
 
-| Motor | Modo | O que faz |
+| Engine | Mode | What it does |
 |-------|------|-----------|
-| **Analyze** | `analyze` | Auditoria técnica (SEO, acessibilidade, performance) |
-| **Compare** | `compare` | Fidelity Score entre clone e original |
-| **Ask** | `ask` | Pergunta em linguagem natural sobre a página |
-| **PDF** | `pdf` | Renderização em PDF (A4) |
-| **Summarize** | `summarize` | Resumo IA da página |
-| **Delta** | `delta` | Baixar só as páginas que mudaram |
-| **Entities** | `entities` | Nomes de pessoas, empresas, lugares, datas, produtos |
-| **Enrich** | `enrich`, `sentiment`, `tags` | Tom do texto e assuntos principais |
-| **Translate** | `translate` | Traduzir o conteúdo |
-| **Video** | `video` | HLS/DASH: detectar e baixar vídeo |
-| **API Discovery** | `api_discovery` | Descobrir endpoints REST/GraphQL |
+| **Analyze** | `analyze` | Technical audit (SEO, accessibility, performance) |
+| **Compare** | `compare` | Fidelity Score between clone and original |
+| **Ask** | `ask` | Natural-language question about the page |
+| **PDF** | `pdf` | PDF rendering (A4) |
+| **Summarize** | `summarize` | AI summary of the page |
+| **Delta** | `delta` | Download only pages that changed |
+| **Entities** | `entities` | Names of people, companies, places, dates, products |
+| **Enrich** | `enrich`, `sentiment`, `tags` | Text sentiment and main topics |
+| **Translate** | `translate` | Translate content |
+| **Video** | `video` | HLS/DASH: detect and download video |
+| **API Discovery** | `api_discovery` | Discover REST/GraphQL endpoints |
 
-`zfrog engines` lista os motores disponíveis com a origem de cada um (built-in, entry point
-ou plugin local).
+`zfrog engines` lists available engines with their origin (built-in, entry point
+or local plugin).
 
-### Plugins de Engines
+### Engine Plugins
 
-Qualquer pacote pode publicar um motor: basta declarar o entry point
-`[project.entry-points."zfrog.engines"]` apontando para uma subclasse de `EngineAdapter`
-(`name`, `execute`, `can_handle`) — o Zfrog descobre e registra no import. Para plugins
-locais, coloque arquivos `.py` em `plugins/` (ou aponte `ZFROG_PLUGINS_DIR` para outro
-diretório); toda subclasse de `EngineAdapter` do arquivo é registrada. Plugin quebrado ou
-nome já existente é ignorado com warning — nunca derruba o Zfrog.
+Any package can publish an engine: just declare the entry point
+`[project.entry-points."zfrog.engines"]` pointing to an `EngineAdapter` subclass
+(`name`, `execute`, `can_handle`) — Zfrog discovers and registers it on import. For local plugins,
+put `.py` files in `plugins/` (or point `ZFROG_PLUGINS_DIR` elsewhere
+directory); every `EngineAdapter` subclass in the file is registered. A broken plugin or
+duplicate name is ignored with a warning — it never crashes Zfrog.
 
-### Auto-Detecção
+### Auto-Detection
 
-O probe analisa a página e sugere o motor de captura:
+The probe analyzes the page and suggests the capture engine:
 
-- Presença de frameworks JS (React, Vue, Next, Nuxt, Angular)
-- Tamanho do HTML vs scripts carregados
-- Corpo com pouco texto e vários scripts (SPA que só renderiza no cliente)
-- Tipo de conteúdo retornado
+- Presence of JS frameworks (React, Vue, Next, Nuxt, Angular)
+- HTML size vs loaded scripts
+- Body with little text and many scripts (SPA that only renders on the client)
+- Returned content type
 
-A decisão é simples: **JavaScript detectado → Playwright**; **página simples → StaticFile**.
-Uma página que o probe não conseguiu ler também vai para o Playwright — perder a renderização
-perde o design, perder o atalho só custa tempo. O Scrapy entra quando o alvo é o site inteiro
-(`--mode extract`), e o wget quando o alvo são os assets (`--mode mirror`).
+The decision is simple: **JavaScript detected → Playwright**; **simple page → StaticFile**.
+A page the probe couldn't read also goes to Playwright — losing the rendering
+loses the design, losing the shortcut only costs time. Scrapy kicks in when the target is the entire site
+(`--mode extract`), and wget when the target is assets (`--mode mirror`).
 
-O probe também registra se o `robots.txt` restringe a URL (`robots_restricted`). O motor wget
-respeita `respect_robots` (padrão `true`; desligue com `--no-robots`).
+The probe also records whether `robots.txt` restricts the URL (`robots_restricted`). The wget engine
+respects `respect_robots` (default `true`; disable with `--no-robots`).
 
-## Referências de design
+## Design References
 
-O fluxo que dá nome ao projeto: capturar uma página como referência visual,
-guardá-la num catálogo e encontrá-la depois.
+The flow that gives the project its name: capture a page as a visual reference,
+store it in a catalog and find it afterwards.
 
 ```bash
 zfrog jump https://stripe.com --tag fintech --breakpoint desktop
 zfrog jump https://stripe.com --viewport-only --format webp   # mais leve
 ```
 
-Isso renderiza a página, tira um screenshot de página inteira e extrai os tokens
-de design dela — paleta (com a cor dominante e o papel de cada uma), tipografia
-(família, tamanhos, pesos), escala (padding, margin, raios, sombras) e os assets
-principais. O resultado vira um **card** no catálogo, com o screenshot, a URL de
-origem, a data e as etiquetas que você definiu.
+This renders the page, takes a full-page screenshot and extracts its design
+tokens — palette (with dominant color and each color's role), typography
+(family, sizes, weights), scale (padding, margin, radii, shadows) and key assets.
+The result becomes a **card** in the catalog, with the screenshot, source URL,
+date, and tags you defined.
 
-Um componente específico, em vez da página toda:
+A specific component, instead of the whole page:
 
 ```bash
 zfrog tongue https://stripe.com ".hero"
 ```
 
-Devolve o HTML do elemento e o **CSS que o navegador resolveu para ele**,
-agrupado em layout, cor e tipografia — mais a caixa e os filhos diretos. O HTML
-sai sanitizado (scripts, `onclick` e `javascript:` removidos).
+Returns the element's HTML and the **CSS the browser resolved for it**,
+grouped into layout, color and typography — plus the box and direct children. The HTML
+is sanitized (scripts, `onclick` and `javascript:` removed).
 
-O catálogo:
+The catalog:
 
 ```bash
-zfrog pond --tag fintech               # por etiqueta
-zfrog pond --color "#635BFF"           # por cor dominante
-zfrog pond --site stripe.com           # por site
+zfrog pond --tag fintech               # by tag
+zfrog pond --color "#635BFF"           # by color dominante
+zfrog pond --site stripe.com           # by site
 zfrog pond --search "escuro com cards arredondados"
 zfrog show <id>                        # detalhe, com a paleta
 zfrog export <id> --format html        # mini style guide autocontido
 ```
 
-A captura padrão também produz design: `zfrog clone <url>` roda a extração de
-tokens junto do screenshot, na mesma visita ao navegador, e registra um card — nos
-modos que capturam página (`auto`, `mirror`, `scrape`, `singlepage`, `delta`). Os
-motores de análise de texto não entram nessa, porque uma paleta vinda deles seria
-ruído.
+The default capture also produces design: `zfrog clone <url>` runs token extraction
+alongside the screenshot, in the same browser visit, and registers a card — for
+page-capturing modes (`auto`, `mirror`, `scrape`, `singlepage`, `delta`).
+Text-analysis engines are excluded, because a palette from them would be
+noise.
 
-No painel, a tela **Nova extração** oferece o modo *Referência de design* (com
-resolução, formato, página inteira ou viewport, e etiquetas) e *Extrair componente*
-(com o campo do seletor CSS).
+In the dashboard, the **New extraction** screen offers *Design reference* mode (with
+resolution, format, full-page or viewport, and tags) and *Extract component*
+(with the CSS selector field).
 
-**Como a busca por descrição funciona, e o que ela não faz.** Cada card é
-descrito em palavras a partir dos tokens medidos — luminosidade e matiz das
-cores, arredondamento dos cantos, vocabulário de sombras, serifa ou não. Essa
-descrição é embedada e o ranking é por similaridade de cosseno. Isso responde
-"layouts escuros com cards arredondados" porque a extração mediu exatamente
-esses atributos. **Não** embeda os pixels: não acha "a que tem foto de cachorro".
-Para isso, `visual_search.describe()` é o único ponto que muda.
+**How description search works, and what it doesn't.** Each card is
+described in words from the measured tokens — lightness and hue of
+colors, corner rounding, shadow vocabulary, serif or not. This
+description is embedded and ranking is by cosine similarity. This answers
+"dark layouts with rounded cards" because extraction measured exactly
+those attributes. It does **not** embed pixels: it won't find "the one with a dog photo".
+For that, `visual_search.describe()` is the only point to change.
 
-Sem um modelo de embeddings configurado, a busca cai para comparação de palavras
-— degrada para algo útil, não para nada. Configure `ZFROG_AI_EMBEDDING` (e rode
-`zfrog pond --reindex`) para usar os vetores. Pela API, `POST /catalog/reindex` faz
-o mesmo e informa quantos vetores escreveu; sem modelo, responde `indexed: 0` com o
-motivo, em vez de falhar.
+Without a configured embedding model, search falls back to word matching
+— it degrades to something useful, not to nothing. Configure `ZFROG_AI_EMBEDDING` (and run
+`zfrog pond --reindex`) to use vectors. Via the API, `POST /catalog/reindex` does
+the same and reports how many vectors it wrote; without a model it responds `indexed: 0` with the
+reason, instead of failing.
 
-No painel, a rota **Coleção** é o moodboard: os screenshots em grade, filtros por
-etiqueta, cor e site, a busca por descrição e um painel de detalhe com paleta,
-tipografia, etiquetas e nota.
+In the dashboard, the **Collection** route is the moodboard: screenshots in a grid, filters by
+tag, color and site, description search, and a detail panel with palette,
+typography, tags and notes.
 
 ## Change Detection
 
-Jobs `mirror` e `scrape` gravam um snapshot versionado em
-`output/snapshots/<url_slug>/<timestamp>.json` (URL, data, engine e, por página, hash
-SHA-256, tamanho, título e texto extraído). O diretório `snapshots/` fica fora dos
-diretórios de job, então sobrevive à limpeza automática de 24h.
+`mirror` and `scrape` jobs write a versioned snapshot to
+`output/snapshots/<url_slug>/<timestamp>.json` (URL, date, engine and, per page, hash
+SHA-256, size, title and extracted text). The `snapshots/` directory lives outside
+job directories, so it survives the automatic 24h cleanup.
 
 ```bash
 zfrog snapshots                          # listar todos os snapshots
@@ -407,19 +392,19 @@ zfrog diff <snap-a.json> <snap-b.json>   # comparar (markdown)
 zfrog diff <snap-a.json> <snap-b.json> --json   # relatório em JSON
 ```
 
-O diff mostra páginas adicionadas, removidas, alteradas (com a quantidade de linhas que
-mudaram) e inalteradas, além da proporção de mudança. Mudança não é erro: o comando sai com
-código 0.
+The diff shows added, removed, changed (with the number of lines that changed)
+and unchanged pages, plus the change ratio. Change is not an error: the command exits with
+code 0.
 
-Quando a proporção de páginas alteradas atinge `ZFROG_CHANGE_ALERT_THRESHOLD`
-(default `0.1`, ou seja 10%), o job dispara o webhook `site.changed` com `url`,
-`change_ratio`, `added`, `removed`, `changed` e o caminho do snapshot. Registre o webhook
-com `POST /webhooks` incluindo `site.changed` em `events`.
+When the ratio of changed pages reaches `ZFROG_CHANGE_ALERT_THRESHOLD`
+(default `0.1`, (i.e. 10%), the job fires the `site.changed` webhook with `url`,
+`change_ratio`, `added`, `removed`, `changed` and the snapshot path. Register the webhook
+with `POST /webhooks` including `site.changed` in `events`.
 
-## Versionamento
+## Versioning
 
-`zfrog clone --versioned` guarda cada cópia como uma versão no histórico (blobs com dedup
-por SHA-256 em `versions/`, metadados por versão). Ramo padrão: `main`.
+`zfrog clone --versioned` stores each copy as a version in history (blobs with dedup
+by SHA-256 in `versions/`, metadata per version). Default branch: `main`.
 
 ```bash
 zfrog versions https://example.com              # lista (mais nova primeiro, marca HEAD)
@@ -429,19 +414,19 @@ zfrog rollback https://example.com HEAD --dest ./saida
 zfrog rollback https://example.com bfa11d2d9bc2
 ```
 
-O `ref` aceita `HEAD`, nome de ramo, id completo ou prefixo do id (≥ 4 caracteres).
+`ref` accepts `HEAD`, branch name, full id or id prefix (≥ 4 characters).
 
 ## Delta Crawling
 
-`--mode delta` revalida as páginas conhecidas com requisições condicionais (`If-None-Match` /
-`If-Modified-Since`) e baixa apenas o que mudou. A primeira execução baixa tudo; as seguintes
-reaproveitam os validadores guardados no snapshot anterior.
+`--mode delta` revalidates known pages with conditional requests (`If-None-Match` /
+`If-Modified-Since`) and downloads only what changed. The first run downloads everything; subsequent runs
+reuse validators stored in the previous snapshot.
 
-O resultado fica em `delta_report.json` (`added`, `changed`, `unchanged`, `removed`,
-`bytes_saved`, `pages_written`). Páginas revalidadas com HTTP 304 não geram arquivo, mas
-continuam no snapshot — sem isso a execução seguinte não teria como revalidá-las.
+The result is stored in `delta_report.json` (`added`, `changed`, `unchanged`, `removed`,
+`bytes_saved`, `pages_written`). Pages revalidated with HTTP 304 don't produce a file, but
+remain in the snapshot — otherwise the next run couldn't revalidate them.
 
-## Agendamento
+## Scheduling
 
 ```bash
 zfrog schedule add https://example.com --cron "0 2 * * *" --mode mirror --depth 1
@@ -451,22 +436,22 @@ zfrog schedule remove <id>
 zfrog scheduler --interval 30
 ```
 
-Cron de 5 campos, com `*`, `*/n`, `a`, `a-b`, `a-b/n` e listas. Quando dia-do-mês e
-dia-da-semana estão ambos restritos, vale o clássico "ou" (basta um casar). Agendamentos
-ficam em `ZFROG_SCHEDULES_FILE` (default `schedules.json`).
+5-field cron, with `*`, `*/n`, `a`, `a-b`, `a-b/n` and lists. When day-of-month and
+day-of-week are both restricted, the classic "or" applies (either matching is enough). Schedules
+are stored in `ZFROG_SCHEDULES_FILE` (default `schedules.json`).
 
-## Busca
+## Search
 
-Índice SQLite (FTS5) com busca por texto e por significado:
+SQLite index (FTS5) with text and semantic search:
 
 ```bash
 zfrog search "frete grátis" --dir output --reindex
 zfrog search "prazo de entrega" --semantic
 ```
 
-`fulltext` usa FTS5 com ranking BM25; `semantic` usa embeddings quando há modelo de IA
-configurado e devolve lista vazia quando não há. A extração de texto é sem perdas — listas e
-tabelas entram no índice (a extração "de artigo" do trafilatura descartava `<ul>` inteiras).
+`fulltext` uses FTS5 with BM25 ranking; `semantic` uses embeddings when an AI model is
+configured and returns an empty list otherwise. Text extraction is lossless — lists and
+tables are indexed (trafilatura's "article" extraction discarded entire `<ul>` elements).
 
 ## Multi-Site RAG
 
@@ -474,10 +459,10 @@ tabelas entram no índice (a extração "de artigo" do trafilatura descartava `<
 zfrog chat "qual o prazo de devolução?" --site lojaA=output/lojaA --site lojaB=output/lojaB
 ```
 
-Uma pergunta, vários sites, resposta com citações (`site`, `url`, `path`, trecho). As citações
-vêm dos trechos recuperados, não do texto gerado — então aparecem mesmo sem modelo de IA.
+One question, multiple sites, answer with citations (`site`, `url`, `path`, excerpt). Citations
+come from retrieved passages, not generated text — so they appear even without an AI model.
 
-## Sessões (sites com login)
+## Sessions (sites with login)
 
 ```bash
 zfrog login https://site-com-login.com   # abre o navegador; entre e aperte Enter
@@ -485,11 +470,11 @@ zfrog sessions
 zfrog logout site-com-login.com
 ```
 
-Os engines Playwright/PDF reutilizam a sessão salva do domínio automaticamente. Os arquivos
-ficam em `ZFROG_SESSIONS_DIR` com permissão `0600` — são protegidos só por permissão de
-arquivo (não são criptografados) e **nunca** devem ir para o controle de versão.
+The Playwright/PDF engines reuse the saved domain session automatically. Files
+live in `ZFROG_SESSIONS_DIR` with `0600` permissions — protected only by file permissions
+(not encrypted) and **must never** be committed to version control.
 
-## Fluxos (pipelines)
+## Workflows (pipelines)
 
 ```bash
 zfrog workflow list
@@ -497,16 +482,16 @@ zfrog workflow show <id>
 zfrog workflow run <id>
 ```
 
-Passos disponíveis: `probe`, `clone`, `summarize`, `analyze`, `extract`, `compare`, `pdf`,
-`search`, `commit`. O `clone` define o diretório de saída que os passos seguintes usam. Um
-passo que falha interrompe o fluxo e os restantes ficam marcados como pulados. No dashboard,
-a página **Fluxos** monta e executa sequências; **Captura** monta o seletor clicando na página.
+Available steps: `probe`, `clone`, `summarize`, `analyze`, `extract`, `compare`, `pdf`,
+`search`, `commit`.  `clone` defines the output directory that subsequent steps use. A
+failing step stops the workflow and remaining steps are marked as skipped. In the dashboard,
+the **Workflows** page builds and runs sequences; **Capture** builds the selector by clicking on the page.
 
 ## Kubernetes Operator
 
-`deploy/k8s/` traz o CRD `ZfrogJob` (grupo `zfrog.io`, versão `v1alpha1`), RBAC, o Deployment
-do operador e um exemplo. O operador cria um Job do Kubernetes por `ZfrogJob` e espelha o
-estado (`Pending`/`Running`/`Succeeded`/`Failed`) no `status` do recurso.
+`deploy/k8s/` ships the `ZfrogJob` CRD (group `zfrog.io`, version `v1alpha1`), RBAC, the
+operator Deployment and an example. The operator creates a Kubernetes Job per `ZfrogJob` and mirrors
+the state (`Pending`/`Running`/`Succeeded`/`Failed`) in the resource `status`.
 
 ```bash
 kubectl apply -f deploy/k8s/crd.yaml -f deploy/k8s/rbac.yaml -f deploy/k8s/operator.yaml
@@ -514,31 +499,31 @@ kubectl apply -f deploy/k8s/example-job.yaml
 zfrog operator          # fora do cluster (usa ZFROG_K8S_API_SERVER)
 ```
 
-## Qualidade e conformidade
+## Quality and Compliance
 
-**Segurança**: procura mineradores, iframes escondidos, código ofuscado, formulários que enviam senha
-para outro site, `javascript:`/`data:text/html` e downloads executáveis.
+**Security**: looks for miners, hidden iframes, obfuscated code, forms that send passwords
+to another site, `javascript:`/`data:text/html` and executable downloads.
 
 ```bash
 zfrog safety output/meusite
 ```
 
-Jobs rodam essa varredura automaticamente (`ZFROG_SAFETY_ENABLED`); um achado vira aviso no log, nunca
-falha o job.
+Jobs run this scan automatically (`ZFROG_SAFETY_ENABLED`); a finding becomes a log warning, never
+fails the job.
 
-## Desempenho por motor
+## Engine Performance
 
 ```bash
 zfrog analytics
 ```
 
-Guarda, por execução, o motor, o resultado, a duração e o tamanho — o suficiente para responder qual
-motor funciona melhor em qual tipo de site. A coleta é automática a cada job.
+Stores, per execution, the engine, result, duration and size — enough to answer which
+engine works best on which type of site. Collection is automatic on every job.
 
-## Auditoria
+## Audit
 
-Ações que mudam estado (criar/cancelar job, rollback, ramo, agendamento, fluxo) ficam registradas em
-JSONL, com origem derivada de `X-Forwarded-For` → `X-Real-IP` → `User-Agent`.
+State-changing actions (create/cancel job, rollback, branch, schedule, workflow) are recorded in
+JSONL, with origin derived from `X-Forwarded-For` → `X-Real-IP` → `User-Agent`.
 
 ```bash
 zfrog audit --limit 20
@@ -551,31 +536,31 @@ zfrog audit --action version.rollback
 zfrog ipfs output/meusite
 ```
 
-Publica pelo HTTP API de um nó Kubo (`ZFROG_IPFS_API_URL`) e devolve o CID. Requer
-`ZFROG_IPFS_ENABLED=true`; o store endereçável por conteúdo já deduplica os arquivos antes do envio.
+Publishes via the HTTP API of a Kubo node (`ZFROG_IPFS_API_URL`) and returns the CID. Requires
+`ZFROG_IPFS_ENABLED=true`; the content-addressable store already deduplicates files before sending.
 
-## Criptografia das sessões
+## Session Encryption
 
-Com o pacote `cryptography` instalado, os arquivos de sessão são cifrados em repouso com AES-GCM (chave
-em `ZFROG_SESSIONS_KEY_FILE`, modo `0600`). Sem ele, o Zfrog avisa **uma vez por processo** que a sessão
-está em texto claro e segue funcionando — degradação visível, não silenciosa. Adulteração do arquivo é
-detectada e tratada como sessão inexistente.
+With the `cryptography` package installed, session files are encrypted at rest with AES-GCM (key
+in `ZFROG_SESSIONS_KEY_FILE`, mode `0600`). Without it, Zfrog warns **once per process** that the session
+is in plaintext and keeps working — visible, not silent degradation. File tampering is
+detected and treated as a missing session.
 
-## Fluxos com dependências
+## Workflows with Dependencies
 
-Passos podem declarar de que precisam:
+Steps can declare their dependencies:
 
 ```json
 [{"id": "step-0", "type": "probe", "params": {"url": "https://x.com"}, "needs": []},
  {"id": "step-1", "type": "clone", "params": {"mode": "mirror"}, "needs": ["step-0"]}]
 ```
 
-`needs` ausente mantém o comportamento linear de sempre (espera o passo anterior) — por isso fluxos
-salvos antes desta mudança continuam funcionando. `needs: []` diz "não espero ninguém" e permite
-execução em paralelo, limitada por `ZFROG_MAX_PARALLEL_STEPS`. Um passo que falha marca os dependentes
-como pulados e não impede ramos independentes.
+`needs` absent keeps the classic linear behavior (waits for the previous step) — so workflows
+saved before this change keep working. `needs: []` means "I wait for no one" and allows
+parallel execution, limited by `ZFROG_MAX_PARALLEL_STEPS`. A failing step marks dependents
+as skipped and doesn't block independent branches.
 
-## Conversar com o que foi clonado
+## Chat with Cloned Content
 
 ```bash
 zfrog chat ask "qual o prazo de entrega?" --site loja=output/loja --site blog=output/blog
@@ -583,49 +568,49 @@ zfrog chat ask "e a garantia?" --conversation <id> --history   # continua a conv
 zfrog chat list
 ```
 
-A conversa guarda o histórico: perguntas de acompanhamento ("e o segundo?") funcionam porque os turnos
-anteriores vão no contexto. As citações vêm dos trechos recuperados, não do texto gerado — aparecem mesmo
-sem modelo de IA. O histórico fica em `output/chats/<id>.json` (modo 0600).
+The conversation keeps history: follow-up questions ("and the second one?") work because previous
+turns are included in context. Citations come from retrieved passages, not generated text — they appear even
+without an AI model. History is stored in `output/chats/<id>.json` (mode 0600).
 
-## Grafo de relacionamentos
+## Relationship Graph
 
 ```bash
 zfrog graph output/loja              # resumo + graph.json
 zfrog graph output/loja --dot        # saída Graphviz
 ```
 
-Extrai entidades das páginas e liga o que aparece junto: `co_occurrence` (mesma página) e `located_in`
-(local citado na mesma frase que uma organização).
+Extracts entities from pages and links what appears together: `co_occurrence` (same page) and `located_in`
+(location mentioned in the same sentence as an organization).
 
-## Qualidade e conformidade (continuação)
+## Quality and Compliance (continued)
 
 ```bash
 zfrog tos https://exemplo.com.br                 # robots.txt + Termos de Uso
 ```
 
-O `tos` lê o robots.txt e a página de termos e devolve `clear` / `caution` / `restricted` com o
-trecho exato como evidência. **É leitura automática, não parecer jurídico.**
+`tos` reads robots.txt and the terms page and returns `clear` / `caution` / `restricted` with the
+exact excerpt as evidence. **This is automated reading, not legal advice.**
 
-## Procedência (watermark)
+## Provenance (watermark)
 
 ```bash
 zfrog watermark output/loja --source https://exemplo.com.br
 zfrog watermark output/loja --verify
 ```
 
-Insere metadados invisíveis (meta tag, atributo, comentário e marcador de largura zero no texto) para
-rastrear a origem de uma cópia. **O texto visível não muda.** É metadado de procedência — não é DRM e não
-é prova de propriedade: quem quiser remove.
+Inserts invisible metadata (meta tag, attribute, comment and zero-width marker in text) to
+track the origin of a copy. **Visible text does not change.** This is provenance metadata — not DRM and not
+proof of ownership: anyone can remove it.
 
-## Custos
+## Costs
 
 ```bash
 zfrog cost
 ```
 
-Combina as tarifas configuradas com o que já foi medido por execução: transferência (GB), computação
-(horas de CPU) e armazenamento (GB-mês). Sem tarifas configuradas os valores ficam em zero — o Zfrog não
-inventa dinheiro.
+Combines configured rates with what has been measured per execution: transfer (GB), compute
+(CPU hours) and storage (GB-month). Without configured rates values stay at zero — Zfrog doesn't
+make up money.
 
 ## Marketplace
 
@@ -634,20 +619,20 @@ zfrog market list
 zfrog market install workflow-backup-diario
 ```
 
-Fluxos, plugins de engine e templates publicados em `ZFROG_MARKETPLACE_DIR`. Instalar um plugin grava o
-arquivo em `plugins/`, e o registro de engines o carrega na próxima vez — verificado. A validação acontece
-na publicação **e** na instalação, então um arquivo editado à mão não instala conteúdo quebrado.
+Workflows, engine plugins and templates published in `ZFROG_MARKETPLACE_DIR`. Installing a plugin writes the
+file to `plugins/`, and the engine registry loads it next time — verified. Validation happens
+on publish **and** on install, so a hand-edited file won't install broken content.
 
-## Regiões (edge)
+## Regions (edge)
 
 ```bash
 zfrog regions https://loja.example.com.br/carrinho
 ```
 
-Escolhe onde processar com base em latência, workers disponíveis e residência de dados pelo domínio, e
-explica a decisão. Configuração: `ZFROG_WORKER_REGIONS=sa-east:20:4,us-east:180:2`.
+Chooses where to process based on latency, available workers and data residency by domain, and
+explains the decision. Configuration: `ZFROG_WORKER_REGIONS=sa-east:20:4,us-east:180:2`.
 
-## Autenticação e papéis
+## Authentication and Roles
 
 ```bash
 zfrog key create painel -r operator
@@ -655,66 +640,66 @@ zfrog key list
 zfrog key revoke <id>
 ```
 
-Três papéis: `viewer` (só leitura), `operator` (+ criar/cancelar jobs), `admin` (tudo, inclui chaves e
-agendamentos). O segredo é mostrado **uma vez** — só o hash fica no arquivo (modo 0600). Com
-`ZFROG_AUTH_ENABLED=true`, tanto leitura quanto escrita exigem chave (`Authorization: Bearer` ou
-`X-API-Key`); sem chave a resposta é 401, com papel insuficiente é 403. `/health` continua aberto para
-sondas. O padrão é desligado, então nada muda para quem já usa.
+Three roles: `viewer` (read-only), `operator` (+ create/cancel jobs), `admin` (everything, including keys and
+schedules). The secret is shown **once** — only the hash stays in the file (mode 0600). With
+`ZFROG_AUTH_ENABLED=true`, both reads and writes require a key (`Authorization: Bearer` or
+`X-API-Key`); without a key the response is 401, with insufficient role it is 403. `/health` stays open for
+probes. The default is off, so nothing changes for existing users.
 
-O que cada ação exige além de `read:jobs` (o papel `viewer` basta para ler):
+What each action requires beyond `read:jobs` (`viewer` is enough to read):
 
-| Rota | Ação | Por quê |
+| Route | Action | Why |
 |---|---|---|
-| `POST /jobs`, `POST /jobs/{id}/cancel`, `DELETE /jobs` | `job:create` / `job:cancel` | consome banda e disco do servidor |
-| `POST /watermark` | `version:manage` | reescreve os arquivos guardados |
-| `POST /ipfs/publish` | `admin:all` | manda a cópia para terceiros |
-| `POST /webhooks`, `DELETE /webhooks/{id}` | `admin:all` | o registro é global e o servidor passa a fazer POST para a URL escolhida |
-| `DELETE /sessions/{domain}` | `admin:all` | o arquivo guarda cookies válidos de um site |
-| `POST /config/rate-limit` | `admin:all` | o limite é do processo inteiro |
-| `POST /extract/preview` | `read:jobs` | busca server-side de URL escolhida, mas não guarda nada |
+| `POST /jobs`, `POST /jobs/{id}/cancel`, `DELETE /jobs` | `job:create` / `job:cancel` | consumes server bandwidth and disk |
+| `POST /watermark` | `version:manage` | rewrites stored files |
+| `POST /ipfs/publish` | `admin:all` | sends the copy to third parties |
+| `POST /webhooks`, `DELETE /webhooks/{id}` | `admin:all` | the registry is global and the server will POST to the chosen URL |
+| `DELETE /sessions/{domain}` | `admin:all` | the file holds valid cookies for a site |
+| `POST /config/rate-limit` | `admin:all` | the limit is process-wide |
+| `POST /extract/preview` | `read:jobs` | server-side fetch of chosen URL, but doesn't store anything |
 
-`tests/test_route_auth.py` percorre a tabela de rotas do FastAPI e falha se alguma rota que muda estado
-ficar sem credencial — inclusive um WebSocket novo. A allowlist de rotas públicas (`/`, `/health`,
-`/auth/*`, docs) é verificada para não conseguir esconder uma rota mutante.
+`tests/test_route_auth.py` walks the FastAPI route table and fails if any state-changing route
+is left without credentials — including a new WebSocket. The allowlist of public routes (`/`, `/health`,
+`/auth/*`, docs) is checked so a mutating route can't be hidden.
 
-**No painel:** com a autenticação ligada, o dashboard usa **sessão em cookie assinado** — sem chave de
-API no navegador.
+**In the dashboard:** with authentication enabled, the dashboard uses a **signed cookie session** — no API
+key in the browser.
 
-1. O gate chama `GET /auth/config` para saber se a instalação exige login.
-2. Com SSO configurado, o botão vai para `/auth/login`; o provedor devolve o navegador para
-   `/auth/callback`, que valida o ID token e **grava o cookie** `zfrog_session`
-   (`HttpOnly`, `SameSite=Lax`, `Secure` quando o login veio por https) e redireciona para
+1. The gate calls `GET /auth/config` to check whether the installation requires login.
+2. With SSO configured, the button goes to `/auth/login`; the provider returns the browser to
+   `/auth/callback`, which validates the ID token and **sets the** `zfrog_session` **cookie**
+   (`HttpOnly`, `SameSite=Lax`, `Secure` when login came over https) and redirects to
    `ZFROG_POST_LOGIN_REDIRECT`.
-3. Sem SSO, o gate aceita uma chave de API colada à mão, guardada em `localStorage` — é o caminho de
-   quem não tem provedor de identidade.
-4. Nos dois casos o gate confirma pedindo `GET /config`, que exige `read:jobs`: um 200 é a prova de
-   que a credencial vale, em vez de uma suposição.
+3. Without SSO, the gate accepts a pasted API key, stored in `localStorage` — the path for
+   those without an identity provider.
+4. In both cases the gate confirms by requesting `GET /config`, which requires `read:jobs`: a 200 proves
+   the credential is valid, rather than assuming.
 
-O cookie é **assinado, não criptografado** — não há segredo dentro dele, só o id do usuário e a
-validade. Papel e organização **não** ficam no cookie: são lidos do arquivo de usuários a cada
-requisição, então desativar alguém ou mudar um papel vale imediatamente, sem esperar o cookie expirar.
-A chave de assinatura fica em `ZFROG_WEBSESSION_KEY_FILE` (modo `0600`, criada no primeiro login).
+The cookie is **signed, not encrypted** — there is no secret inside, only the user id and
+expiry. Role and organization are **not** in the cookie: they are read from the users file on every
+request, so deactivating someone or changing a role takes effect immediately, without waiting for cookie expiry.
+The signing key lives in `ZFROG_WEBSESSION_KEY_FILE` (mode `0600`, created on first login).
 
-Sessões em cookie exigem `ZFROG_CORS_ORIGINS` com origens explícitas — o navegador só envia o cookie
-quando a resposta nomeia a origem exata, e a especificação proíbe casar credenciais com `*`. Com o
-padrão `*`, a API continua funcionando, mas só por chave de API.
+Cookie sessions require `ZFROG_CORS_ORIGINS` with explicit origins — the browser only sends the cookie
+when the response names the exact origin, and the spec forbids matching credentials with `*`. With the
+default `*`, the API still works, but only via API key.
 
-**WebSocket:** o navegador envia o cookie no handshake, então o painel não põe credencial nenhuma na
-URL. Além disso o servidor confere o `Origin` (sem isso, qualquer site que a pessoa visitasse poderia
-abrir um socket como ela — *Cross-Site WebSocket Hijacking*). Clientes de script, que não têm cookie,
-mandam a chave como subprotocolo: `Sec-WebSocket-Protocol: zfrog.v1, zfrog.key.<segredo>`. É um
-header, não query string — por isso não vai parar no log de acesso de um proxy reverso.
+**WebSocket:** the browser sends the cookie on handshake, so the dashboard puts no credentials in the
+URL. The server also checks `Origin` (without it, any site the user visited could
+open a socket as them — *Cross-Site WebSocket Hijacking*). Script clients, which have no cookie,
+send the key as a subprotocol: `Sec-WebSocket-Protocol: zfrog.v1, zfrog.key.<secret>`. It's a
+header, not a query string — so it won't end up in a reverse proxy's access log.
 
-## Integrações de saída
+## Outbound Integrations
 
 ```bash
 zfrog integrations list
 zfrog integrations push planilha dados.json
 ```
 
-Envia registros para Google Sheets, Airtable ou Notion pelas APIs HTTP de cada um. Falha em um lote não
-derruba os outros: os erros voltam no resultado. Tokens ficam em arquivo 0600 e aparecem redigidos na
-listagem.
+Sends records to Google Sheets, Airtable or Notion via each service's HTTP APIs. Failure in one batch doesn't
+bring down the others: errors are returned in the result. Tokens are stored in a 0600 file and appear redacted in
+listings.
 
 ## GraphQL
 
@@ -724,9 +709,9 @@ curl -X POST localhost:8000/graphql -H 'Content-Type: application/json' \
 curl localhost:8000/graphql/schema      # SDL
 ```
 
-API **somente leitura** sobre os mesmos dados do REST: `jobs`, `job`, `snapshots`, `versions`, `schedules`,
-`engines`, `analytics`, `search`, `sites`, `conversations`. Respeita a seleção pedida (não devolve campos
-que você não pediu) e devolve `errors` por campo, como a especificação manda. Mutations são recusadas.
+ **read-only** API over the same data as the REST API: `jobs`, `job`, `snapshots`, `versions`, `schedules`,
+`engines`, `analytics`, `search`, `sites`, `conversations`. It respects the requested selection (doesn't return fields
+you didn't ask for) and returns per-field `errors` as the spec requires. Mutations are rejected.
 
 ## SDKs
 
@@ -735,10 +720,10 @@ cd sdk/js && bun test     # 21 testes
 cd sdk/go && go test ./... # 37 subtestes
 ```
 
-Clientes para JavaScript/TypeScript (`sdk/js`, sem dependências) e Go (`sdk/go`, só stdlib). Cobrem os
-mesmos endpoints do REST, com erro tipado (`ZfrogError` / `*APIError`) carregando status e `detail`.
+Clients for JavaScript/TypeScript (`sdk/js`, zero dependencies) and Go (`sdk/go`, stdlib only). They cover the
+same REST endpoints, with typed errors (`ZfrogError` / `*APIError`) carrying status and `detail`.
 
-## Equipes: usuários, organizações e SSO
+## Teams: Users, Organizations and SSO
 
 ```bash
 zfrog user create ana@empresa.com -r operator -p senha-inicial
@@ -747,58 +732,58 @@ zfrog org add-member acme-corp <user-id> --role operator
 zfrog user list
 ```
 
-Senhas usam PBKDF2-HMAC-SHA256 (200 mil iterações, salt por usuário) e o arquivo é `0600`. A senha é
-mostrada **uma vez**; só o hash fica guardado.
+Passwords use PBKDF2-HMAC-SHA256 (200k iterations, per-user salt) and the file is `0600`. The password is
+shown **once**; only the hash is stored.
 
-**SSO (OpenID Connect)** — configure `ZFROG_OIDC_ISSUER` e `ZFROG_OIDC_CLIENT_ID` e o login passa a
-existir em `GET /auth/login`. A verificação da assinatura do ID token é feita de verdade (RS256/ES256 com
-`cryptography`, chave escolhida pelo `kid` do JWKS): issuer, audience, expiração e `nonce` são conferidos.
-O `state` é de uso único e o `nonce` precisa ser o mesmo que foi enviado no início — sem isso um token
-emitido para outro fluxo seria aceito.
+**SSO (OpenID Connect)** — configure `ZFROG_OIDC_ISSUER` and `ZFROG_OIDC_CLIENT_ID` and login becomes
+available at `GET /auth/login`. ID token signature verification is real (RS256/ES256 with
+`cryptography`, key chosen by JWKS `kid`): issuer, audience, expiry and `nonce` are checked.
+`state` is single-use and `nonce` must match what was sent at the start — without it a token
+issued for another flow would be accepted.
 
-**Como o SSO vira credencial:** o callback autentica no provedor, cria/atualiza o usuário local e
-**grava o cookie de sessão** descrito em *Autenticação e papéis*. O SSO não precisa de chave de API
-para o painel; a chave continua existindo para scripts e para quem não tem provedor de identidade.
+**How SSO becomes a credential:** the callback authenticates with the provider, creates/updates the local user and
+**sets the session cookie** described in *Authentication and Roles*. SSO doesn't need an API key
+para o painel; a chave continua existindo para scripts e para those without an identity provider.
 
-## Isolamento por organização
+## Organization Isolation
 
-Cada organização tem seus próprios dados: clones, versões, agendamentos, busca, métricas, auditoria e
-sessões ficam sob `output/orgs/<slug>/`. A organização vem da **chave de API do chamador**, nunca do corpo
-da requisição — um cliente não consegue escrever no espaço de outro. Sem organização, tudo continua no
-diretório compartilhado, como antes.
+Each organization has its own data: clones, versions, schedules, search, metrics, audit and
+sessions live under `output/orgs/<slug>/`. The organization comes from the **caller's API key**, never from the request
+body — a client can't write into another's space. Without an organization, everything stays in the
+shared directory as before.
 
 ```bash
 zfrog clone https://example.com --mode mirror --org acme-corp
 ```
 
-## Revisão: comentários nas cópias
+## Review: Comments on Copies
 
 ```bash
 zfrog annotate <job-id> index.html "o preço mudou aqui" --selector ".preco" --tag preco
 zfrog annotations <job-id> --open
 ```
 
-Comentários aceitam seletor CSS (validado), etiquetas e respostas, e podem ser resolvidos. A exportação
-gera um Markdown para revisão em equipe. No dashboard, a página **Revisão** faz o mesmo pela interface.
+Comments accept a CSS selector (validated), tags and replies, and can be resolved. Export
+produces Markdown for team review. In the dashboard, the **Review** page does the same via UI.
 
-## Perfis de domínio
+## Domain Profiles
 
 ```bash
 zfrog domain list
 zfrog domain suggest https://tribunal.jus.br/processo
 ```
 
-Três perfis embutidos — jurídico, e-commerce e notícias — com vocabulário, exemplos e tipos de entidade.
-Isso especializa **as instruções dadas ao modelo** (terminologia e exemplos), não os pesos: é prompt
-engineering por domínio, não um modelo treinado. Seja claro sobre essa diferença antes de prometer precisão.
+Three built-in profiles — legal, e-commerce and news — with vocabulary, examples and entity types.
+This specializes **the instructions given to the model** (terminology and examples), not the weights: it's
+domain prompt engineering, not a trained model. Be clear about this difference before promising accuracy.
 
-## Backends de busca
+## Search Backends
 
-`ZFROG_SEARCH_BACKEND` escolhe entre `sqlite` (padrão, FTS5 embutido), `meilisearch` e `elasticsearch`.
-Os backends HTTP falam as APIs reais; uma falha de rede degrada para resultado vazio com aviso, nunca
-derruba a requisição.
+`ZFROG_SEARCH_BACKEND` chooses between `sqlite` (default, embedded FTS5), `meilisearch` and `elasticsearch`.
+The HTTP backends speak the real APIs; a network failure degrades to an empty result with a warning, never
+crashing the request.
 
-## Workers e regiões
+## Workers and Regions
 
 ```bash
 zfrog worker run --region sa-east --capacity 4
@@ -806,22 +791,22 @@ zfrog worker list
 zfrog worker assign https://loja.com.br
 ```
 
-Um worker registra-se, manda batidas de coração e informa quantos jobs está processando. A atribuição usa
-a decisão de região (`zfrog regions`) e escolhe quem tem mais capacidade livre; sem worker vivo na região
-escolhida, cai para outra e explica o motivo.
+A worker registers, sends heartbeats and reports how many jobs it is processing. Assignment uses
+the region decision (`zfrog regions`) and picks whoever has the most free capacity; without a live worker in the chosen
+region, it falls back to another and explains why.
 
-## Marketplace remoto
+## Remote Marketplace
 
 ```bash
 zfrog market-index build -o index.json --source "time interno"
 zfrog market-index sync https://exemplo.com/index.json
 ```
 
-O índice leva um checksum por item, então dá para saber se o que está instalado é o que o índice anuncia.
-A sincronização valida cada payload antes de gravar: item inválido é contado como ignorado, com o motivo,
-e **não** é escrito.
+The index carries a checksum per item, so you can tell whether what's installed matches what the index advertises.
+Sync validates each payload before writing: an invalid item is counted as skipped, with the reason,
+and **is not** written.
 
-## Máquina do tempo
+## Time Machine
 
 ```bash
 zfrog timeline https://exemplo.com.br                       # lista as versões
@@ -830,110 +815,110 @@ zfrog timeline https://exemplo.com.br --ref 8cdd77f3 --page index.html
 zfrog timeline https://exemplo.com.br --restore ./saida
 ```
 
-`--when` aceita `2026-09-01`, `2026-09-01T12:00` ou `2026-09-01 12:00`. Sem hora, vale o dia inteiro (a
-última versão até o fim daquele dia). O `--page` devolve o **HTML original** guardado — não o texto
-extraído — e o dashboard abre a página num visualizador, deixando claro que é uma cópia arquivada e não o
-site ao vivo.
+`--when` accepts `2026-09-01`, `2026-09-01T12:00` or `2026-09-01 12:00`. Without a time, the whole day counts (the
+last version until end of that day). `--page` returns the stored **original HTML** — not the extracted
+text — and the dashboard opens the page in a viewer, making clear it's an archived copy not the
+live site.
 
-## Monitoramento de preços
+## Price Monitoring
 
 ```bash
 zfrog price watch https://loja.com.br/produto
 zfrog price changes https://loja.com.br/produto
 ```
 
-Reconhece `R$ 1.234,56`, `$1,234.56`, `€ 89,90` e `1234 reais`. A convenção do separador vem do **último**
-separador do número, então `1.234,56` é mil duzentos e trinta e quatro vírgula cinquenta e seis — e um
-número sem sinal de moeda (`2026`) não é preço. O alerta dispara quando a variação passa de
+Recognizes `R$ 1.234,56`, `$1,234.56`, `€ 89,90` and `1234 reais`. The separator convention comes from the **last**
+separator in the number, so `1.234,56` is one thousand two hundred thirty-four point five six — and a
+number without a currency sign (`2026`) is not a price. The alert fires when the change exceeds
 `ZFROG_PRICE_ALERT_DROP_PCT` / `ZFROG_PRICE_ALERT_RISE_PCT`.
 
-## Análise competitiva e tendências
+## Competitive Analysis and Trends
 
 ```bash
 zfrog compare-sites -s lojaA=output/lojaA -s lojaB=output/lojaB --markdown
 zfrog trends https://exemplo.com.br -t preco -t frete
 ```
 
-A comparação põe os clones lado a lado: páginas, palavras, preços por item (com o mais barato), entidades
-em comum, o que cada um tem de próprio e as lacunas reais. As tendências contam um termo ao longo do
-histórico e dizem a direção — com "sem histórico suficiente" quando é o caso, em vez de um palpite.
+The comparison puts clones side by side: pages, words, prices per item (with the cheapest), entities
+in common, what each has uniquely, and real gaps. Trends count a term over
+history and tell the direction — with "not enough history" when applicable, instead of guessing.
 
-## Dois fatores (TOTP)
+## Two-Factor Auth (TOTP)
 
 ```bash
 zfrog totp add email SEGREDO_BASE32
 zfrog totp code email
 ```
 
-Gera os códigos de 6 dígitos (RFC 6238) para entrar na **sua própria conta**. O arquivo de segredos é
-`0600`, o segredo nunca aparece na listagem nem em log, e o `repr` o mascara. Isto **não** resolve CAPTCHA
-nem burla qualquer controle anti-automação — está fora do escopo de propósito.
+Generates 6-digit codes (RFC 6238) to log into **your own account**. The secrets file is
+`0600`, the secret never appears in listings or logs, and `repr` masks it. This does **not** solve CAPTCHAs
+or bypass any anti-automation control — deliberately out of scope.
 
-## Dataset para fine-tuning
+## Dataset for Fine-Tuning
 
 ```bash
 zfrog dataset output/meusite --kind extraction --format chat
 ```
 
-Gera pares instrução/resposta em JSONL (`chat` ou `alpaca`) a partir dos clones. Os exemplos são
-**derivados da própria página** (extração, resumo extrativo, perguntas por cabeçalho), nunca inventados.
-O treinamento em si roda fora daqui — precisa de GPU e de um treinador que não vem neste projeto. O
-`ai/domains.py` especializa o **prompt** na hora de usar; isto prepara dados para especializar os **pesos**.
+Generates instruction/response pairs in JSONL (`chat` or `alpaca`) from clones. Examples are
+**derived from the page itself** (extraction, extractive summary, questions per heading), never hallucinated.
+Training itself runs elsewhere — it needs a GPU and a trainer not included in this project.
+`ai/domains.py` specializes the **prompt** at use time; this prepares data to specialize **weights**.
 
-## Retorno (ROI)
+## Return on Investment (ROI)
 
 ```bash
 zfrog roi
 ```
 
-    valor = páginas × minutos-por-página ÷ 60 × valor-hora
-    custo = computação + transferência + armazenamento
-    saldo = valor − custo
+    value = pages × minutes-per-page ÷ 60 × hourly-rate
+    cost = compute + transfer + storage
+    balance = value − cost
 
-As duas primeiras são **premissas suas** (`ZFROG_ROI_HOURLY_RATE`, `ZFROG_ROI_MANUAL_MINUTES_PER_PAGE`), não
-medições — e o relatório devolve isso junto com o número. Sem custo, a razão é `—`, não "infinito". A
-contagem de páginas é estimada pelos arquivos gerados, e o relatório diz isso.
+The first two are **your assumptions** (`ZFROG_ROI_HOURLY_RATE`, `ZFROG_ROI_MANUAL_MINUTES_PER_PAGE`), not
+measurements — and the report returns them alongside the number. Without cost, the ratio is `—`, not "infinite".
+Page count is estimated from generated files, and the report says so.
 
-## Marketplace servido
+## Marketplace Server
 
 ```bash
 zfrog market-serve --port 8200 --token s3cret
 ```
 
-Serve o índice por HTTP: `GET /index.json`, `GET /assets`, `GET /verify/{id}` e `POST /assets`. Com
-`--token`, publicar exige `Authorization: Bearer`; a leitura continua aberta (um índice é para ser
-consultado). O `verify` compara o checksum anunciado com o arquivo local — é o que denuncia um item alterado.
+Serves the index over HTTP: `GET /index.json`, `GET /assets`, `GET /verify/{id}` and `POST /assets`. With
+`--token`, publishing requires `Authorization: Bearer`; reads remain open (an index is meant to be
+queried). `verify` compares the advertised checksum with the local file — that's what flags a tampered item.
 
-## Despacho entre workers
+## Dispatch Across Workers
 
 ```bash
 zfrog dispatch --url https://exemplo.com --dry-run
 zfrog dispatch --url https://exemplo.com --region sa-east
 ```
 
-O `--dry-run` mostra para qual worker e região cada job iria, sem enviar nada. Sem `--dry-run`, o job é
-enviado ao `/jobs` do worker escolhido e o slot é marcado como ocupado — uma resposta sem `job_id` conta
-como falha, não como sucesso.
+`--dry-run` shows which worker and region each job would go to, without sending anything. Without `--dry-run`, the job is
+sent to the chosen worker's `/jobs` and the slot is marked as occupied — a response without `job_id` counts
+as failure, not success.
 
-## Arquivamento permanente (Arweave)
+## Permanent Archiving (Arweave)
 
 ```bash
 zfrog arweave output/meusite
 ```
 
-Empacota o clone em tar.gz e publica numa transação Arweave (formato ANS-104, assinatura RSA-PSS). Requer
-`ZFROG_ARWEAVE_ENABLED=true` e uma carteira em `ZFROG_ARWEAVE_WALLET_FILE`. **O protocolo foi implementado e
-testado contra um gateway simulado — nunca contra a rede real**, que exige AR pago.
+Packs the clone into tar.gz and publishes it in an Arweave transaction (ANS-104 format, RSA-PSS signature). Requires
+`ZFROG_ARWEAVE_ENABLED=true` and a wallet at `ZFROG_ARWEAVE_WALLET_FILE`. **The protocol was implemented and
+tested against a simulated gateway — never against the real network**, which requires paid AR.
 
-## Rodando em produção
+## Running in Production
 
-O Zfrog foi feito para rodar local. Subir para produção funciona, mas exige quatro
-ajustes — sem eles o sistema perde dados ou fica aberto.
+Zfrog was built to run locally. Running in production works, but requires four
+adjustments — without them the system loses data or stays open.
 
-**1. Um volume, um `ZFROG_DATA_DIR`.** Tudo que o Zfrog guarda (chaves de API,
-usuários, sessões, histórico de versões, índices) vive sob esse diretório. Sem ele
-cada store escreve dentro da camada gravável do container e **um restart apaga
-tudo**: você fica trancado fora e precisa re-logar em cada site.
+**1. One volume, one `ZFROG_DATA_DIR`.** Everything Zfrog stores (API keys,
+users, sessions, version history, indices) lives under this directory. Without it
+each store writes inside the container's writable layer and **a restart wipes
+everything**: you're locked out and need to re-login everywhere.
 
 ```bash
 # docker-compose.prod.yml já faz isso
@@ -943,52 +928,52 @@ environment:
   - ZFROG_DATA_DIR=/app/data
 ```
 
-**2. Autenticação ligada.** `ZFROG_AUTH_ENABLED=true` (o default é `false`, para
-uso local). Com ela desligada e a API exposta, qualquer um que alcance a porta
-cria jobs, publica no Arweave e lê todos os clones. Com ela ligada, o dashboard
-pede a chave uma vez e a guarda no navegador.
+**2. Authentication on.** `ZFROG_AUTH_ENABLED=true` (the default is `false`, for
+local use). With it off and the API exposed, anyone who can reach the port
+can create jobs, publish to Arweave and read all clones. With it on, the dashboard
+asks for the key once and stores it in the browser.
 
-**3. CORS restrito.** `ZFROG_CORS_ORIGINS=https://app.seudominio.com` em vez de `*`.
+**3. Restricted CORS.** `ZFROG_CORS_ORIGINS=https://app.seudominio.com` instead of `*`.
 
-**4. Sem acesso à rede interna.** `ZFROG_ALLOW_PRIVATE_HOSTS=false`. Localmente é
-`true` (você clona `localhost` e a LAN), mas exposto isso transforma o servidor num
-proxy para a rede interna: `POST /jobs {"url":"http://169.254.169.254/..."}` faz o
-servidor ler o metadata da sua cloud.
+**4. No access to the private network.** `ZFROG_ALLOW_PRIVATE_HOSTS=false`. Locally it's
+`true` (you clone `localhost` and the LAN), but when exposed this turns the server into a
+proxy to the private network: `POST /jobs {"url":"http://169.254.169.254/..."}` makes the
+server read your cloud metadata.
 
 ```bash
 docker compose -f docker-compose.prod.yml up -d
 ```
 
-O `api` roda com `--workers 2`: o estado que não pode ser por processo (jobs,
-webhooks, login SSO) vai para o Redis/valkey, então os workers se enxergam. Sem
+`api` runs with `--workers 2`: state that can't be per-process (jobs,
+webhooks, SSO login) goes to Redis/valkey, so workers see each other. Without
 Redis, use `--workers 1`.
 
-### Limites conhecidos
+### Known Limitations
 
-- **SQLite com um só arquivo por store, agora com espera.** `busy_timeout` (5s) e WAL
-  estão ligados em `storage/sqlite.py`, então dois workers concorrentes esperam a vez
-  em vez de receber `database is locked`. Ainda é SQLite: para muitas réplicas o
-  caminho é Postgres — os stores têm interface própria e o `search_backends.py` já
+- **SQLite with a single file per store, now with waiting.** `busy_timeout` (5s) and WAL
+  are enabled in `storage/sqlite.py`, so dois workers concorrentes esperam a vez
+  instead of getting `database is locked`. It is still SQLite: for many replicas the
+  path is Postgres — stores have their own interface and `search_backends.py` already
   aceita Meilisearch ou Elasticsearch.
-- **Schema com versão.** `PRAGMA user_version` mais uma lista ordenada de migrações
-  por store. A primeira entrada é o schema original escrito com `IF NOT EXISTS`, então
-  um banco criado antes disso migra sem quebrar. Ao mudar o formato, **acrescente** uma
-  entrada; nunca edite uma que já rodou.
-- **`/health` diz "degraded" quando é verdade.** Ele confere o broker e a escrita no
-  volume, e responde 503 se qualquer um falhar — antes respondia `healthy` sempre, o
-  que mantinha uma instância quebrada no balanceador. `/metrics` lê o `analytics.py`
-  (uma linha por execução de motor); antes lia um contador em memória que nada
-  incrementava e devolvia `{}` para sempre.
+- **Versioned schema.** `PRAGMA user_version` plus an ordered list of migrations
+  per store. The first entry is the original schema written with `IF NOT EXISTS`, so
+  a database created before that migrates without breaking. When changing the format, **append** a
+  entry; never edit one that already ran.
+- **`/health` says "degraded" when it is.** It checks the broker and writes to the
+  volume, and responds with 503 if either fails — before it always responded `healthy`, which
+  that kept a broken instance in the load balancer. `/metrics` reads `analytics.py`
+  (one line per engine execution); before it read an in-memory counter that nothing
+  incremented and always returned `{}`.
 - **Backup**: o volume inteiro. Guarde `sessions/.key` com cuidado — sem ele os
-  cookies criptografados ficam ilegíveis mesmo com backup. O mesmo vale para
-  `websession.key`: perdê-lo invalida as sessões do painel (todo mundo loga de novo),
-  o que é recuperável — mas não o apague esperando manter as sessões.
-- **Sem TLS embutido.** Coloque nginx/Caddy na frente; o compose já escuta em
+  encrypted cookies become unreadable even with a backup. The same goes for
+  `websession.key`: losing it invalidates dashboard sessions (everyone logs in again),
+  which is recoverable — but don't delete it expecting to keep sessions.
+- **No built-in TLS.** Put nginx/Caddy in front; compose already listens on
   `127.0.0.1`.
-- **O guard de URL não é um sandbox.** Ele resolve o nome antes de conectar, então
-  um DNS que responda diferente na segunda consulta (rebinding) ainda pode passar.
+- **The URL guard is not a sandbox.** It resolves the name before connecting, so
+  a DNS that responds differently on the second lookup (rebinding) can still get through.
 
-## Arquitetura
+## Architecture
 
 ```
 ┌─────────────┐     ┌──────────────┐     ┌─────────────┐
@@ -1006,90 +991,90 @@ Redis, use `--workers 1`.
                     └──────────────┘     └─────────────┘
 ```
 
-### Fluxo de Execução
+### Execution Flow
 
 1. **Probe**: Analisa a URL e detecta tipo de site
-2. **Route**: Seleciona motor baseado no modo ou detecção
-3. **Execute**: Baixa/processa conteúdo
+2. **Route**: Select engine based on mode or detection
+3. **Execute**: Download/process content
 4. **Pipeline**: Reescreve links, remove trackers
 5. **Package**: Gera ZIP para download
 
-## Configuração
+## Configuration
 
-### Variáveis de Ambiente
+### Environment Variables
 
-| Variável | Default | Descrição |
+| Variable | Default | Description |
 |----------|---------|-----------|
-| `ZFROG_REDIS_URL` | `redis://localhost:6379/0` | URL do Redis |
-| `ZFROG_OUTPUT_DIR` | `output` | Diretório de saída |
-| `ZFROG_MAX_CONCURRENT_JOBS` | `5` | Jobs simultâneos |
-| `ZFROG_WORKER_CONCURRENCY` | `2` | Workers Celery |
-| `ZFROG_PROXY_URL` | `None` | Proxy HTTP |
-| `ZFROG_HTTP_TIMEOUT_CONNECT` | `30` | Timeout conexão (s) |
-| `ZFROG_HTTP_TIMEOUT_READ` | `60` | Timeout leitura (s) |
-| `ZFROG_PLUGINS_DIR` | `plugins` | Diretório de plugins de engines |
-| `ZFROG_CHANGE_ALERT_THRESHOLD` | `0.1` | Proporção de páginas alteradas que dispara `site.changed` |
-| `ZFROG_VERSIONS_DIR` | `versions` | Histórico de versões |
-| `ZFROG_DELTA_MAX_PAGES` | `200` | Máx. de páginas revalidadas por execução delta |
-| `ZFROG_SCHEDULES_FILE` | `schedules.json` | Agendamentos salvos |
-| `ZFROG_SCHEDULER_INTERVAL_S` | `30` | Intervalo de verificação do agendador |
-| `ZFROG_SEARCH_DB` | `search.db` | Índice de busca |
-| `ZFROG_SESSIONS_DIR` | `sessions` | Sessões de login (permissão 0600) |
-| `ZFROG_K8S_NAMESPACE` | `default` | Namespace do operador |
-| `ZFROG_K8S_WORKER_IMAGE` | `zfrog-worker:latest` | Imagem usada nos Jobs criados |
-| `ZFROG_K8S_API_SERVER` | `None` | API do cluster (fora do cluster) |
-| `ZFROG_SESSIONS_KEY_FILE` | `sessions/.key` | Chave AES-GCM das sessões (0600) |
-| `ZFROG_IPFS_ENABLED` | `false` | Ligar publicação no IPFS |
-| `ZFROG_IPFS_API_URL` | `http://127.0.0.1:5001` | HTTP API do nó Kubo |
-| `ZFROG_SAFETY_ENABLED` | `true` | Varredura de segurança a cada job |
-| `ZFROG_AUDIT_LOG` | `audit.log` | Trilha de auditoria (JSONL, 0600) |
-| `ZFROG_METRICS_DB` | `metrics.db` | Métricas por motor |
-| `ZFROG_MAX_PARALLEL_STEPS` | `4` | Passos simultâneos num fluxo |
-| `ZFROG_SIGNIFICANCE_THRESHOLD` | `0.35` | Nota a partir da qual a mudança é relevante |
-| `ZFROG_TRANSLATION_TARGET` | `pt` | Idioma de destino padrão |
-| `ZFROG_VIDEO_MAX_BYTES` | `500000000` | Limite de download de vídeo |
-| `ZFROG_VIDEO_MAX_SEGMENTS` | `5000` | Limite de segmentos de vídeo |
-| `ZFROG_COST_PER_GB_TRANSFER` | `0` | Tarifa por GB transferido |
-| `ZFROG_COST_PER_CPU_HOUR` | `0` | Tarifa por hora de CPU |
-| `ZFROG_COST_PER_GB_MONTH` | `0` | Tarifa por GB-mês armazenado |
-| `ZFROG_COST_CURRENCY` | `BRL` | Moeda dos custos |
-| `ZFROG_AUTH_ENABLED` | `false` | Exigir chave de API |
-| `ZFROG_API_KEYS_FILE` | `api_keys.json` | Chaves (hash, modo 0600) |
-| `ZFROG_REGION` | `local` | Região local |
-| `ZFROG_WORKER_REGIONS` | `` | Regiões e latência (ex.: `sa-east:20:4`) |
-| `ZFROG_MARKETPLACE_DIR` | `marketplace` | Itens publicados |
-| `ZFROG_INTEGRATIONS_DIR` | `integrations` | Destinos de saída (modo 0600) |
+| `ZFROG_REDIS_URL` | `redis://localhost:6379/0` | Redis URL |
+| `ZFROG_OUTPUT_DIR` | `output` | Output directory |
+| `ZFROG_MAX_CONCURRENT_JOBS` | `5` | Concurrent jobs |
+| `ZFROG_WORKER_CONCURRENCY` | `2` | Celery workers |
+| `ZFROG_PROXY_URL` | `None` | HTTP proxy |
+| `ZFROG_HTTP_TIMEOUT_CONNECT` | `30` | Connection timeout (s) |
+| `ZFROG_HTTP_TIMEOUT_READ` | `60` | Read timeout (s) |
+| `ZFROG_PLUGINS_DIR` | `plugins` | Engine plugins directory |
+| `ZFROG_CHANGE_ALERT_THRESHOLD` | `0.1` | Ratio of changed pages that triggers `site.changed` |
+| `ZFROG_VERSIONS_DIR` | `versions` | Version history |
+| `ZFROG_DELTA_MAX_PAGES` | `200` | Max pages revalidated per delta run |
+| `ZFROG_SCHEDULES_FILE` | `schedules.json` | Saved schedules |
+| `ZFROG_SCHEDULER_INTERVAL_S` | `30` | Scheduler check interval |
+| `ZFROG_SEARCH_DB` | `search.db` | Search index |
+| `ZFROG_SESSIONS_DIR` | `sessions` | Login sessions (0600 permissions) |
+| `ZFROG_K8S_NAMESPACE` | `default` | Operator namespace |
+| `ZFROG_K8S_WORKER_IMAGE` | `zfrog-worker:latest` | Image used for created Jobs |
+| `ZFROG_K8S_API_SERVER` | `None` | Cluster API (outside cluster) |
+| `ZFROG_SESSIONS_KEY_FILE` | `sessions/.key` | Sessions AES-GCM key (0600) |
+| `ZFROG_IPFS_ENABLED` | `false` | Enable IPFS publishing |
+| `ZFROG_IPFS_API_URL` | `http://127.0.0.1:5001` | Kubo node HTTP API |
+| `ZFROG_SAFETY_ENABLED` | `true` | Security scan on each job |
+| `ZFROG_AUDIT_LOG` | `audit.log` | Audit trail (JSONL, 0600) |
+| `ZFROG_METRICS_DB` | `metrics.db` | Metrics por motor |
+| `ZFROG_MAX_PARALLEL_STEPS` | `4` | Concurrent steps in a workflow |
+| `ZFROG_SIGNIFICANCE_THRESHOLD` | `0.35` | Score above which a change is significant |
+| `ZFROG_TRANSLATION_TARGET` | `pt` | Default target language |
+| `ZFROG_VIDEO_MAX_BYTES` | `500000000` | Video download limit |
+| `ZFROG_VIDEO_MAX_SEGMENTS` | `5000` | Video segments limit |
+| `ZFROG_COST_PER_GB_TRANSFER` | `0` | Rate per GB transferred |
+| `ZFROG_COST_PER_CPU_HOUR` | `0` | Rate per CPU hour |
+| `ZFROG_COST_PER_GB_MONTH` | `0` | Rate per GB-month stored |
+| `ZFROG_COST_CURRENCY` | `BRL` | Cost currency |
+| `ZFROG_AUTH_ENABLED` | `false` | Require API key |
+| `ZFROG_API_KEYS_FILE` | `api_keys.json` | Keys (hash, mode 0600) |
+| `ZFROG_REGION` | `local` | Local region |
+| `ZFROG_WORKER_REGIONS` | `` | Regions and latency (e.g. `sa-east:20:4`) |
+| `ZFROG_MARKETPLACE_DIR` | `marketplace` | Published items |
+| `ZFROG_INTEGRATIONS_DIR` | `integrations` | Outbound destinations (mode 0600) |
 | `ZFROG_REGIONS` | | |
-| `ZFROG_USERS_FILE` | `users.json` | Usuários (0600) |
-| `ZFROG_ORGS_FILE` | `orgs.json` | Organizações (0600) |
-| `ZFROG_DEFAULT_ORG` | `default` | Organização padrão |
-| `ZFROG_OIDC_ISSUER` | `` | Emissor OpenID Connect |
-| `ZFROG_OIDC_CLIENT_ID` | `` | Client ID do SSO |
-| `ZFROG_OIDC_CLIENT_SECRET` | `` | Client secret do SSO |
-| `ZFROG_OIDC_REDIRECT_URI` | `http://localhost:8000/auth/callback` | Redirect do SSO |
-| `ZFROG_OIDC_GROUP_ROLE_MAP` | `` | Grupos → papéis (`admins=admin`) |
-| `ZFROG_ANNOTATIONS_DIR` | `annotations` | Comentários |
-| `ZFROG_DOMAIN_PROFILES_DIR` | `domains` | Perfis de domínio |
-| `ZFROG_SEARCH_BACKEND` | `sqlite` | `sqlite`, `meilisearch` ou `elasticsearch` |
-| `ZFROG_MEILISEARCH_URL` | `http://127.0.0.1:7700` | Servidor Meilisearch |
-| `ZFROG_ELASTICSEARCH_URL` | `http://127.0.0.1:9200` | Servidor Elasticsearch |
-| `ZFROG_WORKERS_HEARTBEAT_TTL_S` | `60` | Validade da batida de um worker |
-| `ZFROG_WORKER_ID` | `` | Identidade deste worker |
-| `ZFROG_WORKER_API_PORT` | `8000` | Porta da API de um worker |
-| `ZFROG_DISPATCH_TIMEOUT_S` | `30` | Timeout ao enviar um job a um worker |
-| `ZFROG_PRICE_ALERT_DROP_PCT` | `5` | Queda (%) que dispara alerta de preço |
-| `ZFROG_PRICE_ALERT_RISE_PCT` | `5` | Alta (%) que dispara alerta de preço |
-| `ZFROG_PRICE_CURRENCY_HINT` | `BRL` | Moeda quando o símbolo é ambíguo |
-| `ZFROG_TOTP_DIGITS` | `6` | Dígitos do código de dois fatores |
-| `ZFROG_FINETUNE_DIR` | `finetune` | Datasets gerados |
-| `ZFROG_ANALYSIS_DIR` | `analysis` | Preços e análises |
-| `ZFROG_MARKETPLACE_PORT` | `8200` | Porta do servidor de marketplace |
-| `ZFROG_ARWEAVE_ENABLED` | `false` | Ligar arquivamento permanente |
-| `ZFROG_ARWEAVE_WALLET_FILE` | `arweave-wallet.json` | Carteira Arweave (0600) |
-| `ZFROG_ROI_HOURLY_RATE` | `0` | Valor da sua hora (premissa do ROI) |
-| `ZFROG_ROI_MANUAL_MINUTES_PER_PAGE` | `2` | Minutos por página (premissa do ROI) |
+| `ZFROG_USERS_FILE` | `users.json` | Users (0600) |
+| `ZFROG_ORGS_FILE` | `orgs.json` | Organizations (0600) |
+| `ZFROG_DEFAULT_ORG` | `default` | Default organization |
+| `ZFROG_OIDC_ISSUER` | `` | OpenID Connect issuer |
+| `ZFROG_OIDC_CLIENT_ID` | `` | SSO client ID |
+| `ZFROG_OIDC_CLIENT_SECRET` | `` | SSO client secret |
+| `ZFROG_OIDC_REDIRECT_URI` | `http://localhost:8000/auth/callback` | SSO redirect |
+| `ZFROG_OIDC_GROUP_ROLE_MAP` | `` | Groups → roles (`admins=admin`) |
+| `ZFROG_ANNOTATIONS_DIR` | `annotations` | Comments |
+| `ZFROG_DOMAIN_PROFILES_DIR` | `domains` | Domain profiles |
+| `ZFROG_SEARCH_BACKEND` | `sqlite` | `sqlite`, `meilisearch` or `elasticsearch` |
+| `ZFROG_MEILISEARCH_URL` | `http://127.0.0.1:7700` | Meilisearch server |
+| `ZFROG_ELASTICSEARCH_URL` | `http://127.0.0.1:9200` | Elasticsearch server |
+| `ZFROG_WORKERS_HEARTBEAT_TTL_S` | `60` | Worker heartbeat TTL |
+| `ZFROG_WORKER_ID` | `` | This worker's identity |
+| `ZFROG_WORKER_API_PORT` | `8000` | Worker API port |
+| `ZFROG_DISPATCH_TIMEOUT_S` | `30` | Timeout dispatching a job to a worker |
+| `ZFROG_PRICE_ALERT_DROP_PCT` | `5` | Drop (%) that triggers price alert |
+| `ZFROG_PRICE_ALERT_RISE_PCT` | `5` | Rise (%) that triggers price alert |
+| `ZFROG_PRICE_CURRENCY_HINT` | `BRL` | Currency when symbol is ambiguous |
+| `ZFROG_TOTP_DIGITS` | `6` | Two-factor code digits |
+| `ZFROG_FINETUNE_DIR` | `finetune` | Generated datasets |
+| `ZFROG_ANALYSIS_DIR` | `analysis` | Prices and analyses |
+| `ZFROG_MARKETPLACE_PORT` | `8200` | Marketplace server port |
+| `ZFROG_ARWEAVE_ENABLED` | `false` | Enable permanent archiving |
+| `ZFROG_ARWEAVE_WALLET_FILE` | `arweave-wallet.json` | Arweave wallet (0600) |
+| `ZFROG_ROI_HOURLY_RATE` | `0` | Your hourly rate (ROI assumption) |
+| `ZFROG_ROI_MANUAL_MINUTES_PER_PAGE` | `2` | Minutes per page (ROI assumption) |
 
-### Arquivo .env
+### .env File
 
 ```bash
 cp .env.example .env
@@ -1098,132 +1083,132 @@ cp .env.example .env
 
 ## API Endpoints
 
-| Método | Endpoint | Descrição |
+| Method | Endpoint | Description |
 |--------|----------|-----------|
-| GET | `/` | Info da API |
-| POST | `/jobs` | Criar job |
-| GET | `/jobs` | Listar jobs |
-| GET | `/jobs/{id}` | Status do job |
-| POST | `/jobs/{id}/cancel` | Cancelar job |
-| DELETE | `/jobs` | Limpar a lista (mantém o que ainda vai rodar) |
-| GET | `/jobs/{id}/result` | Resultado do job |
+| GET | `/` | API info |
+| POST | `/jobs` | Create job |
+| GET | `/jobs` | List jobs |
+| GET | `/jobs/{id}` | Job status |
+| POST | `/jobs/{id}/cancel` | Cancel job |
+| DELETE | `/jobs` | Clear list (keeps pending) |
+| GET | `/jobs/{id}/result` | Job result |
 | GET | `/jobs/{id}/download` | Download ZIP |
-| GET | `/jobs/{id}/pdf` | Baixar PDF (modo `pdf`) |
-| GET | `/snapshots` | Listar snapshots |
-| GET | `/snapshots/{slug}/{file}` | Baixar snapshot (JSON) |
-| POST | `/diff` | Comparar dois snapshots |
-| GET | `/versions` | Listar versões de um site |
-| POST | `/versions/rollback` | Restaurar uma versão |
-| POST | `/versions/branches` | Criar um ramo |
-| GET/POST | `/schedules` | Listar / criar agendamentos |
-| DELETE | `/schedules/{id}` | Remover agendamento |
-| POST | `/schedules/{id}/run` | Rodar agendamento agora |
-| POST | `/search` | Buscar (texto ou semântico) |
-| GET/DELETE | `/sessions` | Listar / apagar sessões salvas |
-| GET/POST | `/workflows` | Listar / salvar fluxos |
-| DELETE | `/workflows/{id}` | Remover fluxo |
-| POST | `/workflows/{id}/run` | Executar fluxo |
-| GET | `/extract/page` | Página higienizada p/ o seletor visual |
-| POST | `/extract/preview` | Pré-visualizar um seletor CSS |
-| GET | `/analytics/engines` | Desempenho por motor |
-| GET | `/analytics/totals` | Totais de execuções |
-| GET | `/audit` | Trilha de auditoria |
-| POST | `/safety/scan` | Verificar riscos de segurança |
-| POST | `/ipfs/publish` | Publicar um clone no IPFS |
-| POST | `/graphql` | Consulta GraphQL (somente leitura) |
-| GET | `/graphql/schema` | Schema GraphQL (SDL) |
-| POST/GET | `/chat` | Perguntar / listar conversas |
-| GET | `/chat/{id}` | Ler uma conversa |
-| POST | `/tos/check` | Checar robots.txt e termos |
-| POST | `/watermark` | Marcar procedência |
-| POST | `/watermark/verify` | Verificar procedência |
-| POST | `/graph` | Montar grafo de relacionamentos |
-| GET | `/analytics/cost` | Custo estimado por motor |
-| GET/DELETE | `/webhooks` | Listar / remover webhooks |
-| GET/POST | `/marketplace` | Listar / publicar itens |
-| POST | `/marketplace/{id}/install` | Instalar item |
-| POST | `/marketplace/{id}/rate` | Avaliar item |
-| POST | `/workflows/preview` | Explicar um fluxo e apontar problemas |
-| GET/POST | `/keys` | Listar / criar chaves de API |
-| DELETE | `/keys/{id}` | Revogar chave |
-| GET/POST | `/integrations` | Listar / salvar destinos |
-| POST | `/integrations/{name}/push` | Enviar registros |
-| GET | `/regions` | Regiões e decisão de roteamento |
-| GET/POST | `/users` | Listar / criar usuários |
-| GET/POST | `/orgs` | Listar / criar organizações |
-| POST | `/orgs/{id}/members` | Adicionar membro |
-| GET/POST | `/annotations` | Listar / criar comentários |
-| PATCH | `/annotations/{id}` | Editar comentário |
-| POST | `/annotations/{id}/resolve` | Resolver / reabrir |
-| POST | `/annotations/{id}/replies` | Responder |
-| DELETE | `/annotations/{id}` | Excluir comentário |
-| GET | `/annotations/export` | Exportar em Markdown |
-| GET/POST | `/domains` | Perfis de domínio |
-| GET/POST | `/workers` | Listar / registrar workers |
-| POST | `/workers/heartbeat` | Batida de coração |
-| GET | `/workers/assign` | Onde um site seria processado |
-| GET | `/marketplace/index` | Índice publicável |
-| POST | `/marketplace/sync` | Importar índice remoto |
-| GET | `/auth/config` | SSO configurado? |
-| GET | `/auth/login` | Iniciar login SSO |
-| GET | `/auth/callback` | Concluir login SSO |
-| GET | `/timeline` | Versões de um site |
-| GET | `/timeline/resolve` | Versão de uma data |
-| GET | `/timeline/pages` | Páginas de uma versão |
-| GET | `/timeline/page` | Metadados de uma página |
-| GET | `/timeline/content` | HTML arquivado (para o visualizador) |
-| GET | `/prices` | Histórico de preços |
-| GET | `/prices/changes` | Variações de preço |
-| POST | `/prices/watch` | Registrar preços do último snapshot |
-| GET | `/roi` | Retorno do trabalho automatizado |
-| GET/POST | `/totp` | Contas de dois fatores |
-| GET | `/totp/{name}/code` | Código atual |
-| DELETE | `/totp/{name}` | Remover conta |
-| POST | `/datasets` | Montar dataset de fine-tuning |
-| POST | `/datasets/export` | Exportar dataset (JSONL) |
-| POST | `/analysis/competitive` | Comparar clones |
-| POST | `/analysis/trends` | Tendências de termos |
-| GET | `/dispatch/plan` | Para onde um job iria |
-| POST | `/dispatch` | Enviar jobs a workers |
-| GET | `/arweave/status` | Arquivamento configurado? |
-| POST | `/arweave/publish` | Publicar no Arweave |
-| GET | `/probe/{url}` | Analisar URL |
+| GET | `/jobs/{id}/pdf` | Download PDF (`pdf` mode) |
+| GET | `/snapshots` | List snapshots |
+| GET | `/snapshots/{slug}/{file}` | Download snapshot (JSON) |
+| POST | `/diff` | Compare two snapshots |
+| GET | `/versions` | List site versions |
+| POST | `/versions/rollback` | Restore a version |
+| POST | `/versions/branches` | Create a branch |
+| GET/POST | `/schedules` | List / create schedules |
+| DELETE | `/schedules/{id}` | Remove schedule |
+| POST | `/schedules/{id}/run` | Run schedule now |
+| POST | `/search` | Search (text or semantic) |
+| GET/DELETE | `/sessions` | List / delete saved sessions |
+| GET/POST | `/workflows` | List / save workflows |
+| DELETE | `/workflows/{id}` | Remove workflow |
+| POST | `/workflows/{id}/run` | Run workflow |
+| GET | `/extract/page` | Sanitized page for visual selector |
+| POST | `/extract/preview` | Preview a CSS selector |
+| GET | `/analytics/engines` | Engine performance |
+| GET | `/analytics/totals` | Execution totals |
+| GET | `/audit` | Audit trail |
+| POST | `/safety/scan` | Scan for security risks |
+| POST | `/ipfs/publish` | Publish a clone to IPFS |
+| POST | `/graphql` | GraphQL query (read-only) |
+| GET | `/graphql/schema` | GraphQL schema (SDL) |
+| POST/GET | `/chat` | Ask / list conversations |
+| GET | `/chat/{id}` | Read a conversation |
+| POST | `/tos/check` | Check robots.txt and terms |
+| POST | `/watermark` | Mark provenance |
+| POST | `/watermark/verify` | Verify provenance |
+| POST | `/graph` | Build relationship graph |
+| GET | `/analytics/cost` | Estimated cost per engine |
+| GET/DELETE | `/webhooks` | List / remove webhooks |
+| GET/POST | `/marketplace` | List / publish items |
+| POST | `/marketplace/{id}/install` | Install item |
+| POST | `/marketplace/{id}/rate` | Rate item |
+| POST | `/workflows/preview` | Explain a workflow and flag issues |
+| GET/POST | `/keys` | List / create API keys |
+| DELETE | `/keys/{id}` | Revoke key |
+| GET/POST | `/integrations` | List / save destinations |
+| POST | `/integrations/{name}/push` | Push records |
+| GET | `/regions` | Regions and routing decision |
+| GET/POST | `/users` | List / create users |
+| GET/POST | `/orgs` | List / create organizations |
+| POST | `/orgs/{id}/members` | Add member |
+| GET/POST | `/annotations` | List / create comments |
+| PATCH | `/annotations/{id}` | Edit comment |
+| POST | `/annotations/{id}/resolve` | Resolve / reopen |
+| POST | `/annotations/{id}/replies` | Reply |
+| DELETE | `/annotations/{id}` | Delete comment |
+| GET | `/annotations/export` | Export as Markdown |
+| GET/POST | `/domains` | Domain profiles |
+| GET/POST | `/workers` | List / register workers |
+| POST | `/workers/heartbeat` | Heartbeat |
+| GET | `/workers/assign` | Where a site would be processed |
+| GET | `/marketplace/index` | Publishable index |
+| POST | `/marketplace/sync` | Import remote index |
+| GET | `/auth/config` | SSO configured? |
+| GET | `/auth/login` | Start SSO login |
+| GET | `/auth/callback` | Complete SSO login |
+| GET | `/timeline` | Site versions |
+| GET | `/timeline/resolve` | Version at a date |
+| GET | `/timeline/pages` | Pages in a version |
+| GET | `/timeline/page` | Page metadata |
+| GET | `/timeline/content` | Archived HTML (for viewer) |
+| GET | `/prices` | Price history |
+| GET | `/prices/changes` | Price changes |
+| POST | `/prices/watch` | Record prices from latest snapshot |
+| GET | `/roi` | Return on automated work |
+| GET/POST | `/totp` | Two-factor accounts |
+| GET | `/totp/{name}/code` | Current code |
+| DELETE | `/totp/{name}` | Remove account |
+| POST | `/datasets` | Build fine-tuning dataset |
+| POST | `/datasets/export` | Export dataset (JSONL) |
+| POST | `/analysis/competitive` | Compare clones |
+| POST | `/analysis/trends` | Term trends |
+| GET | `/dispatch/plan` | Where a job would go |
+| POST | `/dispatch` | Dispatch jobs to workers |
+| GET | `/arweave/status` | Archiving configured? |
+| POST | `/arweave/publish` | Publish to Arweave |
+| GET | `/probe/{url}` | Analyze URL |
 | GET | `/health` | Health check |
-| GET | `/metrics` | Métricas |
-| GET | `/stats` | Estatísticas |
-| GET | `/config` | Configuração atual |
-| POST | `/config/rate-limit` | Atualizar rate limit |
-| POST | `/webhooks` | Registrar webhook |
+| GET | `/metrics` | Metrics |
+| GET | `/stats` | Statistics |
+| GET | `/config` | Current configuration |
+| POST | `/config/rate-limit` | Update rate limit |
+| POST | `/webhooks` | Register webhook |
 
 ## Production Features
 
 ### Rate Limiting
 - Token bucket global com 1 req/s sustained, burst de 5
-- Configurável via `--rate-limit` no CLI e `POST /config/rate-limit`
-- Limite de concorrência global, para os jobs não abrirem navegadores sem fim
+- Configurable via `--rate-limit` on the CLI and `POST /config/rate-limit`
+- Global concurrency limit, so jobs don't spawn browsers endlessly
 
 ### Retry
 - Exponential backoff com jitter (`@retry` em `utils/rate_limit.py`)
 - Retry em erros HTTP 429, 500, 502, 503, 504
 
-### Respeito à web
-- User-agent simples e headers básicos: a captura de design não precisa se disfarçar
-- Delay educado entre requisições (rate limiter) e `robots.txt` respeitado no motor wget
+### Web Etiquette
+- Simple User-Agent and basic headers: design capture doesn't need to masquerade
+- Polite delay between requests (rate limiter) e `robots.txt` respeitado no motor wget
   (`--no-robots` desliga)
 
-### Observabilidade
+### Observability
 - `GET /health` — checa o store de jobs (Redis) e o volume de estado e reporta o uso de
-  memória; responde 503 quando algum dos dois falha, para o healthcheck do container valer
-- `GET /metrics` — métricas por motor, lidas do store de analytics
-- `GET /stats` — estatísticas do sistema
+  memory; it responds with 503 when either fails, so the container healthcheck is meaningful
+- `GET /metrics` — metrics per engine, read from the analytics store
+- `GET /stats` — system statistics
 - `zfrog audit` — trilha de auditoria em JSONL
 
-### Limpeza Automática
-- Jobs antigos removidos após 24h
-- Output files limpos automaticamente
-- Configurável via `JobCleanup`
+### Automatic Cleanup
+- Old jobs removed after 24h
+- Output files cleaned automatically
+- Configurable via `JobCleanup`
 
-## Estrutura do Projeto
+## Project Structure
 
 ```
 zfrog/
@@ -1235,15 +1220,15 @@ zfrog/
 │   ├── config.py           # Settings Pydantic
 │   ├── models.py           # Schemas
 │   ├── orchestrator.py     # Core logic: probe → motor → pipeline
-│   ├── probe.py            # Auto-detecção (sugere o motor)
-│   ├── tokens.py           # Extração de design tokens de uma página
-│   ├── components.py       # Extração de um componente (HTML + CSS computado)
+│   ├── probe.py            # Auto-detection (suggests the engine)
+│   ├── tokens.py           # Design-token extraction for a page
+│   ├── components.py       # Component extraction (HTML + computed CSS)
 │   ├── catalog.py          # Catálogo de referências (cards, tags, cores)
-│   ├── visual_search.py    # Busca por descrição sobre o catálogo
+│   ├── visual_search.py    # Description search over the catalog
 │   ├── queue.py            # Celery tasks
 │   ├── engines/
 │   │   ├── base.py         # Interface abstrata
-│   │   ├── playwright.py   # Captura visual (padrão)
+│   │   ├── playwright.py   # Visual capture (default)
 │   │   ├── scrapy.py       # Descoberta
 │   │   ├── static_file.py  # Página leve
 │   │   ├── wget.py         # Assets
@@ -1266,9 +1251,9 @@ zfrog/
 │       ├── rate_limit.py
 │       ├── cleanup.py
 │       ├── webhooks.py
-│       ├── stealth.py      # UA, viewport e locale estáveis
+│       ├── stealth.py      # stable UA, viewport and locale
 │       └── resources.py
-├── dashboard/              # Next.js UI
+├── dashboard/              # TUI Dashboard (Vite + React 19 + TanStack Router)
 ├── deploy/k8s/             # Operator + CRD (ZfrogJob)
 ├── sdk/                    # Clientes JS e Go
 ├── tests/                  # 80 módulos de teste
@@ -1278,51 +1263,51 @@ zfrog/
 └── .env.example
 ```
 
-## Desenvolvimento
+## Development
 
 ```bash
 pip install -e ".[dev]"
 
-# A suíte inteira. O Redis é opcional: sem ele os testes que dependem do broker
-# se pulam sozinhos (ZFROG_REDIS_URL aponta para onde ele estiver).
+# Full suite. Redis is optional: without it the broker-dependent tests
+# are skipped automatically (ZFROG_REDIS_URL points to wherever it lives).
 pytest tests/ -q
 
-# Com Redis, os pulados também rodam:
+# With Redis, the skipped ones also run:
 ZFROG_REDIS_URL=redis://127.0.0.1:6379/0 pytest tests/ -q
 ```
 
-O que o CI roda, e o que se espera de cada passo:
+What CI runs and what each step must satisfy:
 
-| Passo | Comando | Estado |
+| Step | Command | Status |
 |---|---|---|
 | Lockfile | `uv lock --check` | verde |
 | Lint | `ruff check . --select F821,F811,F402,E9` | verde |
-| Testes | `pytest tests/ -q` | verde (1707) |
-| Tipos do painel | `tsc --noEmit` | verde |
-| Build do painel | `next build` | verde |
+ | Testes | `pytest tests/ -q` | verde (1713) |
+ | Tipos do painel | `tsc --noEmit` (Vite + TanStack) | verde |
+ | Build do painel | `vite build` (27 rotas) | verde |
 
-**Sobre o lint:** o gate cobre só as regras de **correção** — `F821` (nome indefinido),
-`F811` (redefinição), `F402` (import encoberto por variável de laço) e `E9` (sintaxe).
-São as que pegam bug, e foi assim que apareceram um `new_script` usado sem ser criado em
-`engines/static_file.py` (o `except Exception` em volta escondia o `NameError` e registrava
-só "Failed to inline JS") e três `Optional[...]` sem import em `ai/extraction.py` — que eram
-`NameError` em tempo de execução graças ao `from __future__ import annotations`.
+**About linting:** the gate only covers **correctness** rules — `F821` (nome indefinido),
+`F811` (redefinition), `F402` (import shadowed by loop variable) and `E9` (syntax).
+These are the ones that catch bugs — and how a `new_script` used without being created in
+`engines/static_file.py` was caught (the surrounding `except Exception` hid the `NameError` and logged
+only "Failed to inline JS") and three `Optional[...]` without an import in `ai/extraction.py` — which were
+`NameError` at runtime thanks to `from __future__ import annotations`.
 
-As regras de estilo do `pyproject.toml` (`E501` comprimento de linha, `I001` ordem de
-import, `UP0xx` modernização) somam ~450 violações no código existente. Ligá-las hoje
-abriria o CI vermelho e ninguém confiaria no gate; apertar isso é trabalho de continuação,
-não um esquecimento. Enquanto isso:
+Style rules in `pyproject.toml` (`E501` line length, `I001` import order,
+import, `UP0xx` modernization) add up to ~450 violations in the existing codebase. Enabling them now
+would turn CI red and no one would trust the gate; tightening this is follow-up work,
+not an oversight. Meanwhile:
 
 ```bash
-# Ver tudo o que o estilo apontaria (não é o gate)
+# See everything style rules would flag (not the gate)
 uvx ruff@0.16.9 check . --statistics
 
-# Só os arquivos que você mexeu, para não piorar o placar
+# Only the files you touched, to avoid worsening the score
 uvx ruff@0.16.9 check <arquivos>
 ```
 
-O arquivo que mudou precisa passar nas regras de correção — o gate garante isso.
+Any changed file must pass the correctness rules — the gate ensures that.
 
-## Licença
+## License
 
-Apache License 2.0 — veja [LICENSE](LICENSE).
+Apache License 2.0 — see [LICENSE](LICENSE).

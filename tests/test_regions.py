@@ -130,7 +130,7 @@ def test_route_prefers_the_local_region_when_it_can_serve(local_config):
     nearby = route("https://example.com", regions)
     assert nearby.region == "local"
     assert nearby.score == score_region(regions[0])
-    assert "região local" in nearby.reason
+    assert "local region" in nearby.reason
 
     assert route("https://example.com", regions, prefer_local=False).region == "sa-east"
 
@@ -141,7 +141,7 @@ def test_route_falls_back_to_local_when_nothing_is_eligible(local_config, monkey
     assert decision.region == "local"
     assert decision.score == 0.0
     assert "local" in decision.reason
-    assert "elegível" in decision.reason
+    assert "no eligible region" in decision.reason
 
     monkeypatch.setattr(settings, "region", "sa-east")
     disabled = [Region(name="us-east", latency_ms=180, workers=8, enabled=False)]
@@ -149,7 +149,7 @@ def test_route_falls_back_to_local_when_nothing_is_eligible(local_config, monkey
 
     assert fallback.region == "sa-east"
     assert "sa-east" in fallback.reason
-    assert "elegível" in fallback.reason
+    assert "no eligible region" in fallback.reason
 
 def test_route_is_deterministic(local_config):
     pair = _equal_latency_pair()
@@ -174,7 +174,7 @@ def test_route_uses_host_tld_as_tie_breaker(local_config):
 
     brazilian = route("https://loja.example.com.br/", pair, prefer_local=False)
     assert brazilian.region == "sa-east"
-    assert "residência" in brazilian.reason
+    assert "data residency" in brazilian.reason
 
     # No residency hint at all: the alphabetical order decides.
     assert route("https://shop.example.com/", pair, prefer_local=False).region == "ap-east"
@@ -231,7 +231,7 @@ async def test_dispatch_falls_back_to_local_when_inventory_is_empty(local_config
 
     assert result["region"] == "local"
     assert region_from_metadata(result["job"]) == "local"
-    assert "elegível" in result["reason"]
+    assert "no eligible region" in result["reason"]
 
 # ── user-facing note ─────────────────────────────────────────────────────────
 

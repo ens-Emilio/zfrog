@@ -98,7 +98,7 @@ async def test_ask_on_empty_index_explains_without_ai(tmp_path, index, monkeypat
 
     result = await session.ask("o que diz o site?")
 
-    assert "indexado" in result["answer"]
+    assert "No indexed content yet" in result["answer"]
     assert result["citations"] == []
     assert result["turn"] == 1
     assert [turn.role for turn in session.history()] == ["user", "assistant"]
@@ -108,7 +108,7 @@ async def test_ask_without_ai_returns_citations(session, ai_off):
     result = await session.ask("quantum entanglement superconductor")
 
     assert result["answer"]
-    assert "indisponível" in result["answer"]
+    assert "AI unavailable" in result["answer"]
     assert result["citations"], "retrieved chunks are the citations"
     citation = result["citations"][0]
     assert citation["site"] == SITE_URL
@@ -198,8 +198,8 @@ async def test_save_and_load_round_trip(session, ai):
     assert loaded.created_at == session.conversation.created_at
 
     transcript = summarize_conversation(loaded)
-    assert transcript.splitlines()[0] == "Usuário: quantum entanglement superconductor"
-    assert transcript.splitlines()[1] == "Assistente: Resposta persistida."
+    assert transcript.splitlines()[0] == "User: quantum entanglement superconductor"
+    assert transcript.splitlines()[1] == "Assistant: Resposta persistida."
 
 async def test_load_tolerates_corrupt_file(session, ai):
     """A damaged conversation file warns and yields None instead of raising."""

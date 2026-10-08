@@ -301,7 +301,7 @@ def test_diff_to_markdown(tmp_path):
 
     assert "p1" in md
     assert "100.0%" in md
-    assert "## Alteradas (1)" in md
+    assert "## Changed (1)" in md
 
 
 def test_resolve_snapshot_accepts_path_and_slug_ref(tmp_path):

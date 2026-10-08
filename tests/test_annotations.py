@@ -257,7 +257,7 @@ def test_export_markdown_covers_the_review_doc(store):
     assert document.index("/about.html") < document.index("/index.html")
 
     empty = export_markdown([], job_id="job-1")
-    assert "Nenhuma anotação" in empty
+    assert "No annotations" in empty
 
 
 def test_filter_by_page_matches_exactly(store):

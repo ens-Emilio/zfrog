@@ -171,7 +171,7 @@ def test_a_blocked_url_is_a_400_not_a_500(guard_on, tmp_path, monkeypatch):
         )
 
     assert response.status_code == 400
-    assert "interno" in response.json()["detail"]
+    assert "internal address" in response.json()["detail"]
 
 
 def test_the_guard_does_not_break_a_normal_request(guard_off):

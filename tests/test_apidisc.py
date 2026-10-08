@@ -268,7 +268,7 @@ async def test_engine_fetches_scripts_and_writes_reports(tmp_path):
 
     assert result.files == [output_dir / "api_endpoints.json", output_dir / "api_endpoints.md"]
     assert result.total_bytes > 0
-    assert messages == ["Procurando APIs...", "APIs encontradas: 1"]
+    assert messages == ["Scanning for APIs...", "APIs found: 1"]
     assert any(script_url in log for log in result.logs)
 
 
@@ -287,7 +287,7 @@ async def test_engine_without_apis_writes_empty_reports(tmp_path):
     assert payload == {"url": page_url, "endpoints": [], "by_kind": {}}
 
     markdown = (output_dir / "api_endpoints.md").read_text(encoding="utf-8")
-    assert "Nenhum endpoint encontrado." in markdown
+    assert "No endpoints found." in markdown
     assert result.files == [output_dir / "api_endpoints.json", output_dir / "api_endpoints.md"]
 
 
@@ -341,7 +341,7 @@ async def test_engine_caps_the_number_of_scripts(tmp_path):
     assert [url for url in requested if url != page_url] == [
         f"https://cap.test/s{i}.js" for i in range(10)
     ]
-    assert any("Limite de 10 scripts" in log for log in result.logs)
+    assert any("Script limit of 10 reached" in log for log in result.logs)
 
     payload = json.loads((output_dir / "api_endpoints.json").read_text(encoding="utf-8"))
     assert payload["endpoints"] == [
@@ -372,7 +372,7 @@ async def test_engine_truncates_oversized_scripts(tmp_path, monkeypatch):
 
     payload = json.loads((output_dir / "api_endpoints.json").read_text(encoding="utf-8"))
     assert payload["endpoints"] == []
-    assert any("truncado" in log for log in result.logs)
+    assert any("truncated" in log for log in result.logs)
 
 
 async def test_engine_reports_an_unreachable_page(tmp_path):
@@ -387,4 +387,4 @@ async def test_engine_reports_an_unreachable_page(tmp_path):
 
     payload = json.loads((output_dir / "api_endpoints.json").read_text(encoding="utf-8"))
     assert payload == {"url": page_url, "endpoints": [], "by_kind": {}}
-    assert any("Falha ao buscar" in log for log in result.logs)
+    assert any("Failed to fetch" in log for log in result.logs)

@@ -16,7 +16,7 @@ OTHER_URL = "https://nunca.example"
 
 @pytest.fixture(autouse=True)
 def _isolated_state(tmp_path, monkeypatch):
-    """Nenhum teste toca o output/versions real do repositório."""
+    """No test touches the repository's real output/versions."""
     monkeypatch.setattr(settings, "output_dir", tmp_path / "output")
     monkeypatch.setattr(settings, "versions_dir", tmp_path / "versions")
     return tmp_path
@@ -107,7 +107,7 @@ def test_identical_content_is_deduplicated_across_commits(tmp_path):
     store.commit(URL, _write_snapshot(URL, "2026-09-24T03:00:00Z", []), job)
     assert _store_stats()["objects"] == 2
 
-    # Terceiro arquivo novo; os dois anteriores são reenviados sem duplicar blobs.
+    # Third file is new; the previous two are re-sent without duplicating blobs.
     (job / "c.html").write_text("<html>c</html>", encoding="utf-8")
     head = store.commit(URL, _write_snapshot(URL, "2026-09-24T04:00:00Z", []), job)
 
@@ -150,7 +150,7 @@ def test_create_branch_leaves_main_head_untouched(tmp_path):
     assert [v.id for v in store.log(URL, "main")] == [base.id]
     assert [v.id for v in store.log(URL)] == [dev_commit.id, base.id]
 
-    with pytest.raises(ValueError, match="ramo de origem desconhecido"):
+    with pytest.raises(ValueError, match="unknown source branch"):
         store.create_branch(URL, "outro", from_branch="inexistente")
 
 
@@ -243,7 +243,7 @@ def test_diff_versions_reports_added_removed_and_changed(tmp_path):
     assert report.unchanged == []
     assert report.url == URL
 
-    # Refs simbólicas também funcionam; a mesma versão não tem mudanças.
+    # Symbolic refs also work; the same version has no changes.
     same = store.diff_versions(URL, "main", "HEAD")
     assert same.changed == []
     assert sorted(same.unchanged) == ["index.html", "novo.html"]
@@ -255,26 +255,26 @@ def test_unknown_url_branch_and_ref(tmp_path):
     store = VersionStore()
     version = store.commit(URL, _write_snapshot(URL, "2026-09-24T03:00:00Z", []), job)
 
-    with pytest.raises(ValueError, match="versão desconhecida"):
+    with pytest.raises(ValueError, match="unknown version"):
         store.resolve(URL, "deadbeefdead")
-    with pytest.raises(ValueError, match="versão desconhecida"):
+    with pytest.raises(ValueError, match="unknown version"):
         store.resolve(URL, "no-such-branch")
-    with pytest.raises(ValueError, match="curta demais"):
+    with pytest.raises(ValueError, match="too short"):
         store.resolve(URL, "abc")
-    with pytest.raises(ValueError, match="versão desconhecida"):
+    with pytest.raises(ValueError, match="unknown version"):
         store.rollback(URL, "deadbeefdead")
-    with pytest.raises(ValueError, match="versão desconhecida"):
+    with pytest.raises(ValueError, match="unknown version"):
         store.diff_versions(URL, version.id, "nope")
-    with pytest.raises(ValueError, match="nenhuma versão salva"):
+    with pytest.raises(ValueError, match="no saved versions"):
         VersionStore().resolve(OTHER_URL, "HEAD")
 
-    # Listagens degradam para vazio em vez de explodir (CLI/API dependem disso).
+    # Listings degrade to empty instead of exploding (CLI/API depend on this).
     empty = VersionStore()
     assert empty.log(OTHER_URL) == []
-    assert empty.log(URL, "inexistente") == []
+    assert empty.log(URL, "missing") == []
     assert empty.branches(OTHER_URL) == []
     assert empty.head(OTHER_URL) is None
-    assert empty.head(URL, "inexistente") is None
+    assert empty.head(URL, "missing") is None
 
 
 def test_diff_versions_requires_the_snapshot_file(tmp_path):
@@ -287,5 +287,5 @@ def test_diff_versions_requires_the_snapshot_file(tmp_path):
 
     first_snap.unlink()
 
-    with pytest.raises(ValueError, match="não encontrado"):
+    with pytest.raises(ValueError, match="not found"):
         store.diff_versions(URL, first.id, second.id)

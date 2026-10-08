@@ -177,7 +177,7 @@ def test_key_create_prints_the_secret_once_and_never_again():
     secret = next(
         (word for word in created.output.split() if word.startswith("zk_")), None
     )
-    assert secret, f"nenhum segredo na saída: {created.output!r}"
+    assert secret, f"no secret in output: {created.output!r}"
 
     listed = runner.invoke(app, ["key", "list"])
     assert listed.exit_code == 0
@@ -212,7 +212,7 @@ def test_key_revoke_removes_it_and_reports_an_unknown_id():
         ),
         None,
     )
-    assert key_id, f"nenhum id de chave em: {listed.output!r}"
+    assert key_id, f"no key id in: {listed.output!r}"
 
     revoked = runner.invoke(app, ["key", "revoke", key_id])
     assert revoked.exit_code == 0
@@ -243,7 +243,7 @@ def test_user_create_refuses_a_duplicate_email():
     again = runner.invoke(app, ["user", "create", "ana@empresa.com"])
 
     assert again.exit_code == 1
-    assert "cadastrado" in again.output
+    assert "already registered" in again.output
 
 
 def test_user_create_refuses_an_unknown_role():
@@ -342,7 +342,7 @@ def test_schedule_add_list_and_remove():
     assert added.exit_code == 0, added.output
 
     match = re.search(r"\(([^)]+)\)", added.output)
-    assert match, f"nenhum id de agendamento em: {added.output!r}"
+    assert match, f"no schedule id in: {added.output!r}"
     schedule_id = match.group(1)
 
     listed = runner.invoke(app, ["schedule", "list"])
@@ -387,12 +387,12 @@ def test_watermark_marks_and_then_verifies(tmp_path):
 
     marked = runner.invoke(app, ["watermark", str(tmp_path), "--source", "https://exemplo.test"])
     assert marked.exit_code == 0, marked.output
-    assert "marcado" in marked.output
+    assert "marked" in marked.output
 
     mark_id = next(
         (word for word in marked.output.split() if word.startswith("ZK-")), None
     )
-    assert mark_id, f"nenhum id de marca em: {marked.output!r}"
+    assert mark_id, f"no mark id in: {marked.output!r}"
 
     verified = runner.invoke(app, ["watermark", str(tmp_path), "--verify"])
     assert verified.exit_code == 0, verified.output
@@ -405,7 +405,7 @@ def test_watermark_verify_reports_an_unmarked_directory(tmp_path):
     result = runner.invoke(app, ["watermark", str(tmp_path), "--verify"])
 
     assert result.exit_code == 0
-    assert "Nenhum arquivo marcado" in result.output
+    assert "No files marked" in result.output
 
 
 def test_graph_maps_an_annotated_page(tmp_path):

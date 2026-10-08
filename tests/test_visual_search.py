@@ -47,27 +47,27 @@ LIGHT_SQUARE = {
 class TestDescribe:
     def test_dark_background_becomes_searchable_words(self):
         text = describe(_card("escuro", DARK_ROUNDED))
-        assert "muito escuro" in text
-        assert "neutro" in text
+        assert "very dark" in text
+        assert "neutral" in text
 
     def test_rounding_and_shadows_are_described(self):
         text = describe(_card("escuro", DARK_ROUNDED))
-        assert "cantos muito arredondados" in text
-        assert "sombras amplas" in text
+        assert "very rounded corners" in text
+        assert "large shadows" in text
 
     def test_serif_is_detected_from_the_family_name(self):
-        assert "serifada" in describe(_card("claro", LIGHT_SQUARE))
+        assert "serif" in describe(_card("claro", LIGHT_SQUARE))
 
     def test_square_corners_are_described_as_such(self):
         text = describe(_card("claro", LIGHT_SQUARE))
-        assert "cantos retos" in text
-        assert "sem sombras" in text
+        assert "straight corners" in text
+        assert "no shadows" in text
 
     def test_vivid_colour_gets_hue_and_vividness(self):
         tokens = {"palette": [{"hex": "#3BD487", "count": 5, "role": "accent"}]}
         text = describe(_card("verde", tokens))
-        assert "verde" in text
-        assert "vivo" in text
+        assert "green" in text
+        assert "vivid" in text
 
     def test_description_is_stable_across_calls(self):
         """A drifting description would silently invalidate stored embeddings."""
@@ -87,7 +87,7 @@ class TestDescribe:
 
     def test_unreadable_hex_is_skipped(self):
         tokens = {"palette": [{"hex": "nope", "count": 1, "role": "primary"}]}
-        assert "cor" not in describe(_card("x", tokens))
+        assert "color" not in describe(_card("x", tokens))
 
 
 class TestSearch:
@@ -100,12 +100,12 @@ class TestSearch:
 
     def test_lexical_fallback_matches_words(self, catalog):
         """With no embeddings at all, a search still answers."""
-        hits = search(catalog, "escuro arredondado")
+        hits = search(catalog, "dark rounded")
         assert hits
         assert hits[0].card.id == "escuro"
 
     def test_lexical_fallback_ranks_by_overlap(self, catalog):
-        hits = search(catalog, "serifada")
+        hits = search(catalog, "georgia")
         assert [hit.card.id for hit in hits] == ["claro"]
 
     def test_empty_query_returns_nothing(self, catalog):

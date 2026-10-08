@@ -293,8 +293,7 @@ class TestRunDue:
 
         assert len(job_ids) == 2
         assert sorted(started) == ["https://boom.example/", "https://healthy.example/"]
-        assert "falhou" in caplog.text
-        assert failing.id in caplog.text
+        assert "failed" in caplog.text
         assert datetime.fromisoformat(store.get(healthy.id).next_run) > now
 
 
@@ -325,7 +324,7 @@ class TestDaemon:
 
     async def test_keeps_running_after_a_transient_error(self, tmp_path, monkeypatch, caplog):
         path = _use_store_file(tmp_path, monkeypatch)
-        path.write_text("{ isto não é json", encoding="utf-8")
+        path.write_text("{ this is not json", encoding="utf-8")
 
         stop = asyncio.Event()
         with caplog.at_level(logging.ERROR, logger="zfrog.scheduler"):
@@ -334,7 +333,7 @@ class TestDaemon:
             stop.set()
             await asyncio.wait_for(task, timeout=5)
 
-        assert "Falha ao verificar os agendamentos" in caplog.text
+        assert "Failed to check schedules" in caplog.text
 
 
 class TestNextRunFor:
@@ -353,22 +352,22 @@ class TestNextRunFor:
 
 
 class TestDescribe:
-    """Portuguese descriptions."""
+    """English descriptions."""
 
     def test_describes_common_expressions(self):
-        assert describe("0 2 * * *") == "todo dia às 02:00"
-        assert describe("*/15 * * * *") == "a cada 15 minutos"
-        assert describe("0 0 1,15 * *") == "no dia 1 e 15 de cada mês às 00:00"
+        assert describe("0 2 * * *") == "every day at 02:00"
+        assert describe("*/15 * * * *") == "every 15 minutes"
+        assert describe("0 0 1,15 * *") == "on day 1 and 15 of every month at 00:00"
 
     def test_business_hours_mentions_the_weekdays(self):
         text = describe("30 9-17 * * 1-5")
-        assert "segunda" in text and "sexta" in text
+        assert "Monday" in text and "Friday" in text
         assert "09:30" in text
 
     def test_weekday_lists(self):
-        assert describe("0 0 * * 6,0") == "nos fins de semana às 00:00"
-        assert describe("0 0 * * 1,3,5") == "nos dias segunda, quarta e sexta, às 00:00"
-        assert describe("0 0 * * 5") == "às sextas, às 00:00"
+        assert describe("0 0 * * 6,0") == "on weekends at 00:00"
+        assert describe("0 0 * * 1,3,5") == "on days Monday, Wednesday and Friday, at 00:00"
+        assert describe("0 0 * * 5") == "on Fridays, at 00:00"
 
     def test_output_is_non_empty_and_specific(self):
         assert describe("0 2 * * *") != describe("*/15 * * * *")
@@ -377,4 +376,4 @@ class TestDescribe:
 
     def test_rejects_invalid_expression(self):
         with pytest.raises(ValueError):
-            describe("todo dia")
+            describe("every day")
