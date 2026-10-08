@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "identifier": "com.zfrog.desktop",
   "build": {
-    "beforeDevCommand": "npm run dev -- --port 3000 -- --host 127.0.0.1",
+    "beforeDevCommand": "npm run dev -- --port 3000 --host 127.0.0.1",
     "beforeBuildCommand": "npm run build",
     "devUrl": "http://localhost:3000",
     "frontendDist": "../dashboard/dist"
@@ -26,7 +26,12 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["deb", "appimage"],
+    "targets": [
+      "deb",
+      "appimage",
+      "nsis",
+      "msi"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -38,7 +43,9 @@
     "category": "DeveloperTool",
     "shortDescription": "Design reference engine",
     "longDescription": "Capture, organize and adapt web design references.",
-    "externalBin": ["binaries/zfrog-api"]
+    "externalBin": [
+      "binaries/zfrog-api"
+    ]
   },
   "plugins": {
     "shell": {

@@ -22,6 +22,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 BIN_DIR = ROOT / "src-tauri" / "binaries"
+MIN_SIDECAR_BYTES = 10 * 1024 * 1024  # sanity: real onefile build is >10MB
 
 
 def target_triple() -> str:
@@ -50,19 +51,33 @@ def build() -> Path:
         print("Installing PyInstaller …", file=sys.stderr)
         subprocess.check_call([sys.executable, "-m", "pip", "install", "PyInstaller>=6"])
 
-    # Also need the project installed so zfrog.* resolves
     hidden = [
         "zfrog.desktop_entry",
         "zfrog.api",
         "zfrog.config",
         "zfrog.orchestrator",
+        "zfrog.engines",
+        "zfrog.engines.base",
         "zfrog.engines.playwright",
         "zfrog.engines.scrapy",
         "zfrog.engines.jump",
         "zfrog.engines.tongue",
+        "zfrog.pipeline",
+        "zfrog.pipeline.screenshot",
+        "zfrog.pipeline.packager",
+        "zfrog.pipeline.safety",
+        "zfrog.ws",
+        "zfrog.auth",
+        "zfrog.probe",
+        "zfrog.models",
+        "zfrog.session",
+        "zfrog.utils.stealth",
         "uvicorn.logging",
         "uvicorn.loops.auto",
         "uvicorn.protocols.http.auto",
+        "uvicorn.protocols.websockets.auto",
+        "anyio",
+        "starlette.middleware.cors",
     ]
 
     cmd = [
@@ -80,13 +95,18 @@ def build() -> Path:
         str(ROOT / "build"),
         "--clean",
         "--noconfirm",
-        # Collect FastAPI / Pydantic / uvicorn data
         "--collect-all",
         "fastapi",
         "--collect-all",
         "uvicorn",
         "--collect-all",
         "pydantic",
+        "--collect-all",
+        "pydantic_settings",
+        "--collect-all",
+        "anyio",
+        "--collect-all",
+        "starlette",
     ]
     for h in hidden:
         cmd += ["--hidden-import", h]
@@ -97,15 +117,16 @@ def build() -> Path:
     print(" ".join(cmd), file=sys.stderr)
     subprocess.check_call(cmd)
 
-    # PyInstaller on Linux may produce a plain `zfrog-api-…` without needing rename;
-    # on some setups it drops the triple — normalize.
     candidates = list(BIN_DIR.glob("zfrog-api*"))
     print(f"Artifacts: {candidates}", file=sys.stderr)
-    if out_path.exists():
-        print(f"✓ {out_path} ({out_path.stat().st_size / 1_048_576:.1f} MB)", file=sys.stderr)
-    else:
+    if not out_path.exists():
         print(f"✗ Expected {out_path} not found. Found: {candidates}", file=sys.stderr)
         sys.exit(1)
+    size = out_path.stat().st_size
+    if size < MIN_SIDECAR_BYTES:
+        print(f"✗ {out_path} too small ({size} bytes) — build incomplete", file=sys.stderr)
+        sys.exit(1)
+    print(f"✓ {out_path} ({size / 1_048_576:.1f} MB)", file=sys.stderr)
 
     # Tauri expects a sidecar named `zfrog-api` (without triple) when running
     # `tauri dev` — keep a symlink/copy for dev.
@@ -113,7 +134,6 @@ def build() -> Path:
     try:
         if dev_link.exists() or dev_link.is_symlink():
             dev_link.unlink()
-        # Symlink on Unix, copy on Windows (no symlink privilege)
         if sys.platform == "win32":
             shutil.copy2(out_path, dev_link)
         else:
@@ -131,12 +151,16 @@ def check() -> None:
     if sys.platform == "win32":
         out_name += ".exe"
     p = BIN_DIR / out_name
-    if p.exists():
-        print(f"✓ {p} ({p.stat().st_size / 1_048_576:.1f} MB)")
-    else:
+    if not p.exists():
         print(f"✗ Missing {p}")
-        print(f"  Run: python scripts/build-sidecar.py")
+        print("  Run: python scripts/build-sidecar.py")
         sys.exit(1)
+    size = p.stat().st_size
+    if size < MIN_SIDECAR_BYTES:
+        print(f"✗ {p} exists but too small ({size} bytes) — rebuild", file=sys.stderr)
+        print("  Run: python scripts/build-sidecar.py", file=sys.stderr)
+        sys.exit(1)
+    print(f"✓ {p} ({size / 1_048_576:.1f} MB)")
 
 
 if __name__ == "__main__":

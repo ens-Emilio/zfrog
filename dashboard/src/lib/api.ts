@@ -1060,6 +1060,12 @@ export const api = {
       body: JSON.stringify({ dir, tags }),
     }),
 
+  // ── browsers (desktop hybrid: system channel → cached chromium) ──
+  getBrowsersStatus: () =>
+    fetcher<{ available: boolean; browsers_path: string | null; has_system_channel: boolean; detail: string }>("/browsers/status"),
+  installBrowsers: () =>
+    fetcher<{ status: string; browsers_path: string | null }>("/browsers/install", { method: "POST" }),
+
   // ── graphql ──
   executeGraphQL: <T = unknown>(query: string, variables?: Record<string, unknown>) =>
     fetcher<GraphQLResult<T>>("/graphql", {

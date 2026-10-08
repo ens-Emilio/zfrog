@@ -2344,6 +2344,86 @@ async def arweave_status(auth: AuthDecision = Depends(auth_dependency(ACTION_REA
         "wallet": wallet_configured(),
     }
 
+@app.get("/browsers/status")
+async def browsers_status(auth: AuthDecision = Depends(auth_dependency(ACTION_READ))):
+    """Whether a Playwright-capable browser is available on this host.
+
+    The desktop app shows a fallback progress UI when no system browser is
+    found and the bundled Chromium has not yet been downloaded to
+    ``PLAYWRIGHT_BROWSERS_PATH`` (``~/.cache/zfrog/browsers`` in the
+    Tauri sidecar; ``~/.cache/ms-playwright`` otherwise). This is the signal
+    for that UI.
+    """
+    import os
+    import subprocess
+    import sys
+
+    browsers_path = os.environ.get("PLAYWRIGHT_BROWSERS_PATH", "") or None
+    available = False
+    detail = ""
+    try:
+        if browsers_path:
+            detail = browsers_path
+            available = any((Path(browsers_path) / d).exists() for d in os.listdir(browsers_path)) if Path(browsers_path).exists() else False
+        else:
+            from pathlib import Path as _P
+            candidates = [
+                _P.home() / ".cache" / "ms-playwright",
+                _P("/ms-playwright"),
+            ]
+            for c in candidates:
+                if c.exists() and any(c.iterdir()):
+                    available = True
+                    detail = str(c)
+                    break
+    except Exception as e:
+        detail = str(e)
+    has_system_channel = False
+    for bin_name in ("google-chrome", "chromium-browser", "chromium", "msedge", "microsoft-edge"):
+        try:
+            r = subprocess.run(["which", bin_name], capture_output=True, timeout=2)
+            if r.returncode == 0:
+                has_system_channel = True
+                break
+        except Exception:
+            pass
+    return {
+        "available": available or has_system_channel,
+        "browsers_path": browsers_path or detail or None,
+        "has_system_channel": has_system_channel,
+        "detail": detail,
+    }
+
+@app.post("/browsers/install")
+async def browsers_install(request: Request, auth: AuthDecision = Depends(auth_dependency(ACTION_ADMIN))):
+    """Download Chromium for Playwright into ``PLAYWRIGHT_BROWSERS_PATH``.
+
+    Runs ``playwright install chromium`` as a background task and returns
+    immediately; progress via ``GET /browsers/status``.
+    """
+    import asyncio
+    import os
+    import subprocess
+
+    browsers_path = os.environ.get("PLAYWRIGHT_BROWSERS_PATH", "")
+    env = os.environ.copy()
+
+    async def _run() -> None:
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                sys.executable, "-m", "playwright", "install", "chromium",
+                env=env,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            await proc.communicate()
+        except Exception as e:
+            logger.warning("browsers/install failed: %s", e)
+
+    asyncio.create_task(_run())
+    _audit(request, "browsers.install", target=browsers_path or "default")
+    return {"status": "installing", "browsers_path": browsers_path or None}
+
 @app.post("/arweave/publish")
 async def arweave_publish(body: DirRequest, request: Request,
                           auth: AuthDecision = Depends(auth_dependency(ACTION_ADMIN))):

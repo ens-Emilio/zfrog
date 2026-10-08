@@ -5,17 +5,15 @@ import { QueryClientProvider } from "@tanstack/react-query"
 import "@fontsource/iosevka/400.css"
 import "@fontsource/iosevka/500.css"
 import "../styles/tui.css"
-import "../globals.css"
 import { queryClient } from "@/lib/query-client"
 import { AuthGate } from "@/components/AuthGate"
 import { ToastRegion } from "@/components/ToastRegion"
-import { API_URL } from "@/lib/api"
-import { effectiveApiUrl, desktopHeaders, resolveDesktopConfig } from "@/lib/desktop"
+import { API_URL, api } from "@/lib/api"
+import { effectiveApiUrl, desktopHeaders, isDesktop, resolveDesktopConfig } from "@/lib/desktop"
 import { useTheme } from "@/lib/prefs"
 import { getLang, initLang, setLang, useT, type I18nKey } from "@/lib/i18n"
 import { LANG_LABEL, LANG_ORDER } from "@/lib/lang"
-import { SYM } from "@/components/ui/tui"
-
+import { Spinner, SYM } from "@/components/ui/tui"
 /* Tabs of the header. Hidden routes stay reachable from the palette (DESIGN.md §12). */
 const TABS: { to: string; key: I18nKey }[] = [
   { to: "/", key: "nav.runs" },
@@ -76,6 +74,41 @@ function Dot({ on, label }: { on: boolean; label: string }) {
     <span>
       <span className={on ? "dot-on" : "dot-off"}>{on ? SYM.on : SYM.off}</span> {label}
     </span>
+  )
+}
+
+// Desktop-only: shown when Playwright cannot launch a browser on first run.
+// Polls once per page load; dismiss leaves an auto-recheck at 30s.
+function BrowsersBanner() {
+  const t = useT()
+  const [s, setS] = useState<{ available: boolean; has_system_channel: boolean } | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [dismissed, setDismissed] = useState(false)
+  useEffect(() => {
+    if (!isDesktop()) return
+    let alive = true
+    const check = () => { api.getBrowsersStatus().then((r) => { if (alive) setS(r) }).catch(() => {}) }
+    check()
+    const id = window.setInterval(check, 30_000)
+    return () => { alive = false; window.clearInterval(id) }
+  }, [])
+  if (!isDesktop() || !s || s.available || dismissed) return null
+  const onInstall = async () => {
+    setBusy(true)
+    try { await api.installBrowsers(); setS({ ...s, available: false }) } catch { /* keep banner */ } finally { setBusy(false) }
+  }
+  const msg = s.has_system_channel ? t("browsers.hasSystem") : busy ? t("browsers.downloading") : t("browsers.missing")
+  return (
+    <div className="tui-panel" style={{ borderColor: s.has_system_channel ? "var(--muted)" : "var(--warning, var(--accent))", margin: "0.5lh 0", display: "flex", gap: "1ch", alignItems: "center", flexWrap: "wrap" }}>
+      <span style={{ color: "var(--fg-dim)" }}>{msg}</span>
+      {!s.has_system_channel && (
+        <button className="tui-btn accent" onClick={onInstall} disabled={busy} style={{ marginLeft: "auto" }}>
+          {busy ? <Spinner /> : null} {t("browsers.install")}
+        </button>
+      )}
+      <button className="tui-btn" onClick={() => api.getBrowsersStatus().then(setS).catch(() => {})} disabled={busy}>{t("browsers.retry")}</button>
+      <button className="tui-btn" onClick={() => setDismissed(true)}>{t("browsers.dismiss")}</button>
+    </div>
   )
 }
 
@@ -234,6 +267,7 @@ function Shell() {
           ctrl+k
         </button>
       </header>
+      <div className="tui-col" style={{ padding: "0 1lh" }}><BrowsersBanner /></div>
 
       <main className="tui-main" id="conteudo">
         <div className="tui-col">

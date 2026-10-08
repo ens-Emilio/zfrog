@@ -43,13 +43,25 @@ def main() -> None:
 
     if args.host not in ("127.0.0.1", "localhost"):
         parser.error("--host must be 127.0.0.1 or localhost (sidecar is loopback-only)")
-
     data_dir = _resolve_data_dir(args.data_dir)
     data_dir.mkdir(parents=True, exist_ok=True)
-
+    # Isolate Playwright's browser cache to the XDG cache dir so a fresh
+    # install doesn't pollute the user's default ``~/.cache/ms-playwright``
+    # (and a later ``playwright install`` outside zfrog can't break desktop).
+    # This is the ``~/.cache/zfrog/browsers`` of PLANO-TAURI.md §4.1.
+    if sys.platform == "win32":
+        browsers_path = data_dir / "browsers"
+    else:
+        _cache_base = os.environ.get("XDG_CACHE_HOME")
+        if _cache_base and _cache_base.strip():
+            browsers_path = Path(_cache_base) / "zfrog" / "browsers"
+        else:
+            browsers_path = Path.home() / ".cache" / "zfrog" / "browsers"
+    browsers_path.mkdir(parents=True, exist_ok=True)
+    # Only set if the caller didn't already pin it.
+    os.environ.setdefault("PLAYWRIGHT_BROWSERS_PATH", str(browsers_path))
     os.environ["ZFROG_DATA_DIR"] = str(data_dir)
     os.environ["ZFROG_DESKTOP_TOKEN"] = args.auth_token
-
     import uvicorn
     from fastapi import Request
     from fastapi.middleware.cors import CORSMiddleware
