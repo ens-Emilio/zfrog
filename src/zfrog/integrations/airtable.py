@@ -48,7 +48,7 @@ class AirtableClient(DestinationClient):
         table = config_text(destination.config, "table")
         token = config_text(destination.config, "token")
         if not base_id or not table or not token:
-            result.errors.append("destino airtable sem base_id, table ou token")
+            result.errors.append("airtable destination missing base_id, table or token")
             return result
         if not rows:
             return result
@@ -68,17 +68,17 @@ class AirtableClient(DestinationClient):
                 try:
                     response = await client.post(url, headers=headers, json=payload)
                 except httpx.HTTPError as exc:
-                    result.errors.append(f"lote {batch_number}: falha de rede no Airtable: {exc}")
+                    result.errors.append(f"batch {batch_number}: network failure in Airtable: {exc}")
                     continue
 
                 message = response_error(response, "Airtable")
                 if message:
-                    result.errors.append(f"lote {batch_number}: {message}")
+                    result.errors.append(f"batch {batch_number}: {message}")
                     continue
 
                 created = _created_records(response)
                 if created is None:
-                    result.errors.append(f"lote {batch_number}: resposta do Airtable sem records")
+                    result.errors.append(f"batch {batch_number}: Airtable response missing records")
                 else:
                     result.created += created
         return result
@@ -94,7 +94,7 @@ def _created_records(response: httpx.Response) -> int | None:
     try:
         payload = response.json()
     except ValueError:
-        logger.warning("Resposta do Airtable sem JSON legível: %s", response.text[:200])
+        logger.warning("Airtable response without readable JSON: %s", response.text[:200])
         return None
     records = payload.get("records") if isinstance(payload, dict) else None
     if not isinstance(records, list):

@@ -30,17 +30,17 @@ SNIPPET_CHARS = 300
 MAX_ANSWER_TOKENS = 1024
 FILE_MODE = 0o600
 ROLES = ("user", "assistant")
-ROLE_LABELS = {"user": "Usuário", "assistant": "Assistente"}
+ROLE_LABELS = {"user": "User", "assistant": "Assistant"}
 
 EMPTY_INDEX_ANSWER = (
-    "Nenhum conteúdo indexado ainda: adicione uma pasta de site clonado antes de perguntar."
+    "No indexed content yet: add a cloned site folder before asking."
 )
 
 SYSTEM_PROMPT = (
-    "Você conversa sobre sites clonados. Responda em português, usando somente o "
-    "contexto numerado fornecido e citando as fontes como [1], [2]. "
-    "Use o histórico da conversa para entender perguntas de continuação. "
-    "Se o contexto não responder, diga o que falta em vez de inventar."
+    "You chat about cloned sites. Answer in English, using only the "
+    "numbered context provided and citing sources as [1], [2]. "
+    "Use the conversation history to understand follow-up questions. "
+    "If the context does not answer, say what is missing instead of inventing."
 )
 
 def _now() -> str:
@@ -160,8 +160,8 @@ class ChatSession:
     async def _answer(self, question: str, context: str, citations: list[dict]) -> str:
         """Ask the model, replaying the recent turns; never raise."""
         fallback = (
-            f"IA indisponível: encontrei {len(citations)} trecho(s) relevantes em "
-            f"{len({c['site'] for c in citations})} site(s). Veja as citações."
+            f"AI unavailable: found {len(citations)} relevant excerpt(s) in "
+            f"{len({c['site'] for c in citations})} site(s). See the citations."
         )
         if not is_available():
             return fallback

@@ -27,28 +27,28 @@ def _score_text(value: object) -> str:
 
 def to_markdown(url: str, result: dict) -> str:
     """Render an enrichment result as Markdown (sentiment, tags and errors)."""
-    lines = [f"# Enriquecimento — {url}", ""]
+    lines = [f"# Enrichment — {url}", ""]
 
     sentiment = result.get("sentiment") or {}
-    lines += ["## Sentimento", ""]
-    lines.append(f"- Sentimento: {sentiment.get('sentiment', 'neutral')}")
-    lines.append(f"- Pontuação: {_score_text(sentiment.get('score'))}")
+    lines += ["## Sentiment", ""]
+    lines.append(f"- Sentiment: {sentiment.get('sentiment', 'neutral')}")
+    lines.append(f"- Score: {_score_text(sentiment.get('score'))}")
     rationale = str(sentiment.get("rationale") or "").strip()
     if rationale:
-        lines.append(f"- Justificativa: {rationale}")
+        lines.append(f"- Rationale: {rationale}")
     lines.append("")
 
-    lines += ["## Assuntos", ""]
+    lines += ["## Topics", ""]
     tags = result.get("tags") or []
     if tags:
         lines += [f"- {tag}" for tag in tags]
     else:
-        lines.append("Nenhum assunto identificado.")
+        lines.append("No topics identified.")
     lines.append("")
 
     errors = result.get("errors") or []
     if errors:
-        lines.append("## Erros")
+        lines.append("## Errors")
         lines += [f"- {error}" for error in errors]
         lines.append("")
 
@@ -71,7 +71,7 @@ class EnrichEngine(EngineAdapter):
         url = str(job.url)
 
         if on_progress:
-            on_progress("Analisando sentimento e assuntos...")
+            on_progress("Analyzing sentiment and topics...")
 
         html = ""
         try:
@@ -81,7 +81,7 @@ class EnrichEngine(EngineAdapter):
                 html = response.text
                 logs.append(f"Fetched {len(html)} bytes from {url}")
         except Exception as exc:
-            logs.append(f"Falha ao buscar {url}: {exc}")
+            logs.append(f"Failed to fetch {url}: {exc}")
 
         text = extract_text(html)
         if text:
@@ -91,7 +91,7 @@ class EnrichEngine(EngineAdapter):
         tags_result = await suggest_tags(text)
 
         errors: list[str] = []
-        for label, payload in (("sentimento", sentiment), ("assuntos", tags_result)):
+        for label, payload in (("sentiment", sentiment), ("topics", tags_result)):
             message = str(payload.get("error") or "").strip()
             if not message:
                 continue
@@ -116,7 +116,7 @@ class EnrichEngine(EngineAdapter):
         md_path.write_text(to_markdown(url, result), encoding="utf-8")
 
         if on_progress:
-            on_progress("Enriquecimento concluído")
+            on_progress("Enrichment complete")
 
         return EngineResult(
             output_dir=output_dir,

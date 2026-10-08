@@ -36,9 +36,9 @@ DEFAULT_TOP_K = 6
 _TOKEN_RE = re.compile(r"[0-9a-z]+")
 
 SYSTEM_PROMPT = (
-    "Responda à pergunta usando APENAS o contexto numerado fornecido. "
-    "Cite as fontes com [n] após cada afirmação, usando o número do trecho. "
-    "Se a informação não estiver no contexto, diga que não encontrou."
+    "Answer the question using ONLY the numbered context provided. "
+    "Cite sources with [n] after each claim, using the excerpt number. "
+    "If the information is not in the context, say you could not find it."
 )
 
 
@@ -337,7 +337,7 @@ class MultiSiteIndex:
         top_k = max(1, top_k)
         if not self.chunks:
             return {
-                "answer": "Nenhum conteúdo indexado ainda.",
+                "answer": "No indexed content yet.",
                 "citations": [],
                 "sites": [],
             }
@@ -372,8 +372,8 @@ class MultiSiteIndex:
     async def _answer(self, question: str, context: str, citations: list[Citation]) -> str:
         """Ask the model to answer from the numbered context, citing [n]."""
         fallback = (
-            f"LLM indisponível: encontrei {len(citations)} trechos relevantes em "
-            f"{len({c.site for c in citations})} site(s). Veja as citações."
+            f"LLM unavailable: found {len(citations)} relevant excerpts in "
+            f"{len({c.site for c in citations})} site(s). See the citations."
         )
         if not is_available():
             return fallback

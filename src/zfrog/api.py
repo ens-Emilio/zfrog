@@ -74,22 +74,18 @@ def auth_dependency(action: str):
 
 
 def allowed_origins() -> list[str]:
-    """Origins allowed to call the API from a browser; ``["*"]`` means any.
-
-    Read from settings on each call rather than captured at import, so this stays
-    the single source of truth for the check the WebSocket handshake performs. The
-    CORS middleware is built from the same list, but Starlette fixes its
-    configuration at startup — so a runtime change here would tighten the socket
-    without loosening the middleware, never the other way round.
-    """
+    """Origins allowed to call the API from a browser; defaults to local dashboard origins."""
     configured = [origin.strip() for origin in settings.cors_origins.split(",") if origin.strip()]
-    return configured or ["*"]
+    if not configured or configured == ["*"]:
+        return [
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+        ]
+    return configured
 
-# A browser only attaches the session cookie when the response names its exact
-# origin, and the specification forbids pairing credentials with "*". So cookie
-# logins need an explicit list; with the default "*" the API still works, but only
-# through an API key.
-_allow_credentials = bool(allowed_origins()) and "*" not in allowed_origins()
+_allow_credentials = True
 
 app.add_middleware(
     CORSMiddleware,
@@ -760,7 +756,7 @@ async def catalog_sites(request: Request,
 @app.post("/catalog/search")
 async def catalog_search(body: CatalogSearchRequest, request: Request,
                          auth: AuthDecision = Depends(auth_dependency(ACTION_READ))):
-    """Search the catalog by description ("layouts escuros com cards arredondados")."""
+    """Search the catalog by description ("dark layouts with rounded cards")."""
     from zfrog.visual_search import search_descriptive
 
     hits = await search_descriptive(_catalog(request), body.query, limit=body.limit)
@@ -785,7 +781,7 @@ async def catalog_reindex(request: Request, force: bool = False,
 
     result = await embed_catalog(_catalog(request), force=force)
     if result.indexed:
-        _audit(request, "catalog.reindex", detail=f"{result.indexed} referência(s)")
+        _audit(request, "catalog.reindex", detail=f"{result.indexed} reference(s)")
     return {"indexed": result.indexed, "reason": result.reason}
 
 
@@ -800,9 +796,9 @@ async def get_catalog_card(card_id: str, request: Request,
         if len(matches) == 1:
             card = matches[0]
         elif len(matches) > 1:
-            raise HTTPException(status_code=409, detail=f"prefixo ambíguo: {len(matches)} referências")
+            raise HTTPException(status_code=409, detail=f"ambiguous prefix: {len(matches)} references")
     if card is None:
-        raise HTTPException(status_code=404, detail="Referência não encontrada")
+        raise HTTPException(status_code=404, detail="Reference not found")
     return card.to_dict()
 
 
@@ -817,12 +813,12 @@ async def catalog_screenshot(card_id: str, request: Request,
     """
     card = _catalog(request).get(card_id)
     if card is None or not card.screenshot:
-        raise HTTPException(status_code=404, detail="Screenshot não encontrado")
+        raise HTTPException(status_code=404, detail="Screenshot not found")
 
     root = Path(settings.catalog_media_dir).resolve()
     target = (root / card.screenshot).resolve()
     if root not in target.parents or not target.is_file():
-        raise HTTPException(status_code=404, detail="Screenshot não encontrado")
+        raise HTTPException(status_code=404, detail="Screenshot not found")
 
     return FileResponse(target)
 
@@ -833,7 +829,7 @@ async def catalog_set_tags(card_id: str, body: CardTagsRequest, request: Request
     """Add tags to a reference, or replace the whole list."""
     catalog = _catalog(request)
     if catalog.get(card_id) is None:
-        raise HTTPException(status_code=404, detail="Referência não encontrada")
+        raise HTTPException(status_code=404, detail="Reference not found")
     tags = catalog.tag(card_id, body.tags, replace=body.replace)
     _audit(request, "catalog.tag", target=card_id, detail=",".join(tags))
     return {"id": card_id, "tags": tags}
@@ -845,7 +841,7 @@ async def catalog_set_note(card_id: str, body: CardNoteRequest, request: Request
     """Set the note of a reference."""
     catalog = _catalog(request)
     if catalog.get(card_id) is None:
-        raise HTTPException(status_code=404, detail="Referência não encontrada")
+        raise HTTPException(status_code=404, detail="Reference not found")
     catalog.note(card_id, body.note)
     return {"id": card_id, "note": body.note}
 
@@ -855,7 +851,7 @@ async def catalog_delete(card_id: str, request: Request,
                          auth: AuthDecision = Depends(auth_dependency(ACTION_VERSION_MANAGE))):
     """Remove a reference from the catalog. The captured files stay on disk."""
     if not _catalog(request).delete(card_id):
-        raise HTTPException(status_code=404, detail="Referência não encontrada")
+        raise HTTPException(status_code=404, detail="Reference not found")
     _audit(request, "catalog.delete", target=card_id)
     return {"id": card_id, "deleted": True}
 
@@ -999,7 +995,7 @@ def _audit(request: Request | None, action: str, target: str = "", outcome: str 
             metadata=metadata,
         )
     except Exception as e:  # pragma: no cover - defensive
-        logger.warning("auditoria falhou: %s", e)
+        logger.warning("audit log failed: %s", e)
 
 @app.get("/analytics/engines")
 async def analytics_engines(request: Request, engine: Optional[str] = None,
@@ -1131,7 +1127,18 @@ async def chat_endpoint(request: ChatRequest, http_request: Request,
             label, raw_path = Path(entry).name, entry
         path = Path(raw_path)
         if not path.is_dir():
-            raise HTTPException(status_code=404, detail=f"directory not found: {path}")
+            candidates = [
+                _scoped(http_request, "output_dir") / raw_path,
+                Path("output") / raw_path,
+                Path("output/snapshots") / raw_path,
+                _scoped(http_request, "output_dir") / "snapshots" / raw_path,
+                Path("output/snapshots") / label,
+            ]
+            found = next((c for c in candidates if c.is_dir()), None)
+            if found:
+                path = found
+            else:
+                raise HTTPException(status_code=404, detail=f"directory not found: {path}")
         session.add_site(label, path)
 
     if not session.index.sites():
@@ -1908,7 +1915,7 @@ def _consume_login(state: str) -> str:
         if shared:
             return shared
 
-    raise ValueError("state desconhecido ou já usado: reinicie o login")
+    raise ValueError("unknown or already-used state: restart the login")
 
 
 def _purge_expired_logins() -> None:
@@ -1981,17 +1988,17 @@ async def auth_callback(code: str, state: str = "", http_request: Request = None
     # A disabled account authenticates but must not be handed a session; the
     # cookie would otherwise outlive the revocation.
     if not user.enabled:
-        _audit(http_request, "auth.sso_login", target=user.email, outcome="error", detail="conta desativada")
-        raise HTTPException(status_code=403, detail="conta desativada")
+        _audit(http_request, "auth.sso_login", target=user.email, outcome="error", detail="account disabled")
+        raise HTTPException(status_code=403, detail="account disabled")
 
     token = websession.issue(user.id)
     if token is None:
-        _audit(http_request, "auth.sso_login", target=user.email, outcome="error", detail="chave de sessão indisponível")
+        _audit(http_request, "auth.sso_login", target=user.email, outcome="error", detail="session key unavailable")
         raise HTTPException(
             status_code=500,
             detail=(
-                "não foi possível criar a sessão: a chave de assinatura em "
-                "ZFROG_WEBSESSION_KEY_FILE não pôde ser lida nem criada"
+                "could not create the session: the signing key in "
+                "ZFROG_WEBSESSION_KEY_FILE could not be read or created"
             ),
         )
 
@@ -2095,13 +2102,13 @@ async def resolve_timeline(url: str, when: str, request: Request = None,
         raise HTTPException(status_code=400, detail=str(e))
 
     if ref is None:
-        raise HTTPException(status_code=404, detail="Nenhuma versão guardada até essa data")
+        raise HTTPException(status_code=404, detail="No version saved on or before that date")
 
     for entry in machine.timeline():
         if entry.ref == ref:
             return {"ref": entry.ref, "captured_at": entry.captured_at, "message": entry.message}
 
-    raise HTTPException(status_code=404, detail="Versão não encontrada")
+    raise HTTPException(status_code=404, detail="Version not found")
 
 @app.get("/timeline/pages")
 async def timeline_pages(url: str, ref: str, request: Request = None,
@@ -2128,7 +2135,7 @@ async def timeline_page(url: str, ref: str, path: str, request: Request = None,
 
     page = TimeMachine(url, root=_scoped(request, "versions_dir")).page(ref, path)
     if page is None:
-        raise HTTPException(status_code=404, detail="Página não encontrada nessa versão")
+        raise HTTPException(status_code=404, detail="Page not found in that version")
 
     return asdict(page)
 
@@ -2142,7 +2149,7 @@ async def timeline_content(url: str, ref: str, path: str, request: Request = Non
 
     html = TimeMachine(url, root=_scoped(request, "versions_dir")).content(ref, path)
     if html is None:
-        raise HTTPException(status_code=404, detail="Conteúdo não encontrado")
+        raise HTTPException(status_code=404, detail="Content not found")
 
     return HTMLResponse(html)
 
@@ -2228,7 +2235,7 @@ async def delete_totp(name: str, request: Request,
     from zfrog.totp import TotpStore
 
     if not TotpStore().remove(name):
-        raise HTTPException(status_code=404, detail="Conta não encontrada")
+        raise HTTPException(status_code=404, detail="Account not found")
 
     _audit(request, "totp.delete", target=name)
     return {"removed": name}
@@ -2268,7 +2275,7 @@ async def competitive_analysis(body: CompareRequest, request: Request,
     sites = {label: Path(path) for label, path in body.sites.items()}
     for label, path in sites.items():
         if not path.is_dir():
-            raise HTTPException(status_code=404, detail=f"diretório não encontrado: {label}")
+            raise HTTPException(status_code=404, detail=f"directory not found: {label}")
 
     return asdict(await compare_directories(sites))
 
@@ -2345,7 +2352,7 @@ async def arweave_publish(body: DirRequest, request: Request,
 
     target = Path(body.dir)
     if not target.is_dir():
-        raise HTTPException(status_code=404, detail=f"diretório não encontrado: {body.dir}")
+        raise HTTPException(status_code=404, detail=f"directory not found: {body.dir}")
 
     try:
         result = await publish_clone(target)

@@ -13,7 +13,7 @@ from pathlib import Path
 from zfrog.engines.base import EngineAdapter, EngineResult
 from zfrog.models import JobCreate, ProbeResult
 
-AI_UNAVAILABLE_MSG = "Módulo de IA indisponível. Instale litellm: pip install litellm"
+AI_UNAVAILABLE_MSG = "AI module unavailable. Install litellm: pip install litellm"
 
 
 class SummarizeEngine(EngineAdapter):
@@ -32,7 +32,7 @@ class SummarizeEngine(EngineAdapter):
         url = str(job.url)
 
         if on_progress:
-            on_progress("Resumindo com IA...")
+            on_progress("Summarizing with AI...")
 
         from zfrog.ai.summarize import summarize_text, to_markdown
         from zfrog.utils.http import create_client
@@ -45,7 +45,7 @@ class SummarizeEngine(EngineAdapter):
                 html = resp.text
                 logs.append(f"Fetched {len(html)} bytes from {url}")
         except Exception as e:
-            logs.append(f"Falha ao buscar {url}: {e}")
+            logs.append(f"Failed to fetch {url}: {e}")
 
         if html:
             from zfrog.utils.text import extract_text
@@ -54,7 +54,7 @@ class SummarizeEngine(EngineAdapter):
             logs.append(f"Extracted {len(text)} chars of text")
 
         summary = await summarize_text(text, url)
-        if summary.get("error") == "AI indisponível":
+        if summary.get("error") == "AI unavailable":
             summary["error"] = AI_UNAVAILABLE_MSG
 
         json_path = output_dir / "summary.json"
@@ -67,7 +67,7 @@ class SummarizeEngine(EngineAdapter):
         md_path.write_text(to_markdown(url, summary), encoding="utf-8")
 
         if on_progress:
-            on_progress("Resumo concluído")
+            on_progress("Summary complete")
 
         return EngineResult(
             output_dir=output_dir,

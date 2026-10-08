@@ -48,7 +48,7 @@ def _script_urls(html: str, base_url: str, logs: list[str]) -> list[str]:
         soup = BeautifulSoup(html, "lxml")
     except Exception as exc:  # noqa: BLE001 - broken HTML must not fail the run
         logger.warning("failed to parse %s: %s", base_url, exc)
-        logs.append(f"Falha ao analisar a página: {exc}")
+        logs.append(f"Failed to parse the page: {exc}")
         return []
 
     urls: list[str] = []
@@ -63,8 +63,8 @@ def _script_urls(html: str, base_url: str, logs: list[str]) -> list[str]:
 
     if len(urls) > MAX_SCRIPTS:
         logs.append(
-            f"Limite de {MAX_SCRIPTS} scripts atingido; "
-            f"ignorando {len(urls) - MAX_SCRIPTS} restantes"
+            f"Script limit of {MAX_SCRIPTS} reached; "
+            f"skipping {len(urls) - MAX_SCRIPTS} remaining"
         )
         urls = urls[:MAX_SCRIPTS]
     return urls
@@ -83,31 +83,31 @@ async def _fetch_scripts(
             response = await client.get(src)
         except httpx.HTTPError as exc:
             logger.warning("script request failed for %s: %s", src, exc)
-            logs.append(f"Falha ao buscar script {src}: {exc}")
+            logs.append(f"Failed to fetch script {src}: {exc}")
             continue
         if response.status_code >= 400:
-            logs.append(f"HTTP {response.status_code} para o script {src}")
+            logs.append(f"HTTP {response.status_code} for the script {src}")
             continue
         body = response.content
         if len(body) > MAX_SCRIPT_BYTES:
-            logs.append(f"Script {src} truncado em {MAX_SCRIPT_BYTES} bytes")
+            logs.append(f"Script {src} truncated at {MAX_SCRIPT_BYTES} bytes")
             body = body[:MAX_SCRIPT_BYTES]
         bodies.append(body.decode("utf-8", errors="replace"))
-        logs.append(f"Script analisado: {src} ({len(body)} bytes)")
+        logs.append(f"Script analyzed: {src} ({len(body)} bytes)")
     return bodies, logs
 
 
 def _render_markdown(base_url: str, by_kind: dict[str, list[Endpoint]]) -> str:
     """Markdown report: one table per kind of endpoint."""
-    lines = ["# Endpoints de API", "", f"Página: {base_url}", ""]
+    lines = ["# API Endpoints", "", f"Page: {base_url}", ""]
     total = sum(len(items) for items in by_kind.values())
     if not total:
-        lines.append("Nenhum endpoint encontrado.")
+        lines.append("No endpoints found.")
         return "\n".join(lines) + "\n"
 
     lines.extend([f"Total: {total}", ""])
     for kind, items in by_kind.items():
-        lines.extend([f"## {kind}", "", "| Método | Tipo | URL |", "| --- | --- | --- |"])
+        lines.extend([f"## {kind}", "", "| Method | Kind | URL |", "| --- | --- | --- |"])
         for endpoint in items:
             lines.append(f"| {endpoint.method} | {endpoint.kind} | {endpoint.url} |")
         lines.append("")
@@ -133,7 +133,7 @@ class ApiDiscoveryEngine(EngineAdapter):
         output_dir.mkdir(parents=True, exist_ok=True)
         logs: list[str] = []
         url = str(job.url)
-        _progress(on_progress, "Procurando APIs...")
+        _progress(on_progress, "Scanning for APIs...")
 
         html = ""
         base_url = url
@@ -143,12 +143,12 @@ class ApiDiscoveryEngine(EngineAdapter):
                 response = await client.get(url)
                 base_url = str(response.url)
                 html = response.text
-                logs.append(f"Página obtida: {len(html)} bytes de {base_url}")
+                logs.append(f"Page fetched: {len(html)} bytes from {base_url}")
                 js_bodies, script_logs = await _fetch_scripts(client, html, base_url)
                 logs.extend(script_logs)
         except httpx.HTTPError as exc:
             logger.warning("api discovery request failed for %s: %s", url, exc)
-            logs.append(f"Falha ao buscar {url}: {exc}")
+            logs.append(f"Failed to fetch {url}: {exc}")
 
         endpoints = extract_endpoints(html, base_url, js_bodies)
         by_kind = group_by_kind(endpoints)
@@ -172,8 +172,8 @@ class ApiDiscoveryEngine(EngineAdapter):
         )
         md_path.write_text(_render_markdown(base_url, by_kind), encoding="utf-8")
 
-        _progress(on_progress, f"APIs encontradas: {len(endpoints)}")
-        logs.append(f"APIs encontradas: {len(endpoints)}")
+        _progress(on_progress, f"APIs found: {len(endpoints)}")
+        logs.append(f"APIs found: {len(endpoints)}")
 
         files = [json_path, md_path]
         return EngineResult(

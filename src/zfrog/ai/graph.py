@@ -54,13 +54,13 @@ _SENTENCE_BREAK = re.compile(r"(?<=[.!?\u2026])[ \t\u00a0]+|\n+")
 _SLUG_SEPARATORS = re.compile(r"[\W_]+")
 
 RELATIONS_PROMPT = (
-    "Você mapeia relações entre entidades de uma página. "
-    "Receberá uma lista de entidades e o texto da página. "
-    "Proponha apenas relações entre pares de entidades da lista que o texto sustenta, "
-    "usando um verbo curto em snake_case para 'relation' "
-    "(por exemplo 'trabalha_em', 'pertence_a', 'localizado_em', 'fundou'). "
-    "Use os nomes das entidades exatamente como aparecem na lista. "
-    "Não invente relações que o texto não sustenta."
+    "You map relations between entities of a page. "
+    "You will receive a list of entities and the page text. "
+    "Propose only relations between pairs of entities from the list that the text supports, "
+    "using a short snake_case verb for 'relation' "
+    "(for example 'works_at', 'belongs_to', 'located_in', 'founded'). "
+    "Use the entity names exactly as they appear in the list. "
+    "Do not invent relations the text does not support."
 )
 
 
@@ -97,9 +97,9 @@ class KnowledgeGraph:
 class ProposedRelation(BaseModel):
     """One relation proposed by the model between two entities of a page."""
 
-    source: str = Field(description="Nome da entidade de origem, como aparece na lista")
-    target: str = Field(description="Nome da entidade de destino, como aparece na lista")
-    relation: str = Field(default="", description="Relação entre elas, em snake_case")
+    source: str = Field(description="Name of the source entity, as it appears in the list")
+    target: str = Field(description="Name of the target entity, as it appears in the list")
+    relation: str = Field(default="", description="Relation between them, in snake_case")
 
 
 class RelationProposalList(BaseModel):
@@ -128,7 +128,7 @@ class _EdgeDraft:
 
 
 def _fold(text: object) -> str:
-    """Casefold and strip accents, so ``"José"`` and ``"JOSE"`` compare equal."""
+    """Casefold and strip accents, so ``"Jose"`` and ``"JOSE"`` compare equal."""
     decomposed = unicodedata.normalize("NFKD", str(text or ""))
     return "".join(ch for ch in decomposed if not unicodedata.combining(ch)).casefold()
 
@@ -143,7 +143,7 @@ def node_id(name: str, type: str = "") -> str:
 
     The id depends on the name alone, so the same entity always gets the same
     id: it is the casefolded name with accents stripped and every run of
-    non-alphanumerics replaced by a single dash (``"José  Silva"`` and
+    non-alphanumerics replaced by a single dash (``"Jose  Silva"`` and
     ``"JOSE silva"`` both become ``"jose-silva"``). ``type`` is only used when
     the name has no alphanumeric character at all; when neither does, the id is
     the empty string and the entity is not graphable.
@@ -413,34 +413,34 @@ def find_relationships(graph: KnowledgeGraph, node_id_value: str) -> list[Edge]:
 
 
 def _plural(count: int, singular: str, plural: str) -> str:
-    """``"1 relação"`` / ``"3 relações"``."""
+    """``"1 relation"`` / ``"3 relations"``."""
     return f"{count} {singular if count == 1 else plural}"
 
 
 def describe(graph: KnowledgeGraph, limit: int = 10) -> str:
     """Short Portuguese summary of a graph: sizes, top entities, top relations."""
     if not graph.nodes:
-        return "Grafo vazio: nenhuma entidade encontrada."
+        return "Empty graph: no entities found."
     limit = max(1, limit)
     names = {node.id: node.name for node in graph.nodes}
 
     most_mentioned = sorted(graph.nodes, key=lambda node: (-node.mentions, node.name.casefold()))
     parts = [
-        "Grafo com "
-        + _plural(len(graph.nodes), "entidade", "entidades")
-        + " e "
-        + _plural(len(graph.edges), "relação", "relações")
+        "Graph with "
+        + _plural(len(graph.nodes), "entity", "entities")
+        + " and "
+        + _plural(len(graph.edges), "relation", "relations")
         + "."
     ]
     parts.append(
-        "Mais mencionadas: "
+        "Most mentioned: "
         + ", ".join(f"{node.name} ({node.mentions})" for node in most_mentioned[:limit])
         + "."
     )
     if graph.edges:
         strongest = sorted(graph.edges, key=_edge_sort_key)[:limit]
         parts.append(
-            "Relações mais fortes: "
+            "Strongest relations: "
             + ", ".join(
                 f"{names.get(edge.source, edge.source)} -{edge.relation}-> "
                 f"{names.get(edge.target, edge.target)} ({edge.weight})"
@@ -449,7 +449,7 @@ def describe(graph: KnowledgeGraph, limit: int = 10) -> str:
             + "."
         )
     else:
-        parts.append("Sem relações entre as entidades.")
+        parts.append("No relations between the entities.")
     return " ".join(parts)
 
 
@@ -513,7 +513,7 @@ def _relation_messages(names: list[str], text: object) -> list[dict[str, str]]:
 async def _propose_relations(pages: list[dict], graph: KnowledgeGraph) -> list[dict]:
     """Ask the model for the relations of each page; one entry per accepted proposal."""
     if not is_available():
-        logger.info("AI indisponível: grafo apenas de co-ocorrência")
+        logger.info("AI unavailable: co-occurrence-only graph")
         return []
 
     known = {node.id: node.name for node in graph.nodes}

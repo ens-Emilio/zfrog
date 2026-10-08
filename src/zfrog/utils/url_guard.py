@@ -53,7 +53,7 @@ def _addresses_for(host: str) -> list[ipaddress._BaseAddress]:
     try:
         infos = socket.getaddrinfo(host, None, proto=socket.IPPROTO_TCP)
     except socket.gaierror as exc:
-        raise BlockedUrlError(f"não foi possível resolver {host!r}: {exc}") from exc
+        raise BlockedUrlError(f"could not resolve {host!r}: {exc}") from exc
 
     addresses = []
     for info in infos:
@@ -90,18 +90,18 @@ def check_url(url: str) -> None:
 
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https"):
-        raise BlockedUrlError(f"esquema não permitido: {parsed.scheme or '(vazio)'}")
+        raise BlockedUrlError(f"disallowed scheme: {parsed.scheme or '(empty)'}")
 
     host = parsed.hostname
     if not host:
-        raise BlockedUrlError("URL sem host")
+        raise BlockedUrlError("URL without host")
 
     if host.lower() in _LOCAL_NAMES:
-        raise BlockedUrlError(f"host interno bloqueado: {host}")
+        raise BlockedUrlError(f"internal host blocked: {host}")
 
     for address in _addresses_for(host):
         if is_blocked_address(address):
-            raise BlockedUrlError(f"{host} resolve para um endereço interno ({address})")
+            raise BlockedUrlError(f"{host} resolves to an internal address ({address})")
 
 
 async def guard_request_hook(request) -> None:

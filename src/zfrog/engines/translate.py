@@ -39,7 +39,7 @@ def to_markdown(url: str, result: dict) -> str:
     if text:
         lines += [text, ""]
     else:
-        lines += ["Nenhum texto traduzido.", ""]
+        lines += ["No translated text.", ""]
 
     return "\n".join(lines)
 
@@ -61,7 +61,7 @@ class TranslateEngine(EngineAdapter):
         target = resolve_target(job)
 
         if on_progress:
-            on_progress("Traduzindo...")
+            on_progress("Translating...")
 
         html = ""
         try:
@@ -71,8 +71,8 @@ class TranslateEngine(EngineAdapter):
                 html = response.text
                 logs.append(f"Fetched {len(html)} bytes from {url}")
         except Exception as exc:
-            logger.warning("Falha ao buscar %s: %s", url, exc)
-            logs.append(f"Falha ao buscar {url}: {exc}")
+            logger.warning("Failed to fetch %s: %s", url, exc)
+            logs.append(f"Failed to fetch {url}: {exc}")
 
         text = extract_text(html)
         if text:
@@ -88,7 +88,7 @@ class TranslateEngine(EngineAdapter):
         }
         if translated.get("error"):
             result["error"] = translated["error"]
-            logger.warning("Tradução de %s: %s", url, translated["error"])
+            logger.warning("Translation of %s: %s", url, translated["error"])
             logs.append(f"AI: {translated['error']}")
         else:
             logs.append(f"Translated {len(result['text'])} chars")
@@ -103,7 +103,7 @@ class TranslateEngine(EngineAdapter):
         md_path.write_text(to_markdown(url, result), encoding="utf-8")
 
         if on_progress:
-            on_progress("Tradução concluída")
+            on_progress("Translation complete")
 
         return EngineResult(
             output_dir=output_dir,

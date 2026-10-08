@@ -171,13 +171,13 @@ class ApiKeyStore:
         """
         if role not in ROLES:
             raise ValueError(
-                f"papel desconhecido: {role!r} (válidos: {', '.join(sorted(ROLES))})"
+                f"unknown role: {role!r} (valid: {', '.join(sorted(ROLES))})"
             )
 
         secret, digest = generate_key()
         key = ApiKey(
             id=secrets.token_hex(8),
-            name=str(name).strip() or "sem nome",
+            name=str(name).strip() or "unnamed",
             role=role,
             hash=digest,
             created_at=_now(),
@@ -237,7 +237,7 @@ class ApiKeyStore:
             if not hmac.compare_digest(key.hash, digest):
                 continue
             if not key.enabled:
-                logger.warning("Chave %s está desativada", key.id)
+                logger.warning("Key %s is deactivated", key.id)
                 return None
             key.last_used_at = _now()
             self._save(keys)
@@ -259,22 +259,22 @@ class ApiKeyStore:
         try:
             data = json.loads(raw)
         except ValueError as exc:
-            raise ValueError(f"arquivo de chaves inválido ({self.path}): {exc}") from exc
+            raise ValueError(f"invalid key file ({self.path}): {exc}") from exc
 
         if not isinstance(data, list):
-            raise ValueError(f"arquivo de chaves inválido ({self.path}): esperado uma lista")
+            raise ValueError(f"invalid key file ({self.path}): expected a list")
         return [self._from_dict(item) for item in data]
 
     def _from_dict(self, item: object) -> ApiKey:
         """Build an ApiKey from one JSON record."""
         if not isinstance(item, dict):
-            raise ValueError(f"arquivo de chaves inválido ({self.path}): registro não é objeto")
+            raise ValueError(f"invalid keys file ({self.path}): record is not an object")
 
         required = ("id", "name", "role", "hash", "created_at")
         missing = [field for field in required if not item.get(field)]
         if missing:
             raise ValueError(
-                f"arquivo de chaves inválido ({self.path}): faltam campos {', '.join(missing)}"
+                f"invalid key file ({self.path}): missing fields {', '.join(missing)}"
             )
 
         return ApiKey(
@@ -318,30 +318,29 @@ def authorize(secret: str | None, action: str, store: ApiKeyStore | None = None)
     logged at warning level.
     """
     if not settings.auth_enabled:
-        return AuthDecision(True, ANONYMOUS, ANONYMOUS, "autenticação desativada")
+        return AuthDecision(True, ANONYMOUS, ANONYMOUS, "authentication disabled")
 
     key_store = store if store is not None else ApiKeyStore()
-
     if not secret:
-        decision = AuthDecision(False, ANONYMOUS, "", "credencial ausente")
+        decision = AuthDecision(False, ANONYMOUS, "", "missing credential")
     else:
         key = key_store.verify(secret)
         if key is None:
-            decision = AuthDecision(False, ANONYMOUS, "", "chave desconhecida ou desativada")
+            decision = AuthDecision(False, ANONYMOUS, "", "unknown or deactivated key")
         elif not role_allows(key.role, action):
             decision = AuthDecision(
-                False, key.name, key.role, f"papel '{key.role}' não permite a ação '{action}'"
+                False, key.name, key.role, f"role '{key.role}' does not allow the action '{action}'"
             )
         else:
             decision = AuthDecision(
-                True, key.name, key.role, f"papel '{key.role}' permite a ação '{action}'"
+                True, key.name, key.role, f"role '{key.role}' allows the action '{action}'"
             )
 
     if not decision.allowed:
         logger.warning(
-            "Acesso negado a %s (papel %s) para %s: %s",
+            "Access denied for %s (role %s) for %s: %s",
             decision.actor,
-            decision.role or "nenhum",
+            decision.role or "none",
             action,
             decision.reason,
         )
@@ -365,7 +364,7 @@ def identify(
         try:
             key = ApiKeyStore().verify(secret)
         except Exception as exc:
-            logger.warning("Falha ao verificar chave de API: %s", exc)
+            logger.warning("Failed to verify API key: %s", exc)
             return None
         if key is not None:
             return Identity(actor=key.name, role=key.role, org=key.org, via="key")
@@ -381,7 +380,7 @@ def identify(
             user_id = verify(token)
             user = UserStore().get(user_id) if user_id else None
         except Exception as exc:
-            logger.warning("Falha ao verificar sessão do painel: %s", exc)
+            logger.warning("Failed to verify the dashboard session: %s", exc)
             return None
         if user is not None and user.enabled:
             # Role and org come from the store, not the cookie, so a change or a
@@ -407,18 +406,17 @@ def authorize_request(
     may arrive as a header (API key) or as the dashboard's session cookie.
     """
     if not settings.auth_enabled:
-        return AuthDecision(True, ANONYMOUS, ANONYMOUS, "autenticação desativada")
+        return AuthDecision(True, ANONYMOUS, ANONYMOUS, "authentication disabled")
 
     identity = identify(headers, cookies)
-
     if identity is None:
-        decision = AuthDecision(False, ANONYMOUS, "", "credencial ausente")
+        decision = AuthDecision(False, ANONYMOUS, "", "missing credential")
     elif not role_allows(identity.role, action):
         decision = AuthDecision(
             False,
             identity.actor,
             identity.role,
-            f"papel '{identity.role}' não permite a ação '{action}'",
+            f"role '{identity.role}' does not allow the action '{action}'",
             org=identity.org,
             via=identity.via,
         )
@@ -427,16 +425,16 @@ def authorize_request(
             True,
             identity.actor,
             identity.role,
-            f"papel '{identity.role}' permite a ação '{action}'",
+            f"role '{identity.role}' allows the action '{action}'",
             org=identity.org,
             via=identity.via,
         )
 
     if not decision.allowed:
         logger.warning(
-            "Acesso negado a %s (papel %s) para %s: %s",
+            "Access denied for %s (role %s) for %s: %s",
             decision.actor,
-            decision.role or "nenhum",
+            decision.role or "none",
             action,
             decision.reason,
         )

@@ -13,11 +13,11 @@ from datetime import date, datetime, time, timedelta
 
 logger = logging.getLogger(__name__)
 
-MINUTE = "minuto"
-HOUR = "hora"
-DAY_OF_MONTH = "dia-do-mês"
-MONTH = "mês"
-DAY_OF_WEEK = "dia-da-semana"
+MINUTE = "minute"
+HOUR = "hour"
+DAY_OF_MONTH = "day-of-month"
+MONTH = "month"
+DAY_OF_WEEK = "day-of-week"
 
 # Field label, inclusive lower bound and inclusive upper bound.
 # Day of week accepts 7 as an extra spelling of Sunday and normalises it to 0.
@@ -30,29 +30,29 @@ _FIELD_LIMITS: tuple[tuple[str, int, int], ...] = (
 )
 
 _MONTH_NAMES = (
-    "janeiro",
-    "fevereiro",
-    "março",
-    "abril",
-    "maio",
-    "junho",
-    "julho",
-    "agosto",
-    "setembro",
-    "outubro",
-    "novembro",
-    "dezembro",
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
 )
 
-_WEEKDAY_NAMES = ("domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado")
+_WEEKDAY_NAMES = ("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")
 _WEEKDAY_PLURALS = (
-    "aos domingos",
-    "às segundas",
-    "às terças",
-    "às quartas",
-    "às quintas",
-    "às sextas",
-    "aos sábados",
+    "on Sundays",
+    "on Mondays",
+    "on Tuesdays",
+    "on Wednesdays",
+    "on Thursdays",
+    "on Fridays",
+    "on Saturdays",
 )
 
 _WEEKEND = frozenset({0, 6})
@@ -114,7 +114,7 @@ class CronSchedule:
                             return candidate
             day += timedelta(days=1)
 
-        logger.debug("Nenhuma execução encontrada para %r nos próximos %d dias", self.expr, limit_days)
+        logger.debug("No occurrence found for %r in the next %d days", self.expr, limit_days)
         return None
 
     def _day_matches(self, day: date) -> bool:
@@ -139,7 +139,7 @@ def _normalise_dow(value: int) -> int:
 def _to_int(text: str, name: str, part: str) -> int:
     """Parse a non-negative integer, raising ValueError with the offending field."""
     if not text.isdigit():
-        raise ValueError(f"campo {name} inválido: {part!r}")
+        raise ValueError(f"invalid field {name}: {part!r}")
     return int(text)
 
 
@@ -152,46 +152,39 @@ def _parse_field(
 ) -> tuple[frozenset[int], bool]:
     """Expand one cron field into its value set plus a wildcard flag."""
     if not text:
-        raise ValueError(f"campo {name} vazio")
-
+        raise ValueError(f"field {name} is empty")
     is_star = text.startswith("*")
     values: set[int] = set()
-
     for part in text.split(","):
         if not part:
-            raise ValueError(f"campo {name} inválido: {text!r}")
-
+            raise ValueError(f"invalid field {name}: {text!r}")
         base, separator, step_text = part.partition("/")
         step = 1
         if separator:
             step = _to_int(step_text, name, part)
             if step < 1:
-                raise ValueError(f"passo deve ser maior que zero no campo {name}: {part!r}")
-
+                raise ValueError(f"step must be greater than zero in field {name}: {part!r}")
         if base == "*":
             start, end = low, high
         elif "-" in base:
             bounds = base.split("-")
             if len(bounds) != 2:
-                raise ValueError(f"campo {name} inválido: {part!r}")
+                raise ValueError(f"invalid field {name}: {part!r}")
             start = _to_int(bounds[0], name, part)
             end = _to_int(bounds[1], name, part)
             if start > end:
-                raise ValueError(f"intervalo invertido no campo {name}: {part!r}")
+                raise ValueError(f"inverted range in field {name}: {part!r}")
         else:
             start = end = _to_int(base, name, part)
 
         for bound in (start, end):
             if not low <= bound <= high:
                 raise ValueError(
-                    f"valor fora do intervalo {low}-{high} no campo {name}: {bound}"
+                    f"value out of range {low}-{high} in field {name}: {bound}"
                 )
 
         for value in range(start, end + 1, step):
             values.add(normalise(value) if normalise is not None else value)
-
-    if not values:
-        raise ValueError(f"campo {name} não seleciona nenhum valor: {text!r}")
 
     return frozenset(values), is_star
 
@@ -203,13 +196,13 @@ def parse_cron(expr: str) -> CronSchedule:
         ValueError: wrong field count, unknown syntax or out-of-range values.
     """
     if not isinstance(expr, str) or not expr.strip():
-        raise ValueError("expressão cron vazia")
+        raise ValueError("empty cron expression")
 
     fields = expr.split()
     if len(fields) != 5:
         raise ValueError(
-            "expressão cron deve ter 5 campos (minuto hora dia-do-mês mês dia-da-semana), "
-            f"recebeu {len(fields)}: {expr!r}"
+            "cron expression must have 5 fields (minute hour day-of-month month day-of-week), "
+            f"got {len(fields)}: {expr!r}"
         )
 
     parsed = []
@@ -234,10 +227,10 @@ def parse_cron(expr: str) -> CronSchedule:
 
 
 def _join_list(items: list[str]) -> str:
-    """Join human-readable items as `a, b e c`."""
+    """Join human-readable items as `a, b and c`."""
     if len(items) == 1:
         return items[0]
-    return ", ".join(items[:-1]) + " e " + items[-1]
+    return ", ".join(items[:-1]) + " and " + items[-1]
 
 
 def _step_of(text: str) -> int | None:
@@ -255,15 +248,15 @@ def _is_contiguous(values: list[int]) -> bool:
 def _describe_dom(days: frozenset[int], month_restricted: bool) -> str:
     """Describe a restricted day-of-month field."""
     values = sorted(days)
-    suffix = "" if month_restricted else " de cada mês"
+    suffix = "" if month_restricted else " of every month"
 
     if _is_contiguous(values):
-        return f"do dia {values[0]} ao dia {values[-1]}{suffix}"
+        return f"from day {values[0]} to day {values[-1]}{suffix}"
     if len(values) == 1:
-        return f"no dia {values[0]}{suffix}"
+        return f"on day {values[0]}{suffix}"
     if len(values) == 2:
-        return f"no dia {values[0]} e {values[1]}{suffix}"
-    return "nos dias " + _join_list([str(value) for value in values]) + suffix
+        return f"on day {values[0]} and {values[1]}{suffix}"
+    return "on days " + _join_list([str(value) for value in values]) + suffix
 
 
 def _describe_dow(days: frozenset[int]) -> str:
@@ -271,12 +264,12 @@ def _describe_dow(days: frozenset[int]) -> str:
     values = sorted(days)
 
     if set(values) == _WEEKEND:
-        return "nos fins de semana"
+        return "on weekends"
     if len(values) == 1:
         return _WEEKDAY_PLURALS[values[0]]
     if _is_contiguous(values):
         return f"de {_WEEKDAY_NAMES[values[0]]} a {_WEEKDAY_NAMES[values[-1]]}"
-    return "nos dias " + _join_list([_WEEKDAY_NAMES[value] for value in values])
+    return "on days " + _join_list([_WEEKDAY_NAMES[value] for value in values])
 
 
 def _describe_days(schedule: CronSchedule, month_restricted: bool) -> str:
@@ -285,7 +278,7 @@ def _describe_days(schedule: CronSchedule, month_restricted: bool) -> str:
     dow_restricted = not schedule.dow_star
 
     if not dom_restricted and not dow_restricted:
-        return "todo dia"
+        return "every day"
 
     dom_text = _describe_dom(schedule.dom, month_restricted) if dom_restricted else ""
     dow_text = _describe_dow(schedule.dow) if dow_restricted else ""
@@ -301,10 +294,10 @@ def _describe_months(months: frozenset[int]) -> str:
     names = [_MONTH_NAMES[value - 1] for value in values]
 
     if len(values) == 1:
-        return f"em {names[0]}"
+        return f"in {names[0]}"
     if _is_contiguous(values):
-        return f"de {names[0]} a {names[-1]}"
-    return "em " + _join_list(names)
+        return f"from {names[0]} to {names[-1]}"
+    return "in " + _join_list(names)
 
 
 def _describe_time(schedule: CronSchedule, fields: list[str]) -> str:
@@ -316,41 +309,41 @@ def _describe_time(schedule: CronSchedule, fields: list[str]) -> str:
     all_hours = len(hours) == 24
 
     if all_minutes and all_hours:
-        return "a cada minuto"
+        return "every minute"
 
     if all_hours:
         minute_step = _step_of(minute_raw)
         if minute_step and minutes == list(range(0, 60, minute_step)):
-            return f"a cada {minute_step} minutos"
+            return f"every {minute_step} minutes"
         if minutes == [0]:
-            return "a cada hora"
+            return "every hour"
         if len(minutes) == 1:
-            return f"a cada hora, no minuto {minutes[0]:02d}"
-        return "a cada hora, nos minutos " + _join_list([f"{minute:02d}" for minute in minutes])
+            return f"every hour, at minute {minutes[0]:02d}"
+        return "every hour, at minutes " + _join_list([f"{minute:02d}" for minute in minutes])
 
     hour_step = _step_of(hour_raw)
     if hour_step and hours == list(range(0, 24, hour_step)):
         if len(minutes) == 1:
-            return f"a cada {hour_step} horas, no minuto {minutes[0]:02d}"
-        return f"a cada {hour_step} horas"
+            return f"every {hour_step} hours, at minute {minutes[0]:02d}"
+        return f"every {hour_step} hours"
 
     if len(hours) == 1:
         hour = hours[0]
         if len(minutes) == 1:
-            return f"às {hour:02d}:{minutes[0]:02d}"
+            return f"at {hour:02d}:{minutes[0]:02d}"
         minute_step = _step_of(minute_raw)
         if minute_step and minutes == list(range(0, 60, minute_step)):
-            return f"a cada {minute_step} minutos das {hour:02d}:00 às {hour:02d}:59"
-        return "às " + _join_list([f"{hour:02d}:{minute:02d}" for minute in minutes])
+            return f"every {minute_step} minutes from {hour:02d}:00 to {hour:02d}:59"
+        return "at " + _join_list([f"{hour:02d}:{minute:02d}" for minute in minutes])
 
     if len(minutes) == 1:
         minute = minutes[0]
-        return f"das {hours[0]:02d}:{minute:02d} às {hours[-1]:02d}:{minute:02d}"
-    return f"das {hours[0]:02d}:{minutes[0]:02d} às {hours[-1]:02d}:{minutes[-1]:02d}"
+        return f"from {hours[0]:02d}:{minute:02d} to {hours[-1]:02d}:{minute:02d}"
+    return f"from {hours[0]:02d}:{minutes[0]:02d} to {hours[-1]:02d}:{minutes[-1]:02d}"
 
 
 def describe(expr: str) -> str:
-    """Return a short Portuguese description of a cron expression.
+    """Return a short English description of a cron expression.
 
     Raises:
         ValueError: when `expr` is not a valid five-field cron expression.
@@ -362,12 +355,12 @@ def describe(expr: str) -> str:
     day_part = _describe_days(schedule, bool(month_part))
     time_part = _describe_time(schedule, fields)
 
-    if not month_part and day_part == "todo dia" and time_part.startswith("a cada"):
+    if not month_part and day_part == "every day" and time_part.startswith("every "):
         return time_part
 
     head = ", ".join(part for part in (month_part, day_part) if part)
     if not head:
         return time_part
     has_weekday = any(name in head for name in _WEEKDAY_NAMES)
-    separator = " " if time_part.startswith("às") and not has_weekday else ", "
+    separator = " " if time_part.startswith("at") and not has_weekday else ", "
     return f"{head}{separator}{time_part}"

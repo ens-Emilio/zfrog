@@ -44,16 +44,16 @@ def clone(
     output: str = typer.Option("output", "--output", "-o", help="Output directory"),
     rate_limit: float = typer.Option(1.0, "--rate-limit", "-r", help="Requests per second"),
     pdf_filename: Optional[str] = typer.Option(
-        None, "--pdf-filename", help="Nome do PDF gerado (modo pdf; default: index)"
+        help="Name of the generated PDF (pdf mode; default: index)"
     ),
     versioned: bool = typer.Option(
-        False, "--versioned", help="Guardar uma versão do site no histórico (rollback depois)"
+        False, "--versioned", help="Save a version of the site to history (rollback later)"
     ),
     translate_target: Optional[str] = typer.Option(
-        None, "--target", help="Idioma de destino no modo translate (ex.: pt, en, es)"
+        None, "--target", help="Target language in translate mode (e.g.: pt, en, es)"
     ),
     org: Optional[str] = typer.Option(
-        None, "--org", "-O", help="Organização dona dos dados (isola em output/orgs/<slug>)"
+        None, "--org", "-O", help="Organization that owns the data (isolated in output/orgs/<slug>)"
     ),
 ):
     """Clone a website."""
@@ -168,9 +168,9 @@ def probe(
 
 @app.command()
 def summarize_dir(
-    output_dir: Path = typer.Argument(..., help="Diretório de um clone (mirror/scrape)"),
-    url: str = typer.Option("", "--url", "-u", help="URL original (para o resumo global)"),
-    max_pages: int = typer.Option(30, "--max-pages", help="Máx. de páginas a resumir"),
+    output_dir: Path = typer.Argument(..., help="Directory of a clone (mirror/scrape)"),
+    url: str = typer.Option("", "--url", "-u", help="Original URL (for the global summary)"),
+    max_pages: int = typer.Option(30, "--max-pages", help="Max pages to summarize"),
 ):
     """Summarize every page of a cloned directory with AI."""
     import json
@@ -178,7 +178,7 @@ def summarize_dir(
     from zfrog.ai.summarize import summarize_directory, to_markdown
 
     if not output_dir.is_dir():
-        console.print(f"[red]Diretório não encontrado: {output_dir}[/]")
+        console.print(f"[red]Directory not found: {output_dir}[/]")
         sys.exit(1)
 
     source_url = url or "(local)"
@@ -196,17 +196,17 @@ def summarize_dir(
         to_markdown(source_url, result["global_summary"], result["pages"]), encoding="utf-8"
     )
 
-    console.print(f"[green]Resumidas {len(result['pages'])} página(s)[/]")
+    console.print(f"[green]Summarized {len(result['pages'])} page(s)[/]")
     global_summary = result["global_summary"]
     if global_summary.get("error"):
         console.print(f"[yellow]{global_summary['error']}[/]")
     elif global_summary.get("summary"):
         console.print(Markdown(global_summary["summary"]))
-    console.print(f"[dim]Salvo em {output_dir / 'summary.json'} e {output_dir / 'summary.md'}[/]")
+    console.print(f"[dim]Saved to {output_dir / 'summary.json'} and {output_dir / 'summary.md'}[/]")
 
 @app.command()
 def snapshots(
-    url: str = typer.Argument(None, help="URL (omite para listar tudo)"),
+    url: str = typer.Argument(None, help="URL (omit to list everything)"),
 ):
     """List captured snapshots."""
     import json
@@ -215,7 +215,7 @@ def snapshots(
 
     paths = list_snapshots(url)
     if not paths:
-        console.print("[dim]Nenhum snapshot salvo ainda.[/]")
+        console.print("[dim]No snapshots saved yet.[/]")
         return
 
     table = Table(title="Snapshots")
@@ -237,10 +237,10 @@ def snapshots(
 
 @app.command()
 def diff(
-    snapshot_a: Path = typer.Argument(..., help="Snapshot mais antigo (caminho p/ .json)"),
-    snapshot_b: Path = typer.Argument(..., help="Snapshot mais novo (caminho p/ .json)"),
-    url: str = typer.Option("", "--url", "-u", help="URL (opcional; senão lê do snapshot)"),
-    as_json: bool = typer.Option(False, "--json", help="Imprime o relatório em JSON"),
+    snapshot_a: Path = typer.Argument(..., help="Older snapshot (path to .json)"),
+    snapshot_b: Path = typer.Argument(..., help="Newer snapshot (path to .json)"),
+    url: str = typer.Option("", "--url", "-u", help="URL (optional; otherwise read from snapshot)"),
+    as_json: bool = typer.Option(False, "--json", help="Print the report as JSON"),
 ):
     """Compare two snapshots and report changes."""
     import json
@@ -249,7 +249,7 @@ def diff(
 
     for path in (snapshot_a, snapshot_b):
         if not path.is_file():
-            console.print(f"[red]Snapshot não encontrado: {path}[/]")
+            console.print(f"[red]Snapshot not found: {path}[/]")
             sys.exit(1)
 
     try:
@@ -424,7 +424,7 @@ async def _run_dev(host: str, api_port: int, web_port: int, dashboard_dir: Path,
         "ZFROG_CORS_ORIGINS": os.environ.get("ZFROG_CORS_ORIGINS", dashboard_origins),
         # The dashboard reads this at build time; pointing it at the API port keeps
         # `--api-port` from silently having no effect on the browser.
-        "NEXT_PUBLIC_API_URL": os.environ.get("NEXT_PUBLIC_API_URL", f"http://{host}:{api_port}"),
+        "VITE_API_URL": os.environ.get("VITE_API_URL", f"http://{host}:{api_port}"),
     }
 
     api_cmd = [
@@ -434,7 +434,7 @@ async def _run_dev(host: str, api_port: int, web_port: int, dashboard_dir: Path,
     if reload:
         api_cmd.append("--reload")
 
-    web_cmd = ["npm", "run", "dev", "--", "-p", str(web_port)]
+    web_cmd = ["npm", "run", "dev", "--", "--port", str(web_port)]
 
     # `-m celery` rather than the console script: a virtualenv that was moved or
     # renamed keeps absolute paths in `bin/celery`'s shebang, and the script then
@@ -493,9 +493,12 @@ async def _run_dev(host: str, api_port: int, web_port: int, dashboard_dir: Path,
     console.print(f"  API       [cyan]http://{host}:{api_port}[/]  [dim](docs: /docs)[/]")
     console.print(f"  Dashboard [magenta]http://localhost:{web_port}[/]")
     if worker_proc is not None:
-        console.print("  Worker    [green]celery[/]  [dim](consome a fila; sem ele o job fica 'na fila')[/]")
+        console.print(
+            "  Worker    [green]celery[/]  [dim](consumes the queue;"
+            " without it the job stays 'queued')[/]"
+        )
     else:
-        console.print("  Worker    [yellow]sem Redis, jobs rodam no processo da API[/]")
+        console.print("  Worker    [yellow]no Redis, jobs run in the API process[/]")
     console.print("  [dim]Ctrl+C to stop all[/]")
     console.print()
 
@@ -517,7 +520,7 @@ async def _run_dev(host: str, api_port: int, web_port: int, dashboard_dir: Path,
         exit_code = finished.result() or 0
         # `waits[i]` belongs to `children[i]`, so the finished future names the
         # process through its position.
-        name = labels.get(id(children[waits.index(finished)]), "processo")
+        name = labels.get(id(children[waits.index(finished)]), "process")
         console.print(f"\n[yellow]{name} exited (code {exit_code}); stopping the rest.[/]")
     except asyncio.CancelledError:
         raise
@@ -569,7 +572,7 @@ def dev(
     """Run API and dashboard together with one command.
 
     Redis is not started here — `docker compose up` does that, and a local server may
-    already be the user's own. Its state is reported so the panel's "pendência" warning
+    already be the user's own. Its state is reported so the panel's "pending" warning
     is not a surprise discovered in another window.
     """
     try:
@@ -595,13 +598,13 @@ def dev(
     redis_ok, redis_url = _redis_state()
     if not redis_ok:
         console.print(
-            f"[yellow]Redis não respondeu[/] em [cyan]{redis_url}[/]. "
-            "O painel e os jobs funcionam sem ele (rodam no processo); "
-            "o que fica de fora é a fila entre workers e o progresso ao vivo."
+            f"[yellow]Redis did not respond[/] at [cyan]{redis_url}[/]. "
+            "The panel and jobs work without it (they run in-process); "
+            "what is left out is the queue between workers and live progress."
         )
         console.print(
-            "[dim]Para ligar:[/] [cyan]redis-server[/] "
-            "[dim]ou[/] [cyan]docker compose up -d redis[/]"
+            "[dim]To enable it:[/] [cyan]redis-server[/] "
+            "[dim]or[/] [cyan]docker compose up -d redis[/]"
         )
 
     try:
@@ -615,8 +618,8 @@ def dev(
 
 @app.command()
 def versions(
-    url: str = typer.Argument(..., help="URL do site"),
-    branch: str = typer.Option("main", "--branch", "-b", help="Ramo a listar"),
+    url: str = typer.Argument(..., help="URL of the site"),
+    branch: str = typer.Option("main", "--branch", "-b", help="Branch to list"),
 ):
     """List saved versions of a site."""
     from zfrog.versioning import VersionStore
@@ -625,16 +628,16 @@ def versions(
     log = store.log(url, branch)
 
     if not log:
-        console.print(f"[dim]Nenhuma versão salva para {url} em '{branch}'.[/]")
-        console.print("[dim]Use --versioned no clone para começar o histórico.[/]")
+        console.print(f"[dim]No saved versions for {url} in '{branch}'.[/]")
+        console.print("[dim]Use --versioned on the clone to start the history.[/]")
         return
 
-    table = Table(title=f"Versões de {url} ({branch})")
+    table = Table(title=f"Versions of {url} ({branch})")
     table.add_column("ID", style="cyan")
-    table.add_column("QUANDO", style="green")
-    table.add_column("PÁGINAS", justify="right")
-    table.add_column("MENSAGEM")
-    table.add_column("ANTERIOR", style="dim")
+    table.add_column("WHEN", style="green")
+    table.add_column("PAGES", justify="right")
+    table.add_column("MESSAGE")
+    table.add_column("PREVIOUS", style="dim")
 
     head_id = store.head(url, branch)
     for version in log:
@@ -651,9 +654,9 @@ def versions(
 
 @app.command()
 def rollback(
-    url: str = typer.Argument(..., help="URL do site"),
-    ref: str = typer.Argument(..., help="Versão (id, prefixo, HEAD) ou ramo"),
-    dest: Optional[Path] = typer.Option(None, "--dest", "-d", help="Onde restaurar"),
+    url: str = typer.Argument(..., help="URL of the site"),
+    ref: str = typer.Argument(..., help="Version (id, prefix, HEAD) or branch"),
+    dest: Optional[Path] = typer.Option(None, "--dest", "-d", help="Where to restore"),
 ):
     """Restore the files of a saved version."""
     from zfrog.versioning import VersionStore
@@ -665,11 +668,11 @@ def rollback(
         sys.exit(1)
 
     files = [f for f in restored.rglob("*") if f.is_file()]
-    console.print(f"[green]{len(files)} arquivo(s) restaurado(s) em {restored}[/]")
+    console.print(f"[green]{len(files)} file(s) restored to {restored}[/]")
 
 @app.command()
 def branches(
-    url: str = typer.Argument(..., help="URL do site"),
+    url: str = typer.Argument(..., help="URL of the site"),
 ):
     """List the version branches of a site."""
     from zfrog.versioning import VersionStore
@@ -677,7 +680,7 @@ def branches(
     store = VersionStore()
     names = store.branches(url)
     if not names:
-        console.print(f"[dim]Nenhum ramo para {url}.[/]")
+        console.print(f"[dim]No branches for {url}.[/]")
         return
 
     head = store.head(url, "main")
@@ -687,9 +690,9 @@ def branches(
 
 @app.command()
 def branch(
-    url: str = typer.Argument(..., help="URL do site"),
-    name: str = typer.Argument(..., help="Nome do novo ramo"),
-    from_branch: str = typer.Option("main", "--from", help="Ramo de origem"),
+    url: str = typer.Argument(..., help="URL of the site"),
+    name: str = typer.Argument(..., help="Name of the new branch"),
+    from_branch: str = typer.Option("main", "--from", help="Source branch"),
 ):
     """Create a new version branch."""
     from zfrog.versioning import VersionStore
@@ -700,19 +703,21 @@ def branch(
         console.print(f"[red]{e}[/]")
         sys.exit(1)
 
-    console.print(f"[green]Ramo '{name}' criado a partir de '{from_branch}'.[/]")
+    console.print(f"[green]Branch '{name}' created from '{from_branch}'.[/]")
 
-schedule_app = typer.Typer(help="Agendar cópias recorrentes de um site.")
+schedule_app = typer.Typer(help="Schedule recurring copies of a site.")
 app.add_typer(schedule_app, name="schedule")
 
 @schedule_app.command("add")
 def schedule_add(
-    url: str = typer.Argument(..., help="URL do site"),
-    cron: str = typer.Option(..., "--cron", "-c", help='Quando rodar, ex.: "0 2 * * *"'),
-    mode: str = typer.Option("auto", "--mode", "-m", help="Modo do job (auto = o probe escolhe o motor)"),
-    depth: int = typer.Option(1, "--depth", "-d", help="Profundidade máxima do crawl"),
+    url: str = typer.Argument(..., help="URL of the site"),
+    cron: str = typer.Option(..., "--cron", "-c", help='When to run, e.g.: "0 2 * * *"'),
+    mode: str = typer.Option(
+        "auto", "--mode", "-m", help="Job mode (auto = the probe picks the engine)"
+    ),
+    depth: int = typer.Option(1, "--depth", "-d", help="Max crawl depth"),
 ):
-    """Agenda uma cópia recorrente."""
+    """Schedule a recurring copy."""
     from zfrog.cron import describe
     from zfrog.scheduler import ScheduleStore, next_run_for
 
@@ -722,27 +727,27 @@ def schedule_add(
         console.print(f"[red]{e}[/]")
         sys.exit(1)
 
-    console.print(f"[green]Agendado ({schedule.id})[/] — {describe(cron)}")
-    console.print(f"[dim]Próxima execução: {schedule.next_run or next_run_for(schedule)}[/]")
+    console.print(f"[green]Scheduled ({schedule.id})[/] — {describe(cron)}")
+    console.print(f"[dim]Next run: {schedule.next_run or next_run_for(schedule)}[/]")
 
 @schedule_app.command("list")
 def schedule_list():
-    """Lista os agendamentos."""
+    """List the schedules."""
     from zfrog.cron import describe
     from zfrog.scheduler import ScheduleStore
 
     schedules = ScheduleStore().list()
     if not schedules:
-        console.print("[dim]Nenhum agendamento. Use: zfrog schedule add <url> --cron \"0 2 * * *\"[/]")
+        console.print("[dim]No schedules. Use: zfrog schedule add <url> --cron \"0 2 * * *\"[/]")
         return
 
-    table = Table(title="Agendamentos")
+    table = Table(title="Schedules")
     table.add_column("ID", style="cyan")
-    table.add_column("QUANDO")
+    table.add_column("WHEN")
     table.add_column("URL")
-    table.add_column("MODO")
-    table.add_column("ATIVO", justify="center")
-    table.add_column("PRÓXIMA", style="green")
+    table.add_column("MODE")
+    table.add_column("ACTIVE", justify="center")
+    table.add_column("NEXT", style="green")
 
     for schedule in schedules:
         table.add_row(
@@ -750,7 +755,7 @@ def schedule_list():
             describe(schedule.cron),
             schedule.url[:36],
             schedule.mode,
-            "sim" if schedule.enabled else "não",
+            "yes" if schedule.enabled else "no",
             schedule.next_run or "-",
         )
 
@@ -758,63 +763,63 @@ def schedule_list():
 
 @schedule_app.command("remove")
 def schedule_remove(
-    schedule_id: str = typer.Argument(..., help="ID do agendamento"),
+    schedule_id: str = typer.Argument(..., help="Schedule ID"),
 ):
-    """Remove um agendamento."""
+    """Remove a schedule."""
     from zfrog.scheduler import ScheduleStore
 
     if ScheduleStore().remove(schedule_id):
-        console.print(f"[green]Agendamento {schedule_id} removido.[/]")
+        console.print(f"[green]Schedule {schedule_id} removed.[/]")
     else:
-        console.print(f"[red]Agendamento {schedule_id} não encontrado.[/]")
+        console.print(f"[red]Schedule {schedule_id} not found.[/]")
         sys.exit(1)
 
 @schedule_app.command("run")
 def schedule_run(
-    schedule_id: str = typer.Argument(..., help="ID do agendamento"),
+    schedule_id: str = typer.Argument(..., help="Schedule ID"),
 ):
-    """Roda um agendamento agora, sem esperar o horário."""
+    """Run a schedule now, without waiting for its time."""
     from zfrog.models import JobCreate
     from zfrog.orchestrator import run_job
     from zfrog.scheduler import ScheduleStore
 
     schedule = ScheduleStore().get(schedule_id)
     if not schedule:
-        console.print(f"[red]Agendamento {schedule_id} não encontrado.[/]")
+        console.print(f"[red]Schedule {schedule_id} not found.[/]")
         sys.exit(1)
 
-    console.print(f"[dim]Rodando {schedule.url} ({schedule.mode})...[/]")
+    console.print(f"[dim]Running {schedule.url} ({schedule.mode})...[/]")
     job = JobCreate(url=schedule.url, mode=schedule.mode, max_depth=schedule.max_depth)
     try:
         result = asyncio.run(run_job(job))
     except Exception as e:
-        console.print(f"[red]Falhou: {e}[/]")
+        console.print(f"[red]Failed: {e}[/]")
         sys.exit(1)
 
-    console.print(f"[green]Job {result.job_id[:8]} concluído[/] — {result.files_count} arquivo(s)")
+    console.print(f"[green]Job {result.job_id[:8]} finished[/] — {result.files_count} file(s)")
 
 @app.command()
 def scheduler(
-    interval: int = typer.Option(30, "--interval", help="Segundos entre verificações"),
+    interval: int = typer.Option(30, "--interval", help="Seconds between checks"),
 ):
     """Run the schedule daemon until interrupted."""
     from zfrog.scheduler import daemon
 
-    console.print(f"[green]Agendador ativo[/] — verificando a cada {interval}s. Ctrl+C para parar.")
+    console.print(f"[green]Scheduler active[/] — checking every {interval}s. Ctrl+C to stop.")
     try:
         asyncio.run(daemon(interval_s=interval))
     except KeyboardInterrupt:
-        console.print("\n[dim]Agendador parado.[/]")
+        console.print("\n[dim]Scheduler stopped.[/]")
 
 @app.command()
 def search(
-    query: str = typer.Argument(..., help="O que procurar"),
+    query: str = typer.Argument(..., help="What to look for"),
     directory: Optional[Path] = typer.Option(
-        None, "--dir", "-d", help="Pasta clonada (default: o diretório de saída)"
+        None, "--dir", "-d", help="Cloned folder (default: the output directory)"
     ),
-    semantic: bool = typer.Option(False, "--semantic", help="Busca por significado (precisa de IA)"),
-    limit: int = typer.Option(10, "--limit", "-n", help="Máximo de resultados"),
-    reindex: bool = typer.Option(False, "--reindex", help="Indexar a pasta antes de buscar"),
+    semantic: bool = typer.Option(False, "--semantic", help="Search by meaning (needs AI)"),
+    limit: int = typer.Option(10, "--limit", "-n", help="Maximum number of results"),
+    reindex: bool = typer.Option(False, "--reindex", help="Index the folder before searching"),
 ):
     """Search inside cloned content."""
     from zfrog.config import settings
@@ -825,20 +830,20 @@ def search(
 
     if reindex:
         count = index.index_directory(target)
-        console.print(f"[dim]{count} página(s) indexada(s) em {target}[/]")
+        console.print(f"[dim]{count} page(s) indexed in {target}[/]")
 
     mode = "semantic" if semantic else "fulltext"
     hits = index.search(query, mode=mode, limit=limit)
 
     if not hits:
-        console.print(f"[yellow]Nada encontrado para '{query}'.[/]")
+        console.print(f"[yellow]Nothing found for '{query}'.[/]")
         if semantic:
-            console.print("[dim]A busca semântica precisa de um modelo de IA configurado.[/]")
+            console.print("[dim]Semantic search needs an AI model configured.[/]")
         return
 
-    table = Table(title=f"Resultados para '{query}' ({mode})")
-    table.add_column("ONDE", style="cyan")
-    table.add_column("TRECHO")
+    table = Table(title=f"Results for '{query}' ({mode})")
+    table.add_column("WHERE", style="cyan")
+    table.add_column("SNIPPET")
     table.add_column("SCORE", justify="right", style="green")
 
     for hit in hits:
@@ -848,25 +853,27 @@ def search(
 
 @app.command()
 def login(
-    url: str = typer.Argument(..., help="URL do site onde você vai entrar"),
+    url: str = typer.Argument(..., help="URL of the site where you will sign in"),
     no_wait: bool = typer.Option(
-        False, "--no-wait", help="Não esperar o Enter (útil em automação)"
+        False, "--no-wait", help="Do not wait for Enter (useful in automation)"
     ),
 ):
     """Open a browser so you can sign in, then save the session."""
     from zfrog.session import capture_session
 
-    console.print(f"[green]Abrindo o navegador em {url}[/]")
-    console.print("[dim]Entre na sua conta e depois volte aqui e aperte Enter.[/]")
+    console.print(f"[green]Opening the browser at {url}[/]")
+    console.print("[dim]Sign in to your account, then come back here and press Enter.[/]")
 
     try:
         state = asyncio.run(capture_session(url, wait_for_enter=not no_wait))
     except Exception as e:
-        console.print(f"[red]Falhou: {e}[/]")
+        console.print(f"[red]Failed: {e}[/]")
         sys.exit(1)
 
     cookies = len(state.get("cookies", []))
-    console.print(f"[green]Sessão salva[/] — {cookies} cookie(s). Os próximos clones deste site usam ela.")
+    console.print(
+        f"[green]Session saved[/] — {cookies} cookie(s). Upcoming clones of this site use it."
+    )
 
 @app.command()
 def sessions():
@@ -875,12 +882,12 @@ def sessions():
 
     entries = SessionStore().list()
     if not entries:
-        console.print("[dim]Nenhuma sessão salva. Use: zfrog login <url>[/]")
+        console.print("[dim]No saved sessions. Use: zfrog login <url>[/]")
         return
 
-    table = Table(title="Sessões salvas")
+    table = Table(title="Saved sessions")
     table.add_column("SITE", style="cyan")
-    table.add_column("QUANDO", style="green")
+    table.add_column("WHEN", style="green")
     table.add_column("COOKIES", justify="right")
 
     for entry in entries:
@@ -890,35 +897,35 @@ def sessions():
 
 @app.command()
 def logout(
-    domain: str = typer.Argument(..., help="Site da sessão (ex.: exemplo.com.br)"),
+    domain: str = typer.Argument(..., help="Site of the session (e.g.: example.com)"),
 ):
     """Delete a saved login session."""
     from zfrog.session import SessionStore
 
     if SessionStore().delete(domain):
-        console.print(f"[green]Sessão de {domain} apagada.[/]")
+        console.print(f"[green]Session for {domain} deleted.[/]")
     else:
-        console.print(f"[red]Nenhuma sessão salva para {domain}.[/]")
+        console.print(f"[red]No saved session for {domain}.[/]")
         sys.exit(1)
 
-workflow_app = typer.Typer(help="Sequências de passos salvas (pipelines).")
+workflow_app = typer.Typer(help="Saved step sequences (pipelines).")
 app.add_typer(workflow_app, name="workflow")
 
 @workflow_app.command("list")
 def workflow_list():
-    """Lista os fluxos salvos."""
+    """List the saved workflows."""
     from zfrog.workflows import WorkflowStore
 
     workflows = WorkflowStore().list()
     if not workflows:
-        console.print("[dim]Nenhum fluxo salvo.[/]")
+        console.print("[dim]No saved workflows.[/]")
         return
 
-    table = Table(title="Fluxos")
+    table = Table(title="Workflows")
     table.add_column("ID", style="cyan")
-    table.add_column("NOME")
-    table.add_column("PASSOS", justify="right")
-    table.add_column("SEQUÊNCIA", style="dim")
+    table.add_column("NAME")
+    table.add_column("STEPS", justify="right")
+    table.add_column("SEQUENCE", style="dim")
 
     for workflow in workflows:
         table.add_row(
@@ -932,14 +939,14 @@ def workflow_list():
 
 @workflow_app.command("show")
 def workflow_show(
-    workflow_id: str = typer.Argument(..., help="ID do fluxo"),
+    workflow_id: str = typer.Argument(..., help="Workflow ID"),
 ):
-    """Mostra os passos de um fluxo."""
+    """Show the steps of a workflow."""
     from zfrog.workflows import WorkflowStore
 
     workflow = WorkflowStore().get(workflow_id)
     if not workflow:
-        console.print(f"[red]Fluxo {workflow_id} não encontrado.[/]")
+        console.print(f"[red]Workflow {workflow_id} not found.[/]")
         sys.exit(1)
 
     console.print(f"[bold]{workflow.name}[/] [dim]({workflow.id})[/]")
@@ -949,14 +956,14 @@ def workflow_show(
 
 @workflow_app.command("run")
 def workflow_run(
-    workflow_id: str = typer.Argument(..., help="ID do fluxo"),
+    workflow_id: str = typer.Argument(..., help="Workflow ID"),
 ):
-    """Roda um fluxo do começo ao fim."""
+    """Run a workflow from start to finish."""
     from zfrog.workflows import WorkflowStore, run_workflow
 
     workflow = WorkflowStore().get(workflow_id)
     if not workflow:
-        console.print(f"[red]Fluxo {workflow_id} não encontrado.[/]")
+        console.print(f"[red]Workflow {workflow_id} not found.[/]")
         sys.exit(1)
 
     def on_progress(message: str) -> None:
@@ -969,27 +976,27 @@ def workflow_run(
         console.print(f"  [{color}]{step.status:7}[/] {step.type:10} {step.detail}")
 
     if result.status == "failed":
-        console.print(f"[red]Fluxo falhou: {result.error}[/]")
+        console.print(f"[red]Workflow failed: {result.error}[/]")
         sys.exit(1)
 
-    console.print("[green]Fluxo concluído.[/]")
+    console.print("[green]Workflow finished.[/]")
 
 @app.command()
 def operator(
-    interval: float = typer.Option(5.0, "--interval", help="Segundos entre reconciliações"),
+    interval: float = typer.Option(5.0, "--interval", help="Seconds between reconciliations"),
 ):
     """Run the Kubernetes operator (watches ZfrogJob resources)."""
     from zfrog.k8s.operator import Operator
 
-    console.print(f"[green]Operador ativo[/] — reconciliando a cada {interval}s. Ctrl+C para parar.")
+    console.print(f"[green]Operator active[/] — reconciling every {interval}s. Ctrl+C to stop.")
     try:
         asyncio.run(Operator(reconcile_interval_s=interval).run())
     except KeyboardInterrupt:
-        console.print("\n[dim]Operador parado.[/]")
+        console.print("\n[dim]Operator stopped.[/]")
 
 @app.command()
 def analytics(
-    engine: Optional[str] = typer.Option(None, "--engine", "-e", help="Filtrar por motor"),
+    engine: Optional[str] = typer.Option(None, "--engine", "-e", help="Filter by engine"),
 ):
     """Show which engines work best (success rate, speed, size)."""
     from zfrog.analytics import MetricsStore, format_engine_table
@@ -999,22 +1006,22 @@ def analytics(
     totals = store.totals()
 
     if not stats:
-        console.print("[dim]Nenhuma execução registrada ainda.[/]")
+        console.print("[dim]No runs recorded yet.[/]")
         return
 
     console.print(
-        f"[bold]{totals['runs']}[/] execução(ões) — "
-        f"sucesso {totals['success_rate'] * 100:.1f}% — "
-        f"{totals['bytes']:,} bytes — média {totals['avg_duration_s']:.2f}s"
+        f"[bold]{totals['runs']}[/] run(s) — "
+        f"success {totals['success_rate'] * 100:.1f}% — "
+        f"{totals['bytes']:,} bytes — avg {totals['avg_duration_s']:.2f}s"
     )
 
-    table = Table(title="Desempenho por motor")
-    table.add_column("MOTOR", style="cyan")
-    table.add_column("EXECUÇÕES", justify="right")
-    table.add_column("SUCESSO", justify="right", style="green")
-    table.add_column("FALHAS", justify="right", style="red")
-    table.add_column("TEMPO MÉDIO", justify="right")
-    table.add_column("TAMANHO MÉDIO", justify="right")
+    table = Table(title="Performance by engine")
+    table.add_column("ENGINE", style="cyan")
+    table.add_column("RUNS", justify="right")
+    table.add_column("SUCCESS", justify="right", style="green")
+    table.add_column("FAILURES", justify="right", style="red")
+    table.add_column("AVG TIME", justify="right")
+    table.add_column("AVG SIZE", justify="right")
 
     for row in format_engine_table(stats):
         table.add_row(
@@ -1030,24 +1037,24 @@ def analytics(
 
 @app.command()
 def audit(
-    limit: int = typer.Option(50, "--limit", "-n", help="Quantas entradas mostrar"),
-    action: Optional[str] = typer.Option(None, "--action", "-a", help="Filtrar por ação"),
-    actor: Optional[str] = typer.Option(None, "--actor", help="Filtrar por origem"),
+    limit: int = typer.Option(50, "--limit", "-n", help="How many entries to show"),
+    action: Optional[str] = typer.Option(None, "--action", "-a", help="Filter by action"),
+    actor: Optional[str] = typer.Option(None, "--actor", help="Filter by origin"),
 ):
     """Show the audit trail of actions."""
     from zfrog.utils.audit import AuditLog
 
     entries = AuditLog().read(limit=limit, action=action, actor=actor)
     if not entries:
-        console.print("[dim]Nenhuma entrada no registro de auditoria.[/]")
+        console.print("[dim]No entries in the audit log.[/]")
         return
 
-    table = Table(title="Auditoria")
-    table.add_column("QUANDO", style="green")
-    table.add_column("AÇÃO", style="cyan")
-    table.add_column("ORIGEM")
-    table.add_column("ALVO")
-    table.add_column("RESULTADO")
+    table = Table(title="Audit")
+    table.add_column("WHEN", style="green")
+    table.add_column("ACTION", style="cyan")
+    table.add_column("ORIGIN")
+    table.add_column("TARGET")
+    table.add_column("RESULT")
 
     for entry in entries:
         color = "green" if entry.outcome == "ok" else "red"
@@ -1063,13 +1070,13 @@ def audit(
 
 @app.command()
 def safety(
-    directory: Path = typer.Argument(..., help="Pasta clonada para verificar"),
+    directory: Path = typer.Argument(..., help="Cloned folder to scan"),
 ):
     """Scan cloned content for malware and phishing indicators."""
     from zfrog.pipeline.safety import scan_directory
 
     if not directory.is_dir():
-        console.print(f"[red]Pasta não encontrada: {directory}[/]")
+        console.print(f"[red]Folder not found: {directory}[/]")
         sys.exit(1)
 
     report = scan_directory(directory)
@@ -1081,11 +1088,11 @@ def safety(
     if not report.findings:
         return
 
-    table = Table(title="Achados")
-    table.add_column("GRAVIDADE", style="red")
-    table.add_column("TIPO", style="cyan")
-    table.add_column("ARQUIVO")
-    table.add_column("DETALHE")
+    table = Table(title="Findings")
+    table.add_column("SEVERITY", style="red")
+    table.add_column("TYPE", style="cyan")
+    table.add_column("FILE")
+    table.add_column("DETAIL")
 
     for finding in report.findings:
         table.add_row(finding.severity, finding.kind, finding.file[:40], finding.detail[:60])
@@ -1094,14 +1101,14 @@ def safety(
 
 @app.command()
 def ipfs(
-    directory: Path = typer.Argument(..., help="Pasta clonada para publicar"),
-    gateway: str = typer.Option("https://ipfs.io", "--gateway", help="Gateway para montar o link"),
+    directory: Path = typer.Argument(..., help="Cloned folder to publish"),
+    gateway: str = typer.Option("https://ipfs.io", "--gateway", help="Gateway to build the link"),
 ):
     """Publish a clone to IPFS through a local node."""
     from zfrog.storage.ipfs import gateway_url, publish_output
 
     if not directory.is_dir():
-        console.print(f"[red]Pasta não encontrada: {directory}[/]")
+        console.print(f"[red]Folder not found: {directory}[/]")
         sys.exit(1)
 
     try:
@@ -1110,23 +1117,23 @@ def ipfs(
         console.print(f"[red]{e}[/]")
         sys.exit(1)
 
-    console.print(f"[green]Publicado[/] — {result.files} arquivo(s), {result.size:,} bytes")
+    console.print(f"[green]Published[/] — {result.files} file(s), {result.size:,} bytes")
     console.print(f"CID: [cyan]{result.cid}[/]")
     console.print(f"[dim]{gateway_url(result.cid, gateway)}[/]")
 
-chat_app = typer.Typer(help="Conversar com sites já clonados, mantendo o histórico.")
+chat_app = typer.Typer(help="Talk to already cloned sites, keeping the history.")
 app.add_typer(chat_app, name="chat")
 
 @chat_app.command("ask")
 def chat_ask(
-    question: str = typer.Argument(..., help="Pergunta em linguagem natural"),
+    question: str = typer.Argument(..., help="Question in natural language"),
     site: list[str] = typer.Option(
-        [], "--site", "-s", help="Pasta de um site clonado, como 'Rótulo=caminho' (pode repetir)"
+        [], "--site", "-s", help="Folder of a cloned site, as 'Label=path' (may repeat)"
     ),
     conversation: Optional[str] = typer.Option(
-        None, "--conversation", "-c", help="Continuar uma conversa existente (id)"
+        None, "--conversation", "-c", help="Continue an existing conversation (id)"
     ),
-    show_history: bool = typer.Option(False, "--history", help="Mostrar o histórico ao final"),
+    show_history: bool = typer.Option(False, "--history", help="Show the history at the end"),
 ):
     """Ask a question, keeping the conversation context."""
     from zfrog.ai.chat import ChatSession
@@ -1134,10 +1141,10 @@ def chat_ask(
     session = ChatSession()
     if conversation:
         if session.load(conversation) is None:
-            console.print(f"[red]Conversa {conversation} não encontrada.[/]")
+            console.print(f"[red]Conversation {conversation} not found.[/]")
             sys.exit(1)
     elif not site:
-        console.print("[red]Informe pelo menos um --site, ou continue com --conversation.[/]")
+        console.print("[red]Provide at least one --site, or continue with --conversation.[/]")
         sys.exit(1)
 
     for entry in site:
@@ -1146,7 +1153,7 @@ def chat_ask(
             label, raw_path = Path(entry).name, entry
         path = Path(raw_path)
         if not path.is_dir():
-            console.print(f"[red]Pasta não encontrada: {path}[/]")
+            console.print(f"[red]Folder not found: {path}[/]")
             sys.exit(1)
         session.add_site(label, path)
 
@@ -1159,12 +1166,12 @@ def chat_ask(
         console.print(f"[dim][{i}] {url} — {citation.get('path', '')}[/]")
 
     saved = session.save()
-    console.print(f"[dim]Conversa {saved.stem} salva em {saved}[/]")
+    console.print(f"[dim]Conversation {saved.stem} saved at {saved}[/]")
 
     if show_history:
         console.print()
         for turn in session.history():
-            label = "Você" if turn.role == "user" else "Zfrog"
+            label = "You" if turn.role == "user" else "Zfrog"
             console.print(f"[bold]{label}:[/] {turn.content[:200]}")
 
 @chat_app.command("list")
@@ -1175,12 +1182,12 @@ def chat_list():
     directory = ChatSession().history_dir
     files = sorted(directory.glob("*.json")) if directory.is_dir() else []
     if not files:
-        console.print("[dim]Nenhuma conversa salva ainda.[/]")
+        console.print("[dim]No saved conversations yet.[/]")
         return
 
-    table = Table(title="Conversas")
+    table = Table(title="Conversations")
     table.add_column("ID", style="cyan")
-    table.add_column("TROCAS", justify="right")
+    table.add_column("TURNS", justify="right")
     table.add_column("SITES", style="dim")
 
     session = ChatSession()
@@ -1194,8 +1201,8 @@ def chat_list():
 
 @app.command()
 def graph(
-    directory: Path = typer.Argument(..., help="Pasta clonada para mapear"),
-    dot: bool = typer.Option(False, "--dot", help="Imprimir em formato Graphviz"),
+    directory: Path = typer.Argument(..., help="Cloned folder to map"),
+    dot: bool = typer.Option(False, "--dot", help="Print in Graphviz format"),
 ):
     """Map the relationships between entities found in cloned pages."""
     from zfrog.ai.entities import extract_entities
@@ -1203,7 +1210,7 @@ def graph(
     from zfrog.utils.text import extract_text
 
     if not directory.is_dir():
-        console.print(f"[red]Pasta não encontrada: {directory}[/]")
+        console.print(f"[red]Folder not found: {directory}[/]")
         sys.exit(1)
 
     pages: list[dict] = []
@@ -1223,20 +1230,20 @@ def graph(
     payload = to_json(built)
     out = directory / "graph.json"
     out.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    console.print(f"[dim]Salvo em {out}[/]")
+    console.print(f"[dim]Saved to {out}[/]")
 
     if built.nodes:
-        table = Table(title="Entidades")
-        table.add_column("NOME", style="cyan")
-        table.add_column("TIPO")
-        table.add_column("MENÇÕES", justify="right")
+        table = Table(title="Entities")
+        table.add_column("NAME", style="cyan")
+        table.add_column("TYPE")
+        table.add_column("MENTIONS", justify="right")
         for node in sorted(built.nodes, key=lambda n: n.mentions, reverse=True)[:15]:
             table.add_row(node.name, node.type, str(node.mentions))
         console.print(table)
 
 @app.command()
 def tos(
-    url: str = typer.Argument(..., help="URL do site a verificar"),
+    url: str = typer.Argument(..., help="URL of the site to check"),
 ):
     """Check robots.txt and Terms of Use for restrictions on automated collection."""
     from zfrog.ai.tos import check_site
@@ -1248,16 +1255,16 @@ def tos(
     console.print(f"[{color}]{report.summary}[/]")
 
     if report.error:
-        console.print(f"[yellow]Aviso: {report.error}[/]")
+        console.print(f"[yellow]Warning: {report.error}[/]")
 
     if not report.findings:
         return
 
-    table = Table(title="Sinais encontrados")
-    table.add_column("GRAVIDADE", style="red")
-    table.add_column("TIPO", style="cyan")
-    table.add_column("DETALHE")
-    table.add_column("TRECHO", style="dim")
+    table = Table(title="Signals found")
+    table.add_column("SEVERITY", style="red")
+    table.add_column("TYPE", style="cyan")
+    table.add_column("DETAIL")
+    table.add_column("EXCERPT", style="dim")
 
     for finding in report.findings:
         table.add_row(finding.severity, finding.kind, finding.detail[:50], finding.evidence[:50])
@@ -1266,34 +1273,34 @@ def tos(
 
 @app.command()
 def watermark(
-    directory: Path = typer.Argument(..., help="Pasta clonada a marcar"),
-    source: str = typer.Option("", "--source", help="URL de origem a registrar"),
-    verify_only: bool = typer.Option(False, "--verify", help="Só verificar, sem marcar"),
+    directory: Path = typer.Argument(..., help="Cloned folder to mark"),
+    source: str = typer.Option("", "--source", help="Source URL to record"),
+    verify_only: bool = typer.Option(False, "--verify", help="Only verify, without marking"),
 ):
     """Mark (or verify) cloned content with provenance metadata."""
     from zfrog.pipeline.watermark import make_mark, verify_directory, watermark_directory
 
     if not directory.is_dir():
-        console.print(f"[red]Pasta não encontrada: {directory}[/]")
+        console.print(f"[red]Folder not found: {directory}[/]")
         sys.exit(1)
 
     if verify_only:
         summary = asyncio.run(verify_directory(directory))
         if not summary["marked"]:
-            console.print("[dim]Nenhum arquivo marcado nesta pasta.[/]")
+            console.print("[dim]No files marked in this folder.[/]")
             return
-        console.print(f"[green]{summary['marked']} de {summary['files']} arquivo(s) marcado(s)[/]")
+        console.print(f"[green]{summary['marked']} of {summary['files']} file(s) marked[/]")
         for mark in summary["marks"]:
             console.print(f"  {mark}")
         return
 
     mark = make_mark(source or str(directory))
     summary = asyncio.run(watermark_directory(directory, mark, source))
-    console.print(f"[green]{summary['marked']} arquivo(s) marcado(s)[/] — {summary['mark']}")
+    console.print(f"[green]{summary['marked']} file(s) marked[/] — {summary['mark']}")
 
 @app.command()
 def regions(
-    url: str = typer.Argument(..., help="URL que seria processada"),
+    url: str = typer.Argument(..., help="URL that would be processed"),
 ):
     """Show which region would process a URL and why."""
     from zfrog.regions import data_residency_note, known_regions, route
@@ -1301,33 +1308,33 @@ def regions(
     available = known_regions()
     decision = route(url, available)
 
-    table = Table(title="Regiões")
-    table.add_column("REGIÃO", style="cyan")
-    table.add_column("LATÊNCIA", justify="right")
+    table = Table(title="Regions")
+    table.add_column("REGION", style="cyan")
+    table.add_column("LATENCY", justify="right")
     table.add_column("WORKERS", justify="right")
-    table.add_column("ATIVA", justify="center")
+    table.add_column("ACTIVE", justify="center")
 
     for region in available:
         table.add_row(
             region.name,
             f"{region.latency_ms} ms",
             str(region.workers),
-            "sim" if region.enabled else "não",
+            "yes" if region.enabled else "no",
         )
 
     console.print(table)
-    console.print(f"[green]Escolhida: {decision.region}[/] — {decision.reason}")
+    console.print(f"[green]Chosen: {decision.region}[/] — {decision.reason}")
     console.print(f"[dim]{data_residency_note(url, decision.region)}[/]")
 
-key_app = typer.Typer(help="Chaves de acesso da API.")
+key_app = typer.Typer(help="API access keys.")
 app.add_typer(key_app, name="key")
 
 @key_app.command("create")
 def key_create(
-    name: str = typer.Argument(..., help="Nome para identificar a chave"),
-    role: str = typer.Option("viewer", "--role", "-r", help="viewer, operator ou admin"),
+    name: str = typer.Argument(..., help="Name to identify the key"),
+    role: str = typer.Option("viewer", "--role", "-r", help="viewer, operator or admin"),
     org: Optional[str] = typer.Option(
-        None, "--org", "-O", help="Organização dona dos dados desta chave"
+        None, "--org", "-O", help="Organization that owns this key's data"
     ),
 ):
     """Create an API key (the secret is shown only once)."""
@@ -1339,11 +1346,11 @@ def key_create(
         console.print(f"[red]{e}[/]")
         sys.exit(1)
 
-    console.print(f"[green]Chave criada[/] ({key.id}, papel {key.role})")
+    console.print(f"[green]Key created[/] ({key.id}, role {key.role})")
     if key.org:
-        console.print(f"[dim]Organização: {key.org} — os dados ficam em output/orgs/{key.org}[/]")
+        console.print(f"[dim]Organization: {key.org} — data lives in output/orgs/{key.org}[/]")
     console.print(f"[bold]{secret}[/]")
-    console.print("[yellow]Guarde agora: o segredo não é armazenado e não pode ser recuperado.[/]")
+    console.print("[yellow]Save it now: the secret is not stored and cannot be recovered.[/]")
 
 @key_app.command("list")
 def key_list():
@@ -1352,59 +1359,59 @@ def key_list():
 
     keys = ApiKeyStore().list()
     if not keys:
-        console.print("[dim]Nenhuma chave criada.[/]")
+        console.print("[dim]No keys created.[/]")
         return
 
-    table = Table(title="Chaves")
+    table = Table(title="Keys")
     table.add_column("ID", style="cyan")
-    table.add_column("NOME")
-    table.add_column("PAPEL", style="green")
-    table.add_column("ATIVA", justify="center")
-    table.add_column("ÚLTIMO USO", style="dim")
+    table.add_column("NAME")
+    table.add_column("ROLE", style="green")
+    table.add_column("ACTIVE", justify="center")
+    table.add_column("LAST USED", style="dim")
 
     for key in keys:
         table.add_row(
-            key.id, key.name, key.role, "sim" if key.enabled else "não", key.last_used_at or "-"
+            key.id, key.name, key.role, "yes" if key.enabled else "no", key.last_used_at or "-"
         )
 
     console.print(table)
 
 @key_app.command("revoke")
 def key_revoke(
-    key_id: str = typer.Argument(..., help="ID da chave"),
+    key_id: str = typer.Argument(..., help="Key ID"),
 ):
     """Revoke an API key."""
     from zfrog.auth import ApiKeyStore
 
     if ApiKeyStore().revoke(key_id):
-        console.print(f"[green]Chave {key_id} revogada.[/]")
+        console.print(f"[green]Key {key_id} revoked.[/]")
     else:
-        console.print(f"[red]Chave {key_id} não encontrada.[/]")
+        console.print(f"[red]Key {key_id} not found.[/]")
         sys.exit(1)
 
-market_app = typer.Typer(help="Marketplace de fluxos, plugins e templates.")
+market_app = typer.Typer(help="Marketplace of workflows, plugins and templates.")
 app.add_typer(market_app, name="market")
 
 @market_app.command("list")
 def market_list(
-    kind: Optional[str] = typer.Option(None, "--kind", "-k", help="workflow, plugin ou template"),
-    query: Optional[str] = typer.Option(None, "--query", "-q", help="Buscar por texto"),
+    kind: Optional[str] = typer.Option(None, "--kind", "-k", help="workflow, plugin or template"),
+    query: Optional[str] = typer.Option(None, "--query", "-q", help="Search by text"),
 ):
     """List published assets."""
     from zfrog.marketplace import Marketplace
 
     assets = Marketplace().list(kind=kind, query=query)
     if not assets:
-        console.print("[dim]Nada publicado ainda.[/]")
+        console.print("[dim]Nothing published yet.[/]")
         return
 
     table = Table(title="Marketplace")
     table.add_column("ID", style="cyan")
-    table.add_column("TIPO")
-    table.add_column("NOME")
-    table.add_column("AUTOR", style="dim")
-    table.add_column("INSTALAÇÕES", justify="right")
-    table.add_column("NOTA", justify="right", style="green")
+    table.add_column("TYPE")
+    table.add_column("NAME")
+    table.add_column("AUTHOR", style="dim")
+    table.add_column("INSTALLS", justify="right")
+    table.add_column("RATING", justify="right", style="green")
 
     for asset in assets:
         table.add_row(
@@ -1420,7 +1427,7 @@ def market_list(
 
 @market_app.command("install")
 def market_install(
-    asset_id: str = typer.Argument(..., help="ID do item"),
+    asset_id: str = typer.Argument(..., help="Asset ID"),
 ):
     """Install a published asset."""
     from zfrog.marketplace import Marketplace
@@ -1445,16 +1452,16 @@ def cost():
     rows = MetricsStore().cost_by_engine(rates)
 
     if not rows:
-        console.print("[dim]Nenhuma execução registrada ainda.[/]")
+        console.print("[dim]No runs recorded yet.[/]")
         return
 
-    table = Table(title=f"Custo estimado ({rates.currency})")
-    table.add_column("MOTOR", style="cyan")
-    table.add_column("EXECUÇÕES", justify="right")
-    table.add_column("DADOS", justify="right")
-    table.add_column("TEMPO", justify="right")
-    table.add_column("CUSTO", justify="right", style="green")
-    table.add_column("POR EXECUÇÃO", justify="right")
+    table = Table(title=f"Estimated cost ({rates.currency})")
+    table.add_column("ENGINE", style="cyan")
+    table.add_column("RUNS", justify="right")
+    table.add_column("DATA", justify="right")
+    table.add_column("TIME", justify="right")
+    table.add_column("COST", justify="right", style="green")
+    table.add_column("PER RUN", justify="right")
 
     for row in rows:
         table.add_row(
@@ -1470,12 +1477,12 @@ def cost():
 
     if not any((rates.per_gb_transfer, rates.per_cpu_hour, rates.per_gb_month)):
         console.print(
-            "[yellow]Nenhuma tarifa configurada — os valores são zero.[/]\n"
-            "[dim]Defina ZFROG_COST_PER_GB_TRANSFER, ZFROG_COST_PER_CPU_HOUR e "
+            "[yellow]No rates configured — the values are zero.[/]\n"
+            "[dim]Set ZFROG_COST_PER_GB_TRANSFER, ZFROG_COST_PER_CPU_HOUR and "
             "ZFROG_COST_PER_GB_MONTH.[/]"
         )
 
-integ_app = typer.Typer(help="Destinos externos (Sheets, Airtable, Notion).")
+integ_app = typer.Typer(help="External destinations (Sheets, Airtable, Notion).")
 app.add_typer(integ_app, name="integrations")
 
 @integ_app.command("list")
@@ -1485,7 +1492,7 @@ def integrations_list():
 
     destinations = DestinationStore().list()
     if not destinations:
-        console.print("[dim]Nenhum destino configurado.[/]")
+        console.print("[dim]No destinations configured.[/]")
         return
 
     for destination in destinations:
@@ -1493,42 +1500,42 @@ def integrations_list():
 
 @integ_app.command("push")
 def integrations_push(
-    name: str = typer.Argument(..., help="Nome do destino"),
-    file: Path = typer.Argument(..., help="Arquivo JSON com uma lista de registros"),
+    name: str = typer.Argument(..., help="Name of the destination"),
+    file: Path = typer.Argument(..., help="JSON file with a list of records"),
 ):
     """Send records to a destination."""
     from zfrog.integrations.base import DestinationStore, client_for
 
     destination = DestinationStore().get(name)
     if destination is None:
-        console.print(f"[red]Destino {name} não encontrado.[/]")
+        console.print(f"[red]Destination {name} not found.[/]")
         sys.exit(1)
 
     if not file.is_file():
-        console.print(f"[red]Arquivo não encontrado: {file}[/]")
+        console.print(f"[red]File not found: {file}[/]")
         sys.exit(1)
 
     records = json.loads(file.read_text(encoding="utf-8"))
     if not isinstance(records, list):
-        console.print("[red]O arquivo precisa conter uma lista de registros.[/]")
+        console.print("[red]The file must contain a list of records.[/]")
         sys.exit(1)
 
     result = asyncio.run(client_for(destination).push(destination, records))
-    console.print(f"[green]{result.created} criado(s)[/], {result.updated} atualizado(s)")
+    console.print(f"[green]{result.created} created[/], {result.updated} updated")
 
     for error in result.errors:
         console.print(f"[red]{error}[/]")
 
-user_app = typer.Typer(help="Usuários e organizações.")
+user_app = typer.Typer(help="Users and organizations.")
 app.add_typer(user_app, name="user")
 
 @user_app.command("create")
 def user_create(
-    email: str = typer.Argument(..., help="E-mail do usuário"),
-    name: str = typer.Option("", "--name", "-n", help="Nome de exibição"),
-    role: str = typer.Option("viewer", "--role", "-r", help="viewer, operator ou admin"),
-    password: str = typer.Option("", "--password", "-p", help="Senha (vazio = só SSO)"),
-    org: list[str] = typer.Option([], "--org", "-o", help="Organização (pode repetir)"),
+    email: str = typer.Argument(..., help="User's email"),
+    name: str = typer.Option("", "--name", "-n", help="Display name"),
+    role: str = typer.Option("viewer", "--role", "-r", help="viewer, operator or admin"),
+    password: str = typer.Option("", "--password", "-p", help="Password (empty = SSO only)"),
+    org: list[str] = typer.Option([], "--org", "-o", help="Organization (may repeat)"),
 ):
     """Create a local user."""
     from zfrog.users import UserStore
@@ -1539,12 +1546,12 @@ def user_create(
         console.print(f"[red]{e}[/]")
         sys.exit(1)
 
-    console.print(f"[green]Usuário criado[/] {user.email} ({user.id}, papel {user.role})")
+    console.print(f"[green]User created[/] {user.email} ({user.id}, role {user.role})")
     if secret:
         console.print(f"[bold]{secret}[/]")
-        console.print("[yellow]Guarde agora: a senha não é armazenada em texto claro.[/]")
+        console.print("[yellow]Save it now: the password is not stored in plain text.[/]")
     else:
-        console.print("[dim]Sem senha: entre apenas por SSO.[/]")
+        console.print("[dim]No password: sign in via SSO only.[/]")
 
 @user_app.command("list")
 def user_list():
@@ -1553,16 +1560,16 @@ def user_list():
 
     users = UserStore().list()
     if not users:
-        console.print("[dim]Nenhum usuário criado.[/]")
+        console.print("[dim]No users created.[/]")
         return
 
-    table = Table(title="Usuários")
+    table = Table(title="Users")
     table.add_column("ID", style="cyan")
-    table.add_column("E-MAIL")
-    table.add_column("NOME")
-    table.add_column("PAPEL", style="green")
-    table.add_column("ORGANIZAÇÕES", style="dim")
-    table.add_column("ATIVO", justify="center")
+    table.add_column("EMAIL")
+    table.add_column("NAME")
+    table.add_column("ROLE", style="green")
+    table.add_column("ORGANIZATIONS", style="dim")
+    table.add_column("ACTIVE", justify="center")
 
     for user in users:
         table.add_row(
@@ -1571,31 +1578,31 @@ def user_list():
             user.name or "-",
             user.role,
             ", ".join(user.orgs) or "-",
-            "sim" if user.enabled else "não",
+            "yes" if user.enabled else "no",
         )
 
     console.print(table)
 
 @user_app.command("disable")
 def user_disable(
-    user_id: str = typer.Argument(..., help="ID do usuário"),
+    user_id: str = typer.Argument(..., help="User ID"),
 ):
     """Disable a user."""
     from zfrog.users import UserStore
 
     if UserStore().set_enabled(user_id, False):
-        console.print(f"[green]Usuário {user_id} desativado.[/]")
+        console.print(f"[green]User {user_id} disabled.[/]")
     else:
-        console.print(f"[red]Usuário {user_id} não encontrado.[/]")
+        console.print(f"[red]User {user_id} not found.[/]")
         sys.exit(1)
 
-org_app = typer.Typer(help="Organizações e isolamento de dados.")
+org_app = typer.Typer(help="Organizations and data isolation.")
 app.add_typer(org_app, name="org")
 
 @org_app.command("create")
 def org_create(
-    name: str = typer.Argument(..., help="Nome da organização"),
-    owner: str = typer.Option(..., "--owner", help="ID do usuário dono"),
+    name: str = typer.Argument(..., help="Name of the organization"),
+    owner: str = typer.Option(..., "--owner", help="ID of the owner user"),
 ):
     """Create an organization."""
     from zfrog.users import OrgStore
@@ -1606,7 +1613,7 @@ def org_create(
         console.print(f"[red]{e}[/]")
         sys.exit(1)
 
-    console.print(f"[green]Organização criada[/] {org.name} ({org.id})")
+    console.print(f"[green]Organization created[/] {org.name} ({org.id})")
 
 @org_app.command("list")
 def org_list():
@@ -1616,16 +1623,16 @@ def org_list():
 
     orgs = OrgStore().list()
     if not orgs:
-        console.print("[dim]Nenhuma organização criada.[/]")
+        console.print("[dim]No organizations created.[/]")
         return
 
     manager = WorkspaceManager()
-    table = Table(title="Organizações")
+    table = Table(title="Organizations")
     table.add_column("ID", style="cyan")
-    table.add_column("NOME")
-    table.add_column("DONO", style="dim")
-    table.add_column("MEMBROS", justify="right")
-    table.add_column("DADOS", justify="center")
+    table.add_column("NAME")
+    table.add_column("OWNER", style="dim")
+    table.add_column("MEMBERS", justify="right")
+    table.add_column("DATA", justify="center")
 
     for org in orgs:
         table.add_row(
@@ -1633,16 +1640,16 @@ def org_list():
             org.name,
             org.owner,
             str(len(org.members)),
-            "sim" if manager.exists(org.id) else "-",
+            "yes" if manager.exists(org.id) else "-",
         )
 
     console.print(table)
 
 @org_app.command("add-member")
 def org_add_member(
-    org_id: str = typer.Argument(..., help="ID da organização"),
-    user_id: str = typer.Argument(..., help="ID do usuário"),
-    role: str = typer.Option("viewer", "--role", "-r", help="Papel dentro da organização"),
+    org_id: str = typer.Argument(..., help="Organization ID"),
+    user_id: str = typer.Argument(..., help="User ID"),
+    role: str = typer.Option("viewer", "--role", "-r", help="Role within the organization"),
 ):
     """Add a user to an organization."""
     from zfrog.users import add_member
@@ -1653,16 +1660,16 @@ def org_add_member(
         console.print(f"[red]{e}[/]")
         sys.exit(1)
 
-    console.print(f"[green]{user_id} adicionado a {org_id} como {role}.[/]")
+    console.print(f"[green]{user_id} added to {org_id} as {role}.[/]")
 
 @app.command()
 def annotate(
-    job_id: str = typer.Argument(..., help="ID do job (cópia)"),
-    path: str = typer.Argument(..., help="Página dentro da cópia"),
-    text: str = typer.Argument(..., help="Comentário"),
-    selector: str = typer.Option("", "--selector", "-s", help="Seletor CSS dentro da página"),
-    author: str = typer.Option("", "--author", "-a", help="Quem está comentando"),
-    tag: list[str] = typer.Option([], "--tag", "-t", help="Etiqueta (pode repetir)"),
+    job_id: str = typer.Argument(..., help="Job (copy) ID"),
+    path: str = typer.Argument(..., help="Page within the copy"),
+    text: str = typer.Argument(..., help="Comment"),
+    selector: str = typer.Option("", "--selector", "-s", help="CSS selector within the page"),
+    author: str = typer.Option("", "--author", "-a", help="Who is commenting"),
+    tag: list[str] = typer.Option([], "--tag", "-t", help="Tag (may repeat)"),
 ):
     """Leave a comment on a cloned page."""
     from zfrog.annotations import AnnotationStore
@@ -1675,12 +1682,12 @@ def annotate(
         console.print(f"[red]{e}[/]")
         sys.exit(1)
 
-    console.print(f"[green]Comentário {note.id} adicionado[/] em {note.path}")
+    console.print(f"[green]Comment {note.id} added[/] to {note.path}")
 
 @app.command()
 def annotations(
-    job_id: str = typer.Argument(..., help="ID do job"),
-    open_only: bool = typer.Option(False, "--open", help="Mostrar só os não resolvidos"),
+    job_id: str = typer.Argument(..., help="Job ID"),
+    open_only: bool = typer.Option(False, "--open", help="Show only unresolved ones"),
 ):
     """List the comments on a clone."""
     from zfrog.annotations import AnnotationStore
@@ -1689,25 +1696,27 @@ def annotations(
     notes = store.list(job_id=job_id, resolved=False if open_only else None)
 
     if not notes:
-        console.print("[dim]Nenhum comentário nesta cópia.[/]")
+        console.print("[dim]No comments on this copy.[/]")
         return
 
     counts = store.counts(job_id)
     console.print(
-        f"[bold]{counts['total']}[/] comentário(s) — "
-        f"{counts['open']} em aberto, {counts['resolved']} resolvido(s)"
+        f"[bold]{counts['total']}[/] comment(s) — "
+        f"{counts['open']} open, {counts['resolved']} resolved"
     )
 
     for note in notes:
         mark = "[green]x[/]" if note.resolved else "[ ]"
-        console.print(f"{mark} [cyan]{note.id}[/] {note.path} [dim]({note.author or 'anônimo'})[/]")
+        console.print(
+            f"{mark} [cyan]{note.id}[/] {note.path} [dim]({note.author or 'anonymous'})[/]"
+        )
         if note.selector:
-            console.print(f"    [dim]seletor: {note.selector}[/]")
+            console.print(f"    [dim]selector: {note.selector}[/]")
         console.print(f"    {note.text}")
         for reply in note.replies:
             console.print(f"    [dim]↳ {reply.get('author', '')}: {reply.get('text', '')}[/]")
 
-domain_app = typer.Typer(help="Perfis de domínio (vocabulário e instruções por área).")
+domain_app = typer.Typer(help="Domain profiles (vocabulary and instructions per area).")
 app.add_typer(domain_app, name="domain")
 
 @domain_app.command("list")
@@ -1718,19 +1727,19 @@ def domain_list():
     store = DomainProfileStore()
     rows = store.list() + store.builtin()
 
-    table = Table(title="Perfis de domínio")
+    table = Table(title="Domain profiles")
     table.add_column("ID", style="cyan")
-    table.add_column("NOME")
-    table.add_column("ORIGEM", style="dim")
-    table.add_column("TERMOS", justify="right")
-    table.add_column("EXEMPLOS", justify="right")
+    table.add_column("NAME")
+    table.add_column("SOURCE", style="dim")
+    table.add_column("TERMS", justify="right")
+    table.add_column("EXAMPLES", justify="right")
 
     saved_ids = {p.id for p in store.list()}
     for profile in rows:
         table.add_row(
             profile.id,
             profile.name,
-            "salvo" if profile.id in saved_ids else "embutido",
+            "saved" if profile.id in saved_ids else "built-in",
             str(len(profile.terminology)),
             str(len(profile.examples)),
         )
@@ -1739,20 +1748,20 @@ def domain_list():
 
 @domain_app.command("suggest")
 def domain_suggest(
-    url: str = typer.Argument(..., help="URL ou texto a classificar"),
+    url: str = typer.Argument(..., help="URL or text to classify"),
 ):
     """Suggest a domain profile for a URL or text."""
     from zfrog.ai.domains import resolve, suggest_profile
 
     profile_id = suggest_profile(url, url)
     if not profile_id:
-        console.print("[dim]Nenhum perfil sugerido para isso.[/]")
+        console.print("[dim]No profile suggested for this.[/]")
         return
 
     profile = resolve(profile_id)
     console.print(f"[green]{profile_id}[/] — {profile.description if profile else ''}")
 
-worker_app = typer.Typer(help="Workers e atribuição por região.")
+worker_app = typer.Typer(help="Workers and assignment by region.")
 app.add_typer(worker_app, name="worker")
 
 @worker_app.command("list")
@@ -1765,16 +1774,16 @@ def worker_list():
     workers = registry.list(alive_only=False)
 
     if not workers:
-        console.print("[dim]Nenhum worker registrado.[/]")
+        console.print("[dim]No workers registered.[/]")
         return
 
     table = Table(title="Workers")
     table.add_column("ID", style="cyan")
-    table.add_column("REGIÃO", style="green")
-    table.add_column("OCUPADO", justify="right")
-    table.add_column("LIVRE", justify="right")
-    table.add_column("VIVO", justify="center")
-    table.add_column("VISTO", style="dim")
+    table.add_column("REGION", style="green")
+    table.add_column("BUSY", justify="right")
+    table.add_column("FREE", justify="right")
+    table.add_column("ALIVE", justify="center")
+    table.add_column("SEEN", style="dim")
 
     for worker in workers:
         table.add_row(
@@ -1782,7 +1791,7 @@ def worker_list():
             worker.region,
             f"{worker.running}/{worker.capacity}",
             str(worker.free()),
-            "sim" if registry.alive(worker.id) else "não",
+            "yes" if registry.alive(worker.id) else "no",
             worker.last_seen[:19],
         )
 
@@ -1790,25 +1799,25 @@ def worker_list():
 
 @worker_app.command("assign")
 def worker_assign(
-    url: str = typer.Argument(..., help="URL que seria processada"),
-    region: Optional[str] = typer.Option(None, "--region", "-r", help="Forçar uma região"),
+    url: str = typer.Argument(..., help="URL that would be processed"),
+    region: Optional[str] = typer.Option(None, "--region", "-r", help="Force a region"),
 ):
     """Show which worker would take a job, and why."""
     from zfrog.workers import WorkerRegistry
 
     assignment = WorkerRegistry().assign(url, preferred_region=region)
     if assignment.worker is None:
-        console.print(f"[yellow]Nenhum worker disponível[/] — {assignment.reason}")
+        console.print(f"[yellow]No worker available[/] — {assignment.reason}")
         return
 
-    console.print(f"[green]{assignment.worker.id}[/] em {assignment.worker.region}")
+    console.print(f"[green]{assignment.worker.id}[/] in {assignment.worker.region}")
     console.print(f"[dim]{assignment.reason}[/]")
 
 @worker_app.command("run")
 def worker_run(
-    region: Optional[str] = typer.Option(None, "--region", "-r", help="Região deste worker"),
-    capacity: int = typer.Option(1, "--capacity", "-c", help="Jobs simultâneos"),
-    interval: int = typer.Option(20, "--interval", help="Segundos entre batidas"),
+    region: Optional[str] = typer.Option(None, "--region", "-r", help="Region of this worker"),
+    capacity: int = typer.Option(1, "--capacity", "-c", help="Concurrent jobs"),
+    interval: int = typer.Option(20, "--interval", help="Seconds between heartbeats"),
 ):
     """Register this machine as a worker and keep its heartbeat."""
     from zfrog.workers import WorkerRegistry, current_worker_id, heartbeat_loop
@@ -1820,13 +1829,13 @@ def worker_run(
     # so the region and capacity the user asked for have to land here.
     WorkerRegistry().register(worker_id, target, capacity=capacity)
 
-    console.print(f"[green]Worker {worker_id}[/] na região {target} (capacidade {capacity}).")
-    console.print("[dim]Ctrl+C para parar.[/]")
+    console.print(f"[green]Worker {worker_id}[/] in region {target} (capacity {capacity}).")
+    console.print("[dim]Ctrl+C to stop.[/]")
 
     try:
         asyncio.run(heartbeat_loop(worker_id, interval_s=interval))
     except KeyboardInterrupt:
-        console.print("\n[dim]Worker parado.[/]")
+        console.print("\n[dim]Worker stopped.[/]")
 
 def settings_region() -> str:
     """The configured region (helper for the worker command)."""
@@ -1834,25 +1843,25 @@ def settings_region() -> str:
 
     return settings.region
 
-market_sync_app = typer.Typer(help="Sincronizar um índice de marketplace remoto.")
+market_sync_app = typer.Typer(help="Sync a remote marketplace index.")
 app.add_typer(market_sync_app, name="market-index")
 
 @market_sync_app.command("build")
 def market_index_build(
-    output: Path = typer.Option(Path("marketplace-index.json"), "--output", "-o", help="Arquivo de saída"),
-    source: str = typer.Option("", "--source", help="Nome da origem (para o cabeçalho)"),
+    output: Path = typer.Option(Path("marketplace-index.json"), "--output", "-o", help="Output file"),
+    source: str = typer.Option("", "--source", help="Name of the source (for the header)"),
 ):
     """Build an index of the locally published marketplace assets."""
     from zfrog.marketplace_index import index_from_marketplace, index_summary, write_index
 
     index = index_from_marketplace(source=source)
     path = write_index(output, index)
-    console.print(f"[green]Índice escrito[/] em {path}")
+    console.print(f"[green]Index written[/] to {path}")
     console.print(f"[dim]{index_summary(index)}[/]")
 
 @market_sync_app.command("sync")
 def market_index_sync(
-    index_url: str = typer.Argument(..., help="URL do índice remoto"),
+    index_url: str = typer.Argument(..., help="URL of the remote index"),
 ):
     """Import the assets of a remote index into the local marketplace."""
     from zfrog.marketplace_index import fetch_index, merge_index
@@ -1865,21 +1874,23 @@ def market_index_sync(
 
     result = merge_index(index)
     console.print(
-        f"[green]{result.added} novo(s)[/], {result.updated} atualizado(s), "
-        f"{result.unchanged} sem mudança, {result.skipped} ignorado(s)"
+        f"[green]{result.added} new[/], {result.updated} updated, "
+        f"{result.unchanged} unchanged, {result.skipped} skipped"
     )
     for error in result.errors:
         console.print(f"[yellow]{error}[/]")
 
 @app.command()
 def timeline(
-    url: str = typer.Argument(..., help="URL do site"),
+    url: str = typer.Argument(..., help="URL of the site"),
     when: Optional[str] = typer.Option(
-        None, "--when", "-w", help="Ver como estava nesta data (ex.: 2026-09-01)"
+        None, "--when", "-w", help="See how it was on this date (e.g.: 2026-09-01)"
     ),
-    ref: Optional[str] = typer.Option(None, "--ref", help="Abrir uma versão específica"),
-    page: Optional[str] = typer.Option(None, "--page", help="Mostrar o conteúdo de uma página"),
-    restore: Optional[Path] = typer.Option(None, "--restore", help="Restaurar a versão nesta pasta"),
+    ref: Optional[str] = typer.Option(None, "--ref", help="Open a specific version"),
+    page: Optional[str] = typer.Option(None, "--page", help="Show the content of a page"),
+    restore: Optional[Path] = typer.Option(
+        None, "--restore", help="Restore the version to this folder"
+    ),
 ):
     """Browse a site as it was on a past date."""
     from zfrog.timemachine import TimeMachine, timeline_summary
@@ -1894,19 +1905,19 @@ def timeline(
             sys.exit(1)
 
         if found is None:
-            console.print(f"[yellow]Nenhuma versão guardada até {when}.[/]")
+            console.print(f"[yellow]No version saved up to {when}.[/]")
             sys.exit(1)
 
         entry = next((e for e in machine.timeline() if e.ref == found), None)
         console.print(
-            f"[green]Versão de {entry.captured_at if entry else found}[/]"
+            f"[green]Version from {entry.captured_at if entry else found}[/]"
             + (f" — {entry.message}" if entry and entry.message else "")
         )
         ref = ref or found
 
     entries = machine.timeline()
     if not entries:
-        console.print("[dim]Nenhuma versão guardada. Use --versioned no clone.[/]")
+        console.print("[dim]No versions saved. Use --versioned on the clone.[/]")
         return
 
     if restore:
@@ -1918,7 +1929,7 @@ def timeline(
             console.print(f"[red]{e}[/]")
             sys.exit(1)
         files = [f for f in dest.rglob("*") if f.is_file()]
-        console.print(f"[green]{len(files)} arquivo(s) restaurado(s) em {dest}[/]")
+        console.print(f"[green]{len(files)} file(s) restored to {dest}[/]")
         return
 
     if page:
@@ -1926,7 +1937,7 @@ def timeline(
             ref = entries[-1].ref
         archived = machine.page(ref, page)
         if archived is None:
-            console.print(f"[red]Página {page} não existe nessa versão.[/]")
+            console.print(f"[red]Page {page} does not exist in that version.[/]")
             sys.exit(1)
 
         html = machine.content(ref, page)
@@ -1934,27 +1945,27 @@ def timeline(
         if html:
             console.print(Markdown(f"```html\n{html[:2000]}\n```"))
         else:
-            console.print("[dim]Conteúdo não disponível (blob ausente).[/]")
+            console.print("[dim]Content not available (missing blob).[/]")
         return
 
     if ref:
         pages = machine.at(ref)
-        table = Table(title=f"Versão {ref}")
-        table.add_column("PÁGINA", style="cyan")
-        table.add_column("TÍTULO")
-        table.add_column("TAMANHO", justify="right")
+        table = Table(title=f"Version {ref}")
+        table.add_column("PAGE", style="cyan")
+        table.add_column("TITLE")
+        table.add_column("SIZE", justify="right")
         for archived in pages:
             table.add_row(archived.path, archived.title or "-", f"{archived.size_bytes:,} B")
         console.print(table)
         return
 
     console.print(f"[bold]{timeline_summary(entries)}[/]")
-    listing = Table(title=f"Versões de {url}")
-    listing.add_column("VERSÃO", style="cyan")
-    listing.add_column("QUANDO", style="green")
-    listing.add_column("PÁGINAS", justify="right")
-    listing.add_column("TAMANHO", justify="right")
-    listing.add_column("MENSAGEM", style="dim")
+    listing = Table(title=f"Versions of {url}")
+    listing.add_column("VERSION", style="cyan")
+    listing.add_column("WHEN", style="green")
+    listing.add_column("PAGES", justify="right")
+    listing.add_column("SIZE", justify="right")
+    listing.add_column("MESSAGE", style="dim")
     for entry in entries:
         listing.add_row(
             entry.ref[:10],
@@ -1965,18 +1976,18 @@ def timeline(
         )
     console.print(listing)
 
-price_app = typer.Typer(help="Acompanhar preços ao longo do tempo.")
+price_app = typer.Typer(help="Track prices over time.")
 app.add_typer(price_app, name="price")
 
 @price_app.command("watch")
 def price_watch(
-    url: str = typer.Argument(..., help="URL cujo último snapshot será lido"),
+    url: str = typer.Argument(..., help="URL whose latest snapshot will be read"),
 ):
     """Read a site's latest snapshot and record its prices."""
     from zfrog.pricing import format_change, watch_url
 
     result = watch_url(url)
-    console.print(f"[green]{result['prices']} preço(s) registrado(s)[/] em {url}")
+    console.print(f"[green]{result['prices']} price(s) recorded[/] at {url}")
 
     for change in result["changes"]:
         color = "green" if change["direction"] == "down" else "yellow"
@@ -1984,22 +1995,22 @@ def price_watch(
 
 @price_app.command("changes")
 def price_changes(
-    url: str = typer.Argument(..., help="URL a consultar"),
+    url: str = typer.Argument(..., help="URL to query"),
 ):
     """Show how the recorded prices moved."""
     from zfrog.pricing import PriceTracker, format_change
 
     changes = PriceTracker().changes(url)
     if not changes:
-        console.print("[dim]Nenhum preço registrado para esse site.[/]")
+        console.print("[dim]No prices recorded for this site.[/]")
         return
 
-    table = Table(title=f"Preços de {url}")
+    table = Table(title=f"Prices of {url}")
     table.add_column("ITEM", style="cyan")
-    table.add_column("ANTES", justify="right")
-    table.add_column("AGORA", justify="right")
-    table.add_column("VARIAÇÃO", justify="right")
-    table.add_column("ALERTA", justify="center")
+    table.add_column("BEFORE", justify="right")
+    table.add_column("NOW", justify="right")
+    table.add_column("CHANGE", justify="right")
+    table.add_column("ALERT", justify="center")
 
     for change in changes:
         color = "green" if change.direction == "down" else "red" if change.direction == "up" else "white"
@@ -2008,7 +2019,7 @@ def price_changes(
             f"{change.before:,.2f}",
             f"{change.after:,.2f}",
             f"[{color}]{change.change_pct:+.1f}%[/]",
-            "[red]sim[/]" if change.significant else "-",
+            "[red]yes[/]" if change.significant else "-",
         )
 
     console.print(table)
@@ -2016,9 +2027,9 @@ def price_changes(
 @app.command()
 def compare_sites(
     site: list[str] = typer.Option(
-        ..., "--site", "-s", help="Rótulo=pasta de um clone (pode repetir)"
+        ..., "--site", "-s", help="Label=folder of a clone (may repeat)"
     ),
-    markdown: bool = typer.Option(False, "--markdown", help="Imprimir o relatório em Markdown"),
+    markdown: bool = typer.Option(False, "--markdown", help="Print the report in Markdown"),
 ):
     """Compare several cloned sites side by side."""
     from zfrog.analysis.competitive import compare_directories, to_markdown
@@ -2030,12 +2041,12 @@ def compare_sites(
             label, raw_path = Path(entry).name, entry
         path = Path(raw_path)
         if not path.is_dir():
-            console.print(f"[red]Pasta não encontrada: {path}[/]")
+            console.print(f"[red]Folder not found: {path}[/]")
             sys.exit(1)
         sites[label] = path
 
     if len(sites) < 2:
-        console.print("[yellow]Informe pelo menos dois sites para comparar.[/]")
+        console.print("[yellow]Provide at least two sites to compare.[/]")
         sys.exit(1)
 
     comparison = asyncio.run(compare_directories(sites))
@@ -2046,11 +2057,11 @@ def compare_sites(
 
     console.print(f"[bold]{comparison.summary}[/]")
 
-    table = Table(title="Comparação")
+    table = Table(title="Comparison")
     table.add_column("SITE", style="cyan")
-    table.add_column("PÁGINAS", justify="right")
-    table.add_column("PALAVRAS", justify="right")
-    table.add_column("PREÇOS", justify="right")
+    table.add_column("PAGES", justify="right")
+    table.add_column("WORDS", justify="right")
+    table.add_column("PRICES", justify="right")
     for snapshot in comparison.sites:
         table.add_row(
             snapshot.site,
@@ -2065,28 +2076,28 @@ def compare_sites(
 
 @app.command()
 def trends(
-    url: str = typer.Argument(..., help="URL do site"),
-    term: list[str] = typer.Option(..., "--term", "-t", help="Termo a acompanhar (pode repetir)"),
+    url: str = typer.Argument(..., help="URL of the site"),
+    term: list[str] = typer.Option(..., "--term", "-t", help="Term to track (may repeat)"),
 ):
     """Track terms across a site's saved history."""
     from zfrog.analysis.trends import summarize, to_markdown, trends as compute
 
     found = compute(url, list(term))
     if not found:
-        console.print("[dim]Nenhum snapshot guardado para esse site.[/]")
+        console.print("[dim]No snapshots saved for this site.[/]")
         return
 
     console.print(Markdown(to_markdown(url, found)))
     console.print(f"[bold]{summarize(found)}[/]")
 
-totp_app = typer.Typer(help="Códigos de dois fatores da sua própria conta.")
+totp_app = typer.Typer(help="Two-factor codes for your own account.")
 app.add_typer(totp_app, name="totp")
 
 @totp_app.command("add")
 def totp_add(
-    name: str = typer.Argument(..., help="Nome para identificar a conta"),
-    secret: str = typer.Argument(..., help="Segredo base32 (o que o site mostra)"),
-    issuer: str = typer.Option("", "--issuer", help="Nome do serviço"),
+    name: str = typer.Argument(..., help="Name to identify the account"),
+    secret: str = typer.Argument(..., help="Base32 secret (what the site shows)"),
+    issuer: str = typer.Option("", "--issuer", help="Name of the service"),
 ):
     """Register a two-factor account."""
     from zfrog.totp import TotpStore
@@ -2097,11 +2108,13 @@ def totp_add(
         console.print(f"[red]{e}[/]")
         sys.exit(1)
 
-    console.print(f"[green]Conta {account.name} registrada[/] — segredo guardado com permissão 0600")
+    console.print(
+        f"[green]Account {account.name} registered[/] — secret stored with 0600 permission"
+    )
 
 @totp_app.command("code")
 def totp_code(
-    name: str = typer.Argument(..., help="Nome da conta"),
+    name: str = typer.Argument(..., help="Name of the account"),
 ):
     """Show the current code."""
     from zfrog.totp import TotpStore, seconds_remaining
@@ -2112,7 +2125,7 @@ def totp_code(
         console.print(f"[red]{e}[/]")
         sys.exit(1)
 
-    console.print(f"[bold]{code}[/] [dim](válido por {seconds_remaining()}s)[/]")
+    console.print(f"[bold]{code}[/] [dim](valid for {seconds_remaining()}s)[/]")
 
 @totp_app.command("list")
 def totp_list():
@@ -2121,29 +2134,31 @@ def totp_list():
 
     accounts = TotpStore().list()
     if not accounts:
-        console.print("[dim]Nenhuma conta registrada.[/]")
+        console.print("[dim]No accounts registered.[/]")
         return
 
-    table = Table(title="Contas de dois fatores")
-    table.add_column("NOME", style="cyan")
-    table.add_column("SERVIÇO")
+    table = Table(title="Two-factor accounts")
+    table.add_column("NAME", style="cyan")
+    table.add_column("SERVICE")
     for account in accounts:
         table.add_row(account.get("name", ""), account.get("issuer", "") or "-")
     console.print(table)
 
 @app.command()
 def dataset(
-    directory: Path = typer.Argument(..., help="Pasta clonada para virar dataset"),
-    kind: str = typer.Option("extraction", "--kind", "-k", help="extraction, summary, qa ou entities"),
-    fmt: str = typer.Option("chat", "--format", "-f", help="chat ou alpaca"),
-    output: Optional[Path] = typer.Option(None, "--output", "-o", help="Arquivo .jsonl de saída"),
+    directory: Path = typer.Argument(..., help="Cloned folder to turn into a dataset"),
+    kind: str = typer.Option(
+        "extraction", "--kind", "-k", help="extraction, summary, qa or entities"
+    ),
+    fmt: str = typer.Option("chat", "--format", "-f", help="chat or alpaca"),
+    output: Optional[Path] = typer.Option(None, "--output", "-o", help="Output .jsonl file"),
 ):
     """Build a fine-tuning dataset from a clone (training runs elsewhere)."""
     from zfrog.finetune import DatasetBuilder, dataset_summary
     from zfrog.utils.text import extract_text
 
     if not directory.is_dir():
-        console.print(f"[red]Pasta não encontrada: {directory}[/]")
+        console.print(f"[red]Folder not found: {directory}[/]")
         sys.exit(1)
 
     pages = []
@@ -2152,12 +2167,12 @@ def dataset(
         pages.append({"url": str(path), "path": str(path.name), "text": extract_text(html), "html": html})
 
     if not pages:
-        console.print("[yellow]Nenhuma página HTML nessa pasta.[/]")
+        console.print("[yellow]No HTML pages in that folder.[/]")
         sys.exit(1)
 
     builder = DatasetBuilder()
     added = builder.add_pages(pages, kind=kind)
-    console.print(f"[green]{added} exemplo(s) gerado(s)[/]")
+    console.print(f"[green]{added} example(s) generated[/]")
 
     try:
         written = builder.export(output, fmt=fmt)
@@ -2166,7 +2181,7 @@ def dataset(
         sys.exit(1)
 
     console.print(f"[dim]{dataset_summary(written)}[/]")
-    console.print(f"[dim]Salvo em {written}[/]")
+    console.print(f"[dim]Saved to {written}[/]")
 
 @app.command()
 def roi():
@@ -2176,36 +2191,38 @@ def roi():
 
     result = roi_from_metrics(inputs_from_settings(), store=MetricsStore())
     if not result.runs:
-        console.print("[dim]Nada medido ainda — rode algumas extrações.[/]")
+        console.print("[dim]Nothing measured yet — run some extractions.[/]")
         return
 
     console.print(Markdown(to_markdown(result)))
 
 @app.command()
 def market_serve(
-    host: str = typer.Option("", "--host", help="Endereço (default: ZFROG_MARKETPLACE_HOST)"),
-    port: int = typer.Option(0, "--port", "-p", help="Porta (default: ZFROG_MARKETPLACE_PORT)"),
-    source: str = typer.Option("", "--source", help="Nome da origem no índice"),
-    token: str = typer.Option("", "--token", help="Exigir este token para publicar"),
+    host: str = typer.Option("", "--host", help="Address (default: ZFROG_MARKETPLACE_HOST)"),
+    port: int = typer.Option(0, "--port", "-p", help="Port (default: ZFROG_MARKETPLACE_PORT)"),
+    source: str = typer.Option("", "--source", help="Name of the source in the index"),
+    token: str = typer.Option("", "--token", help="Require this token to publish"),
 ):
     """Serve the marketplace index over HTTP."""
     from zfrog.marketplace_server import serve
 
-    console.print(f"[green]Marketplace em http://{host or '127.0.0.1'}:{port or 8200}[/]")
+    console.print(f"[green]Marketplace at http://{host or '127.0.0.1'}:{port or 8200}[/]")
     if token:
-        console.print("[dim]Publicar exige o token informado.[/]")
+        console.print("[dim]Publishing requires the given token.[/]")
 
     try:
         serve(host=host, port=port, source=source, require_token=token)
     except KeyboardInterrupt:
-        console.print("\n[dim]Servidor parado.[/]")
+        console.print("\n[dim]Server stopped.[/]")
 
 @app.command()
 def dispatch(
-    url: list[str] = typer.Option(..., "--url", "-u", help="URL a enviar (pode repetir)"),
-    mode: str = typer.Option("auto", "--mode", "-m", help="Modo do job (auto = o probe escolhe o motor)"),
-    region: Optional[str] = typer.Option(None, "--region", "-r", help="Região preferida"),
-    dry_run: bool = typer.Option(False, "--dry-run", help="Só mostrar para onde iria"),
+    url: list[str] = typer.Option(..., "--url", "-u", help="URL to dispatch (may repeat)"),
+    mode: str = typer.Option(
+        "auto", "--mode", "-m", help="Job mode (auto = the probe picks the engine)"
+    ),
+    region: Optional[str] = typer.Option(None, "--region", "-r", help="Preferred region"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Only show where it would go"),
 ):
     """Hand jobs to workers (or show where they would go)."""
     from zfrog.dispatch import Dispatcher, dispatch_summary, plan_dispatch
@@ -2233,13 +2250,13 @@ def dispatch(
 
 @app.command()
 def arweave(
-    directory: Path = typer.Argument(..., help="Pasta clonada a arquivar"),
+    directory: Path = typer.Argument(..., help="Cloned folder to archive"),
 ):
     """Publish a clone to Arweave for permanent archiving."""
     from zfrog.storage.arweave import publish_clone
 
     if not directory.is_dir():
-        console.print(f"[red]Pasta não encontrada: {directory}[/]")
+        console.print(f"[red]Folder not found: {directory}[/]")
         sys.exit(1)
 
     try:
@@ -2248,47 +2265,47 @@ def arweave(
         console.print(f"[red]{e}[/]")
         sys.exit(1)
 
-    console.print(f"[green]Publicado[/] — {result['size_bytes']:,} bytes")
+    console.print(f"[green]Published[/] — {result['size_bytes']:,} bytes")
     console.print(f"ID: [cyan]{result['item_id']}[/]")
     console.print(f"[dim]{result['gateway_url']}[/]")
 
-# ── referências de design ───────────────────────────────────────────────────────
-# jump/tongue/pond: as três palavras do sapo. jump captura, tongue extrai um
-# componente, pond é o catálogo onde tudo fica.
+# ── design references ───────────────────────────────────────────────────────────
+# jump/tongue/pond: the three words of the frog. jump captures, tongue extracts a
+# component, pond is the catalog where everything lives.
 
 @app.command()
 def jump(
-    url: str = typer.Argument(..., help="Endereço da página a capturar"),
+    url: str = typer.Argument(..., help="Address of the page to capture"),
     breakpoint_name: str = typer.Option(
         "desktop",
         "--breakpoint",
         "-b",
-        help="Resolução do screenshot: desktop, tablet ou mobile",
+        help="Screenshot resolution: desktop, tablet or mobile",
     ),
-    tag: list[str] = typer.Option([], "--tag", "-t", help="Etiqueta para a referência (pode repetir)"),
+    tag: list[str] = typer.Option([], "--tag", "-t", help="Tag for the reference (may repeat)"),
     viewport_only: bool = typer.Option(
         False,
         "--viewport-only",
-        help="Captura só o que cabe na tela, em vez da página inteira",
+        help="Capture only what fits on screen, instead of the full page",
     ),
     image_format: str = typer.Option(
-        "png", "--format", "-f", help="Formato da imagem: png (sem perda) ou webp (menor)"
+        "png", "--format", "-f", help="Image format: png (lossless) or webp (smaller)"
     ),
-    output: str = typer.Option("output", "--output", "-o", help="Diretório de saída"),
+    output: str = typer.Option("output", "--output", "-o", help="Output directory"),
 ):
-    """Capture uma página como referência: screenshot + tokens de design."""
+    """Capture a page as a reference: screenshot + design tokens."""
     from zfrog.engines.jump import BREAKPOINTS, DEFAULT_BREAKPOINT
     from zfrog.orchestrator import run_job
 
     if breakpoint_name not in BREAKPOINTS:
         console.print(
-            f"[red]Resolução desconhecida:[/] {breakpoint_name}. "
-            f"Use uma de: {', '.join(BREAKPOINTS)}"
+            f"[red]Unknown resolution:[/] {breakpoint_name}. "
+            f"Use one of: {', '.join(BREAKPOINTS)}"
         )
         sys.exit(1)
 
     if image_format.lower() not in ("png", "webp"):
-        console.print(f"[red]Formato desconhecido:[/] {image_format} (use png ou webp)")
+        console.print(f"[red]Unknown format:[/] {image_format} (use png or webp)")
         sys.exit(1)
 
     settings_output = Path(output)
@@ -2306,8 +2323,8 @@ def jump(
     )
 
     console.print(
-        f"Capturando [cyan]{url}[/] em {breakpoint_name}"
-        + ("" if not viewport_only else " (só o viewport)")
+        f"Capturing [cyan]{url}[/] at {breakpoint_name}"
+        + ("" if not viewport_only else " (viewport only)")
     )
 
     with Progress(
@@ -2315,27 +2332,27 @@ def jump(
         TextColumn("[progress.description]{task.description}"),
         console=console,
     ) as progress:
-        task = progress.add_task("Capturando…", total=None)
+        task = progress.add_task("Capturing…", total=None)
 
         try:
             result = asyncio.run(run_job(job))
         except Exception as e:
-            console.print(f"[red]Falhou:[/] {e}")
+            console.print(f"[red]Failed:[/] {e}")
             sys.exit(1)
 
-        progress.update(task, description="[green]Pronto[/]")
+        progress.update(task, description="[green]Done[/]")
 
-    console.print(f"[green]Capturado[/] — {result.files_count} arquivos, "
-                  f"{result.total_size_bytes:,} bytes em {result.duration_seconds:.1f}s")
+    console.print(f"[green]Captured[/] — {result.files_count} files, "
+                  f"{result.total_size_bytes:,} bytes in {result.duration_seconds:.1f}s")
     _print_tokens_summary(_job_dir(result))
 
 @app.command()
 def tongue(
-    url: str = typer.Argument(..., help="Endereço da página"),
-    selector: str = typer.Argument(..., help="Seletor CSS do componente (ex.: .hero, #nav)"),
-    output: str = typer.Option("output", "--output", "-o", help="Diretório de saída"),
+    url: str = typer.Argument(..., help="Address of the page"),
+    selector: str = typer.Argument(..., help="CSS selector of the component (e.g.: .hero, #nav)"),
+    output: str = typer.Option("output", "--output", "-o", help="Output directory"),
 ):
-    """Extrai um componente: o HTML e o CSS que o navegador aplicou nele."""
+    """Extract a component: the HTML and the CSS the browser applied to it."""
     from zfrog.config import settings
     from zfrog.orchestrator import run_job
 
@@ -2343,43 +2360,47 @@ def tongue(
 
     job = JobCreate(url=url, mode="tongue", selector=selector)
 
-    console.print(f"Extraindo [cyan]{selector}[/] de {url}")
+    console.print(f"Extracting [cyan]{selector}[/] from {url}")
 
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
         console=console,
     ) as progress:
-        task = progress.add_task("Extraindo…", total=None)
+        task = progress.add_task("Extracting…", total=None)
 
         try:
             result = asyncio.run(run_job(job))
         except Exception as e:
-            console.print(f"[red]Falhou:[/] {e}")
+            console.print(f"[red]Failed:[/] {e}")
             sys.exit(1)
 
-        progress.update(task, description="[green]Pronto[/]")
+        progress.update(task, description="[green]Done[/]")
 
-    console.print(f"[green]Extraído[/] — {result.files_count} arquivos")
+    console.print(f"[green]Extracted[/] — {result.files_count} files")
     _print_component_summary(_job_dir(result))
 
 @app.command()
 def pond(
-    tag: Optional[str] = typer.Option(None, "--tag", "-t", help="Filtrar por etiqueta"),
-    color: Optional[str] = typer.Option(None, "--color", "-c", help="Filtrar por cor (ex.: #3BD487)"),
-    site: Optional[str] = typer.Option(None, "--site", "-s", help="Filtrar por site"),
-    query: Optional[str] = typer.Option(None, "--query", "-q", help="Buscar no endereço, título ou nota"),
+    tag: Optional[str] = typer.Option(None, "--tag", "-t", help="Filter by tag"),
+    color: Optional[str] = typer.Option(
+        None, "--color", "-c", help="Filter by color (e.g.: #3BD487)"
+    ),
+    site: Optional[str] = typer.Option(None, "--site", "-s", help="Filter by site"),
+    query: Optional[str] = typer.Option(
+        None, "--query", "-q", help="Search in the address, title or note"
+    ),
     describe: Optional[str] = typer.Option(
         None,
         "--search",
-        help="Buscar por descrição visual (ex.: \"layouts escuros com cards arredondados\")",
+        help="Search by visual description (e.g.: \"dark layouts with rounded cards\")",
     ),
     reindex: bool = typer.Option(
-        False, "--reindex", help="Reindexar os embeddings do catálogo antes de buscar"
+        False, "--reindex", help="Reindex the catalog embeddings before searching"
     ),
-    limit: int = typer.Option(50, "--limit", "-n", help="Quantas referências mostrar"),
+    limit: int = typer.Option(50, "--limit", "-n", help="How many references to show"),
 ):
-    """Lista as referências capturadas, ou busca por descrição com --search."""
+    """List the captured references, or search by description with --search."""
     from zfrog.catalog import Catalog
     from zfrog.config import settings
 
@@ -2390,26 +2411,26 @@ def pond(
 
         result = embed_catalog_sync(catalog, force=True)
         if result.indexed:
-            console.print(f"[green]{result.indexed} referência(s) indexada(s).[/]")
+            console.print(f"[green]{result.indexed} reference(s) indexed.[/]")
         else:
             # Say *why*, not just "nothing happened": an empty catalog, an already
             # indexed one and a broken model need three different actions.
-            console.print(f"[yellow]Nada indexado.[/] {result.reason}")
+            console.print(f"[yellow]Nothing indexed.[/] {result.reason}")
 
     if describe:
         from zfrog.visual_search import search_descriptive
 
         hits = asyncio.run(search_descriptive(catalog, describe, limit=limit))
         if not hits:
-            console.print(f"[yellow]Nada encontrado para[/] “{describe}”.")
+            console.print(f"[yellow]Nothing found for[/] “{describe}”.")
             return
 
-        table = Table(title=f"Busca por descrição — “{describe}” ({len(hits)})")
+        table = Table(title=f"Search by description — “{describe}” ({len(hits)})")
         table.add_column("ID", style="dim")
-        table.add_column("RELEVÂNCIA", justify="right", style="green")
+        table.add_column("RELEVANCE", justify="right", style="green")
         table.add_column("SITE", style="cyan")
-        table.add_column("TÍTULO")
-        table.add_column("COR", style="green")
+        table.add_column("TITLE")
+        table.add_column("COLOR", style="green")
         table.add_column("TAGS", style="magenta")
 
         for hit in hits:
@@ -2429,21 +2450,21 @@ def pond(
 
     if not cards:
         if catalog.count():
-            console.print("[yellow]Nenhuma referência bate com esses filtros.[/]")
+            console.print("[yellow]No reference matches these filters.[/]")
         else:
             console.print(
-                "[yellow]O catálogo está vazio.[/] Capture uma página com "
+                "[yellow]The catalog is empty.[/] Capture a page with "
                 "[cyan]zfrog jump <url>[/]."
             )
         return
 
-    table = Table(title=f"Referências ({len(cards)} de {catalog.count()})")
+    table = Table(title=f"References ({len(cards)} of {catalog.count()})")
     table.add_column("ID", style="dim")
     table.add_column("SITE", style="cyan")
-    table.add_column("TÍTULO")
-    table.add_column("COR", style="green")
+    table.add_column("TITLE")
+    table.add_column("COLOR", style="green")
     table.add_column("TAGS", style="magenta")
-    table.add_column("QUANDO", style="dim")
+    table.add_column("WHEN", style="dim")
 
     for card in cards:
         table.add_row(
@@ -2466,14 +2487,14 @@ def pond(
         colors = catalog.colors(12)
         if colors:
             console.print(
-                "[dim]cores:[/] " + " · ".join(f"{hex_color} ({count})" for hex_color, count in colors)
+                "[dim]colors:[/] " + " · ".join(f"{hex_color} ({count})" for hex_color, count in colors)
             )
 
 @app.command()
 def show(
-    card_id: str = typer.Argument(..., help="ID da referência (prefixo serve)"),
+    card_id: str = typer.Argument(..., help="Reference ID (prefix works)"),
 ):
-    """Mostra os detalhes de uma referência capturada."""
+    """Show the details of a captured reference."""
     from zfrog.catalog import Catalog
     from zfrog.config import settings
 
@@ -2485,13 +2506,15 @@ def show(
         if len(matches) == 1:
             card = matches[0]
         elif len(matches) > 1:
-            console.print(f"[yellow]Prefixo ambíguo:[/] {len(matches)} referências começam com isso.")
+            console.print(
+                f"[yellow]Ambiguous prefix:[/] {len(matches)} references start with this."
+            )
             for match in matches[:10]:
                 console.print(f"  {match.id[:12]} — {match.site}")
             sys.exit(1)
 
     if card is None:
-        console.print(f"[red]Referência não encontrada:[/] {card_id}")
+        console.print(f"[red]Reference not found:[/] {card_id}")
         sys.exit(1)
 
     console.print(f"[bold]{card.title or card.url}[/]")
@@ -2503,21 +2526,21 @@ def show(
     details.add_column()
     details.add_row("ID", card.id)
     details.add_row("Site", card.site)
-    details.add_row("Capturado", card.captured_at_label)
-    details.add_row("Modo", f"{card.mode} · {card.engine}")
+    details.add_row("Captured", card.captured_at_label)
+    details.add_row("Mode", f"{card.mode} · {card.engine}")
     details.add_row("Screenshot", card.screenshot or "—")
     details.add_row("Tags", ", ".join(card.tags) or "—")
-    details.add_row("Nota", card.note or "—")
+    details.add_row("Note", card.note or "—")
     console.print(details)
 
     tokens = card.tokens or {}
     palette = tokens.get("palette", [])
     if palette:
         console.print()
-        palette_table = Table(title="Paleta")
-        palette_table.add_column("COR", style="green")
-        palette_table.add_column("USOS", justify="right")
-        palette_table.add_column("PAPEL", style="cyan")
+        palette_table = Table(title="Palette")
+        palette_table.add_column("COLOR", style="green")
+        palette_table.add_column("USES", justify="right")
+        palette_table.add_column("ROLE", style="cyan")
         for entry in palette[:12]:
             palette_table.add_row(entry.get("hex", ""), str(entry.get("count", 0)), entry.get("role") or "—")
         console.print(palette_table)
@@ -2526,15 +2549,17 @@ def show(
     if fonts:
         console.print()
         for font in fonts[:6]:
-            console.print(f"[bold]{font.get('family')}[/] — {font.get('count')} elementos")
+            console.print(f"[bold]{font.get('family')}[/] — {font.get('count')} elements")
 
 @app.command()
 def export(
-    card_id: str = typer.Argument(..., help="ID da referência"),
-    fmt: str = typer.Option("json", "--format", "-f", help="json, md ou html"),
-    dest: Optional[Path] = typer.Option(None, "--dest", "-d", help="Onde salvar (default: stdout)"),
+    card_id: str = typer.Argument(..., help="Reference ID"),
+    fmt: str = typer.Option("json", "--format", "-f", help="json, md or html"),
+    dest: Optional[Path] = typer.Option(
+        None, "--dest", "-d", help="Where to save (default: stdout)"
+    ),
 ):
-    """Exporta uma referência como JSON, Markdown ou um mini style guide em HTML."""
+    """Export a reference as JSON, Markdown or an HTML mini style guide."""
     from zfrog.catalog import Catalog
     from zfrog.config import settings
 
@@ -2546,7 +2571,7 @@ def export(
             card = matches[0]
 
     if card is None:
-        console.print(f"[red]Referência não encontrada:[/] {card_id}")
+        console.print(f"[red]Reference not found:[/] {card_id}")
         sys.exit(1)
 
     if fmt == "json":
@@ -2556,7 +2581,7 @@ def export(
     elif fmt == "html":
         payload = _card_html(card)
     else:
-        console.print(f"[red]Formato desconhecido:[/] {fmt} (use json, md ou html)")
+        console.print(f"[red]Unknown format:[/] {fmt} (use json, md or html)")
         sys.exit(1)
 
     if dest is None:
@@ -2565,7 +2590,7 @@ def export(
 
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text(payload, encoding="utf-8")
-    console.print(f"[green]Salvo[/] em {dest}")
+    console.print(f"[green]Saved[/] to {dest}")
 
 def _job_dir(result) -> Path:
     """The job's output *directory*.
@@ -2601,9 +2626,9 @@ def _card_markdown(card) -> str:
         f"# {card.title or card.url}",
         "",
         f"- **Site**: {card.site}",
-        f"- **Origem**: {card.url}",
-        f"- **Capturado**: {card.captured_at_label}",
-        f"- **Modo**: {card.mode} · {card.engine}",
+        f"- **Source**: {card.url}",
+        f"- **Captured**: {card.captured_at_label}",
+        f"- **Mode**: {card.mode} · {card.engine}",
         f"- **Tags**: {', '.join(card.tags) or '—'}",
     ]
     if card.screenshot:
@@ -2613,17 +2638,17 @@ def _card_markdown(card) -> str:
 
     palette = tokens.get("palette", [])
     if palette:
-        lines += ["", "## Paleta", ""]
+        lines += ["", "## Palette", ""]
         for entry in palette[:12]:
             role = f" · *{entry['role']}*" if entry.get("role") else ""
             lines.append(f"- `{entry.get('hex')}` ×{entry.get('count')}{role}")
 
     fonts = tokens.get("fonts", [])
     if fonts:
-        lines += ["", "## Tipografia", ""]
+        lines += ["", "## Typography", ""]
         for font in fonts[:6]:
             sizes = ", ".join(list(font.get("sizes", {}).keys())[:4]) or "—"
-            lines.append(f"- **{font.get('family')}** — tamanhos: {sizes}")
+            lines.append(f"- **{font.get('family')}** — sizes: {sizes}")
 
     return "\n".join(lines) + "\n"
 
@@ -2654,7 +2679,7 @@ def _card_html(card) -> str:
         for font in tokens.get("fonts", [])[:8]
     )
     screenshot = (
-        f'<img src="{escape(card.screenshot)}" alt="Captura de {escape(card.site)}">'
+        f'<img src="{escape(card.screenshot)}" alt="Capture of {escape(card.site)}">'
         if card.screenshot
         else ""
     )
@@ -2663,10 +2688,10 @@ def _card_html(card) -> str:
     )
 
     return f"""<!doctype html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
 <meta charset="utf-8">
-<title>{escape(card.title or card.url)} — referência zfrog</title>
+<title>{escape(card.title or card.url)} — zfrog reference</title>
 <style>
   body {{ font: 14px/1.6 system-ui, sans-serif; margin: 0 auto; max-width: 900px; padding: 32px; }}
   h1 {{ font-size: 24px; margin: 0 0 4px; }}
@@ -2691,9 +2716,9 @@ def _card_html(card) -> str:
     {tags}
   </div>
   {screenshot}
-  <h2>Paleta</h2>
+  <h2>Palette</h2>
   <div class="swatches">{swatches}</div>
-  <h2>Tipografia</h2>
+  <h2>Typography</h2>
   <ul>{fonts}</ul>
 </body>
 </html>

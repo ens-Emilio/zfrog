@@ -49,15 +49,15 @@ SENTIMENT_STEMS = (
 )
 
 SENTIMENT_PROMPT = (
-    "Classifique o sentimento do texto em relação ao seu assunto principal. "
-    "Responda com 'sentiment' valendo 'positive', 'negative' ou 'neutral', "
-    "com 'score' entre -1 (muito negativo) e 1 (muito positivo) "
-    "e com 'rationale' contendo uma justificativa curta."
+    "Classify the sentiment of the text towards its main subject. "
+    "Reply with 'sentiment' set to 'positive', 'negative' or 'neutral', "
+    "with 'score' between -1 (very negative) and 1 (very positive) "
+    "and with 'rationale' containing a short justification."
 )
 
 TAGS_PROMPT = (
-    "Sugira até {max_tags} assuntos (tags) curtos, em português, que descrevam o texto. "
-    "Use termos simples em minúsculas, sem repetições e sem numeração."
+    "Suggest up to {max_tags} short subject tags that describe the text. "
+    "Use simple lowercase terms, no repetitions and no numbering."
 )
 
 
@@ -181,11 +181,11 @@ async def analyze_sentiment(text: str, max_chars: int = MAX_CHARS) -> dict:
         return _empty_sentiment()
 
     if not is_available():
-        return _empty_sentiment("AI indisponível")
+        return _empty_sentiment("AI unavailable")
 
     messages = [
         {"role": "system", "content": SENTIMENT_PROMPT},
-        {"role": "user", "content": f"Texto:\n\n{text[:max_chars]}"},
+        {"role": "user", "content": f"Text:\n\n{text[:max_chars]}"},
     ]
 
     try:
@@ -203,11 +203,11 @@ async def analyze_sentiment(text: str, max_chars: int = MAX_CHARS) -> dict:
         parsed = _parse_loose_json(raw)
         if not isinstance(parsed, dict):
             logger.warning("sentiment reply had no JSON object")
-            return _empty_sentiment("Resposta da IA sem JSON válido")
+            return _empty_sentiment("AI response without valid JSON")
         return _sentiment_from(parsed)
     except Exception as exc:
         logger.warning("sentiment analysis failed: %s", exc)
-        return _empty_sentiment(f"Falha na análise de sentimento: {exc}")
+        return _empty_sentiment(f"Sentiment analysis failed: {exc}")
 
 
 async def suggest_tags(
@@ -230,11 +230,11 @@ async def suggest_tags(
         return _empty_tags()
 
     if not is_available():
-        return _empty_tags("AI indisponível")
+        return _empty_tags("AI unavailable")
 
     messages = [
         {"role": "system", "content": TAGS_PROMPT.format(max_tags=max_tags)},
-        {"role": "user", "content": f"Texto:\n\n{text[:max_chars]}"},
+        {"role": "user", "content": f"Text:\n\n{text[:max_chars]}"},
     ]
 
     try:
@@ -252,8 +252,8 @@ async def suggest_tags(
         parsed = _parse_loose_json(raw)
         if parsed is None:
             logger.warning("tag reply had no JSON payload")
-            return _empty_tags("Resposta da IA sem JSON válido")
+            return _empty_tags("AI response without valid JSON")
         return {"tags": _tags_from(parsed, max_tags)}
     except Exception as exc:
         logger.warning("tag suggestion failed: %s", exc)
-        return _empty_tags(f"Falha na sugestão de assuntos: {exc}")
+        return _empty_tags(f"Tag suggestion failed: {exc}")

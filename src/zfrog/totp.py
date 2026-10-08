@@ -321,18 +321,18 @@ class TotpStore:
         try:
             payload = json.loads(self.path.read_text(encoding="utf-8"))
         except (OSError, ValueError) as exc:
-            logger.warning("totp.json ilegível (%s): começando vazio (%s)", self.path, exc)
+            logger.warning("unreadable totp.json (%s): starting empty (%s)", self.path, exc)
             return []
 
         items = payload.get("accounts") if isinstance(payload, dict) else payload
         if not isinstance(items, list):
-            logger.warning("totp.json sem lista de contas (%s): começando vazio", self.path)
+            logger.warning("totp.json without an accounts list (%s): starting empty", self.path)
             return []
 
         accounts: list[TotpAccount] = []
         for item in items:
             if not isinstance(item, dict) or not item.get("name") or not item.get("secret"):
-                logger.warning("registro inválido em %s ignorado", self.path)
+                logger.warning("invalid record in %s skipped", self.path)
                 continue
             accounts.append(
                 TotpAccount(
@@ -382,7 +382,7 @@ class TotpStore:
         )
         accounts.append(account)
         self._save(accounts)
-        logger.info("Conta TOTP registrada: %s", clean_name)
+        logger.info("TOTP account registered: %s", clean_name)
         return account
 
     def get(self, name: str) -> TotpAccount | None:

@@ -46,14 +46,14 @@ MAX_PROMPT_CHARS = 4000
 
 #: Used when the caller passes no base prompt (or an empty one).
 DEFAULT_BASE_PROMPT = (
-    "Você é um assistente de extração de dados em português. "
-    "Responda apenas com o que está no texto fornecido, sem inventar informação."
+    "You are a data-extraction assistant. "
+    "Reply only with what is in the given text, without inventing information."
 )
 
 #: Base prompt used by :func:`extract_with_profile` before the profile is applied.
 BASE_EXTRACTION_PROMPT = (
-    "Você extrai dados estruturados de páginas web em português. "
-    "Devolva apenas os itens que aparecem no texto, com o rótulo e o valor exatos."
+    "You extract structured data from web pages. "
+    "Return only the items that appear in the text, with the exact label and value."
 )
 
 #: Appended to a prompt when the terminology list had to be cut short.
@@ -156,7 +156,7 @@ class DomainProfileStore:
             updated_at=_now(),
         )
         self._write_atomic(self._path(profile_id), asdict(stored))
-        logger.info("Perfil de domínio %s salvo", profile_id)
+        logger.info("Domain profile %s saved", profile_id)
         return stored
 
     def get(self, profile_id: str) -> DomainProfile | None:
@@ -195,7 +195,7 @@ class DomainProfileStore:
         if stored is not None and stored.id != wanted:
             return False
         path.unlink()
-        logger.info("Perfil de domínio %s removido", wanted)
+        logger.info("Domain profile %s removed", wanted)
         return True
 
     @staticmethod
@@ -236,12 +236,12 @@ class DomainProfileStore:
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
             if not isinstance(payload, dict):
-                raise ValueError("perfil não é um objeto JSON")
+                raise ValueError("profile is not a JSON object")
             profile_id = str(payload["id"]).strip()
             if not profile_id:
-                raise ValueError("perfil sem id")
+                raise ValueError("profile without id")
         except Exception as exc:
-            logger.warning("perfil de domínio ilegível em %s: %s", path, exc)
+            logger.warning("unreadable domain profile at %s: %s", path, exc)
             return None
         return DomainProfile(
             id=profile_id,
@@ -293,7 +293,7 @@ def system_prompt(profile: DomainProfile | None, base: str = "") -> str:
         sections.append(instructions)
     entity_types = [str(item).strip() for item in (profile.entity_types or []) if str(item).strip()]
     if entity_types:
-        sections.append("Tipos de entidade a procurar: " + ", ".join(entity_types) + ".")
+        sections.append("Entity types to look for: " + ", ".join(entity_types) + ".")
     head = "\n\n".join(sections)
 
     entries = [
@@ -304,7 +304,7 @@ def system_prompt(profile: DomainProfile | None, base: str = "") -> str:
     if not entries:
         return _clip(head)
 
-    prefix = "\n\nTerminologia do domínio:\n"
+    prefix = "\n\nDomain terminology:\n"
     kept: list[str] = []
     for index, entry in enumerate(entries):
         notice = OMISSION_NOTICE.format(count=len(entries) - index - 1, budget=MAX_PROMPT_CHARS)
@@ -422,15 +422,15 @@ async def extract_with_profile(
         call failed. Never raises.
     """
     if not str(text or "").strip():
-        return _empty("Texto vazio")
+        return _empty("Empty text")
 
     if not is_available():
-        return _empty("AI indisponível")
+        return _empty("AI unavailable")
 
     excerpt = str(text)[: max(0, int(max_chars))]
     messages = [
         {"role": "system", "content": BASE_EXTRACTION_PROMPT},
-        {"role": "user", "content": f"Texto:\n\n{excerpt}"},
+        {"role": "user", "content": f"Text:\n\n{excerpt}"},
     ]
     prepared = apply(profile, messages, base_prompt=BASE_EXTRACTION_PROMPT)
 
@@ -441,8 +441,8 @@ async def extract_with_profile(
             temperature=0.0,
         )
     except Exception as exc:
-        logger.warning("extração com perfil de domínio falhou: %s", exc)
-        return _empty(f"Falha na extração: {exc}")
+        logger.warning("domain-profile extraction failed: %s", exc)
+        return _empty(f"Extraction failed: {exc}")
 
     return {
         "items": _normalize_items(_items_of(result)),

@@ -7,8 +7,8 @@ similarity against the query.
 The honest limitation, stated up front: this does **not** embed the screenshot
 pixels. It embeds a structured description built from the extracted tokens — dominant
 colours with their roles and lightness, the corner radii, the shadow vocabulary, the
-typography. That is enough to answer the plan's own examples ("layouts escuros",
-"tipografia serifada", "cards arredondados") because those are properties the
+typography. That is enough to answer the plan's own examples ("dark layouts",
+"serif typography", "rounded cards") because those are properties the
 extraction already measured. It would not find "the one with the big photo of a dog".
 
 Embedding the image itself needs a vision embedding model. :func:`describe` is the only
@@ -28,30 +28,30 @@ from zfrog.catalog import Card, Catalog
 #: Words used for the lightness band of a colour. Chosen because they are what a
 #: person types when describing a design, not because they are precise.
 _LIGHTNESS_WORDS = (
-    (0.18, "muito escuro"),
-    (0.35, "escuro"),
-    (0.65, "claro"),
-    (1.01, "muito claro"),
+    (0.18, "very dark"),
+    (0.35, "dark"),
+    (0.65, "light"),
+    (1.01, "very light"),
 )
 
 #: Saturation threshold above which a colour gets a hue name.
 _VIVID_SATURATION = 0.25
 
-#: Hue ranges (degrees) and the Portuguese name for them.
+#: Hue ranges (degrees) and the English name for them.
 _HUE_WORDS: tuple[tuple[float, float, str], ...] = (
-    (15, "vermelho"),
-    (45, "laranja"),
-    (70, "amarelo"),
-    (165, "verde"),
-    (200, "ciano"),
-    (255, "azul"),
-    (290, "violeta"),
-    (345, "rosa"),
-    (361, "vermelho"),
+    (15, "red"),
+    (45, "orange"),
+    (70, "yellow"),
+    (165, "green"),
+    (200, "cyan"),
+    (255, "blue"),
+    (290, "violet"),
+    (345, "pink"),
+    (361, "red"),
 )
 
 #: Shadow scale words, by the largest blur radius reported.
-_SHADOW_WORDS = ((4, "sombras discretas"), (16, "sombras médias"), (10_000, "sombras amplas"))
+_SHADOW_WORDS = ((4, "subtle shadows"), (16, "medium shadows"), (10_000, "large shadows"))
 
 
 @dataclass
@@ -66,14 +66,14 @@ def _hue_name(hue_degrees: float) -> str:
     for limit, name in _HUE_WORDS:
         if hue_degrees < limit:
             return name
-    return "vermelho"
+    return "red"
 
 
 def _lightness_name(lightness: float) -> str:
     for limit, name in _LIGHTNESS_WORDS:
         if lightness < limit:
             return name
-    return "muito claro"
+    return "very light"
 
 
 def _color_words(hex_color: str) -> list[str]:
@@ -91,9 +91,9 @@ def _color_words(hex_color: str) -> list[str]:
     words = [_lightness_name(lightness)]
     if saturation >= _VIVID_SATURATION:
         words.append(_hue_name(hue * 360))
-        words.append("vivo")
+        words.append("vivid")
     else:
-        words.append("neutro")
+        words.append("neutral")
     return words
 
 
@@ -111,12 +111,12 @@ def _radius_words(card: Card) -> list[str]:
         return []
     largest = max(pixels)
     if largest == 0:
-        return ["cantos retos", "sem arredondamento"]
+        return ["straight corners", "no rounding"]
     if largest < 6:
-        return ["cantos levemente arredondados"]
+        return ["slightly rounded corners"]
     if largest < 14:
-        return ["cantos arredondados"]
-    return ["cantos muito arredondados", "pílulas"]
+        return ["rounded corners"]
+    return ["very rounded corners", "pill shapes"]
 
 
 def _shadow_words(card: Card) -> list[str]:
@@ -130,7 +130,7 @@ def _shadow_words(card: Card) -> list[str]:
                 except ValueError:
                     continue
     if largest == 0:
-        return ["sem sombras", "superfícies planas"]
+        return ["no shadows", "flat surfaces"]
     return [name for limit, name in _SHADOW_WORDS if largest <= limit][:1]
 
 
@@ -156,7 +156,7 @@ def describe(card: Card) -> str:
         words = _color_words(str(entry.get("hex", "")))
         if words:
             role = entry.get("role")
-            prefix = f"cor {role}" if role else "cor"
+            prefix = f"color {role}" if role else "color"
             parts.append(f"{prefix} {' '.join(words)}")
 
     fonts = card.tokens.get("fonts", [])
@@ -166,11 +166,11 @@ def describe(card: Card) -> str:
         if not family:
             continue
         generic = (
-            "serifada"
+            "serif"
             if any(hint in family.lower() for hint in serif_hints)
-            else "sem serifa"
+            else "sans-serif"
         )
-        parts.append(f"tipografia {generic} {family}")
+        parts.append(f"typography {generic} {family}")
 
     parts.extend(_radius_words(card))
     parts.extend(_shadow_words(card))
@@ -228,23 +228,23 @@ async def embed_catalog(catalog: Catalog, *, force: bool = False) -> IndexResult
     from zfrog.ai.client import embed, embedding_configured, get_embedding_model, is_available
 
     if not is_available():
-        return IndexResult(reason="LiteLLM não está instalado.")
+        return IndexResult(reason="LiteLLM is not installed.")
     if not embedding_configured():
         return IndexResult(
             reason=(
-                "Nenhum modelo de embeddings configurado. Defina ZFROG_AI_EMBEDDING "
-                "para indexar; a busca por descrição segue respondendo por palavras."
+                "No embedding model configured. Set ZFROG_AI_EMBEDDING "
+                "to index; description search keeps answering by words."
             )
         )
 
     cards = catalog.list(limit=10_000)
     if not cards:
-        return IndexResult(reason="O catálogo está vazio: não há o que indexar.")
+        return IndexResult(reason="The catalog is empty: there is nothing to index.")
 
     existing = catalog.embeddings()
     pending = [card for card in cards if force or card.id not in existing]
     if not pending:
-        return IndexResult(reason="Todas as referências já estão indexadas.")
+        return IndexResult(reason="All references are already indexed.")
 
     try:
         vectors = await embed([describe(card) for card in pending])
@@ -254,7 +254,7 @@ async def embed_catalog(catalog: Catalog, *, force: bool = False) -> IndexResult
         # links, which would bury the answer in the middle of a CLI message.
         message = str(exc).strip() or exc.__class__.__name__
         first_line = message.splitlines()[0]
-        return IndexResult(reason=f"O modelo de embeddings falhou: {first_line[:200]}")
+        return IndexResult(reason=f"Embedding model failed: {first_line[:200]}")
 
     model = get_embedding_model()
     for card, vector in zip(pending, vectors):

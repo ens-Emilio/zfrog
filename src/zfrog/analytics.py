@@ -140,10 +140,10 @@ def _as_float(value: Any) -> float:
     try:
         number = float(value)
     except (TypeError, ValueError):
-        logger.warning("Valor numérico inválido nas métricas de custo: %r", value)
+        logger.warning("Invalid numeric value in cost metrics: %r", value)
         return 0.0
     if not math.isfinite(number):
-        logger.warning("Valor não finito nas métricas de custo: %r", value)
+        logger.warning("Non-finite value in cost metrics: %r", value)
         return 0.0
     return number
 
@@ -323,7 +323,7 @@ class MetricsStore:
                     ),
                 )
         except Exception as exc:  # metrics must never break the job that produced them
-            logger.warning("Não foi possível registrar métricas em %s: %s", self.db_path, exc)
+            logger.warning("Could not record metrics at %s: %s", self.db_path, exc)
 
     def record_from_result(self, engine: str, result: Any, status: str = "completed") -> None:
         """Record a finished job straight from its result object.

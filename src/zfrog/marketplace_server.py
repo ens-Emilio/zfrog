@@ -73,7 +73,7 @@ def create_app(
         """Return the advertised entry of ``asset_id``, or raise a 404."""
         entry = _entry_by_id(index(), asset_id)
         if entry is None:
-            raise HTTPException(status_code=404, detail=f"item não encontrado: {asset_id}")
+            raise HTTPException(status_code=404, detail=f"item not found: {asset_id}")
         return entry
 
     def guard(authorization: str | None) -> None:
@@ -84,7 +84,7 @@ def create_app(
         if scheme.lower() != "bearer" or not secrets.compare_digest(value.strip(), token):
             raise HTTPException(
                 status_code=401,
-                detail="token de publicação ausente ou inválido",
+                detail="missing or invalid publish token",
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
@@ -108,8 +108,8 @@ def create_app(
 
     @app.get("/assets")
     def assets(
-        kind: str | None = Query(default=None, description="Só os itens deste tipo."),
-        query: str | None = Query(default=None, description="Busca em nome, descrição e tags."),
+        kind: str | None = Query(default=None, description="Only items of this kind."),
+        query: str | None = Query(default=None, description="Search in name, description and tags."),
     ) -> list[dict]:
         """Serve the index's items, optionally filtered by kind and by text."""
         wanted_kind = str(kind).strip().lower() if kind else ""
@@ -181,9 +181,9 @@ def create_app(
         if entry is None:
             raise HTTPException(
                 status_code=500,
-                detail=f"o item {stored.id} foi publicado mas não entrou no índice",
+                detail=f"the item {stored.id} was published but did not enter the index",
             )
-        logger.info("Item %s publicado via HTTP", stored.id)
+        logger.info("Item %s published via HTTP", stored.id)
         return entry
 
     @app.delete("/assets/{asset_id}")
@@ -194,9 +194,9 @@ def create_app(
         """Delete an item, 404 when it is not published."""
         guard(authorization)
         if not store.remove(asset_id):
-            raise HTTPException(status_code=404, detail=f"item não encontrado: {asset_id}")
+            raise HTTPException(status_code=404, detail=f"item not found: {asset_id}")
         refresh()
-        logger.info("Item %s removido via HTTP", asset_id)
+        logger.info("Item %s removed via HTTP", asset_id)
         return {"id": asset_id, "removed": True}
 
     return app
@@ -218,20 +218,20 @@ def serve(
     try:
         import uvicorn
     except ImportError as exc:  # pragma: no cover - the dependency is installed
-        raise RuntimeError("o servidor do marketplace precisa do uvicorn instalado") from exc
+        raise RuntimeError("marketplace server requires uvicorn installed") from exc
 
     bind_host = str(host or "").strip() or str(settings.marketplace_host)
     try:
         bind_port = int(port) or int(settings.marketplace_port)
     except (TypeError, ValueError) as exc:
-        raise ValueError(f"porta inválida para o marketplace: {port!r}") from exc
+        raise ValueError(f"invalid marketplace port: {port!r}") from exc
 
     app = create_app(marketplace=marketplace, source=source, require_token=require_token)
     logger.info(
-        "Marketplace em http://%s:%d (%s)",
+        "Marketplace at http://%s:%d (%s)",
         bind_host,
         bind_port,
-        source or "marketplace local",
+        source or "local marketplace",
     )
     uvicorn.run(app, host=bind_host, port=bind_port)
 

@@ -435,28 +435,28 @@ def tokens_to_markdown(tokens: DesignTokens) -> str:
         where = ", ".join(sorted(color.properties, key=lambda p: -color.properties[p])[:2])
         lines.append(f"- `{color.hex}` ×{color.count}{role} — {where}")
 
-    lines += ["", "## Tipografia", ""]
+    lines += ["", "## Typography", ""]
     for font in tokens.fonts[:6]:
         sizes = ", ".join(f"{size}×{count}" for size, count in list(font.sizes.items())[:4]) or "—"
         weights = ", ".join(font.weights.keys()) or "—"
         where = []
         if font.headings:
-            where.append(f"{font.headings} título(s)")
+            where.append(f"{font.headings} heading(s)")
         if font.body:
-            where.append(f"{font.body} corpo")
+            where.append(f"{font.body} body")
         suffix = f" ({', '.join(where)})" if where else ""
         lines.append(f"- **{font.family}**{suffix} — tamanhos: {sizes} · pesos: {weights}")
 
     lines += [
         "",
-        "## Escala e medidas",
+        "## Scale and measures",
         "",
-        f"- Tamanhos de fonte: {_table(tokens.font_sizes, 8)}",
-        f"- Pesos: {_table(tokens.font_weights, 6)}",
+        f"- Font sizes: {_table(tokens.font_sizes, 8)}",
+        f"- Weights: {_table(tokens.font_weights, 6)}",
         f"- Padding: {_table(tokens.padding, 8)}",
         f"- Margin: {_table(tokens.margin, 8)}",
-        f"- Raios: {_table(tokens.radii, 8)}",
-        f"- Sombras: {_table(tokens.shadows, 4)}",
+        f"- Radii: {_table(tokens.radii, 8)}",
+        f"- Shadows: {_table(tokens.shadows, 4)}",
     ]
 
     if tokens.assets:
@@ -469,8 +469,8 @@ def tokens_to_markdown(tokens: DesignTokens) -> str:
     if tokens.unreadable_colors:
         lines += [
             "",
-            f"> {tokens.unreadable_colors} uso(s) de cor em sintaxe não suportada "
-            "(ex.: `color(srgb …)`) ficaram de fora da paleta.",
+            f"> {tokens.unreadable_colors} color use(s) in unsupported syntax "
+            "(e.g., `color(srgb …)`) were left out of the palette.",
         ]
 
     return "\n".join(lines) + "\n"

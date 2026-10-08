@@ -380,31 +380,31 @@ def diff_snapshots(a: Path, b: Path) -> DiffReport:
 def diff_to_markdown(report: DiffReport) -> str:
     """Render a DiffReport as Markdown."""
     lines = [
-        f"# Mudanças em {report.url or '(desconhecido)'}",
+        f"# Changes at {report.url or '(unknown)'}",
         "",
-        f"- Antes: {report.a or '(sem timestamp)'}",
-        f"- Depois: {report.b or '(sem timestamp)'}",
-        f"- Proporção de mudança: {report.change_ratio * 100:.1f}%",
+        f"- Before: {report.a or '(no timestamp)'}",
+        f"- After: {report.b or '(no timestamp)'}",
+        f"- Change ratio: {report.change_ratio * 100:.1f}%",
         "",
     ]
 
-    lines.append(f"## Adicionadas ({len(report.added)})")
-    lines += [f"- {p}" for p in report.added] or ["- (nenhuma)"]
+    lines.append(f"## Added ({len(report.added)})")
+    lines += [f"- {p}" for p in report.added] or ["- (none)"]
     lines.append("")
 
-    lines.append(f"## Removidas ({len(report.removed)})")
-    lines += [f"- {p}" for p in report.removed] or ["- (nenhuma)"]
+    lines.append(f"## Removed ({len(report.removed)})")
+    lines += [f"- {p}" for p in report.removed] or ["- (none)"]
     lines.append("")
 
-    lines.append(f"## Alteradas ({len(report.changed)})")
+    lines.append(f"## Changed ({len(report.changed)})")
     if report.details:
         for detail in report.details:
-            lines.append(f"- {detail['path']} ({detail['text_diff_lines']} linhas de diff)")
+            lines.append(f"- {detail['path']} ({detail['text_diff_lines']} diff lines)")
     else:
-        lines.append("- (nenhuma)")
+        lines.append("- (none)")
     lines.append("")
 
-    lines.append(f"## Inalteradas ({len(report.unchanged)})")
+    lines.append(f"## Unchanged ({len(report.unchanged)})")
     lines.append("")
 
     return "\n".join(lines)

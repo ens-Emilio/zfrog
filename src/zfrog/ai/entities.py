@@ -28,13 +28,13 @@ ENTITY_TYPES = ("person", "organization", "location", "date", "product", "other"
 DEFAULT_CONFIDENCE = 0.8
 
 SYSTEM_PROMPT = (
-    "Extraia as entidades nomeadas do texto, em português. "
-    "Procure pessoas, organizações, locais, datas e produtos. "
-    "Use exatamente estes tipos: 'person' para pessoas, 'organization' para organizações, "
-    "'location' para locais, 'date' para datas, 'product' para produtos e "
-    "'other' quando não tiver certeza. "
-    "Dê a cada entidade uma confiança entre 0 e 1. "
-    "Não invente: retorne apenas nomes que aparecem no texto."
+    "Extract the named entities from the text. "
+    "Look for people, organizations, locations, dates and products. "
+    "Use exactly these types: 'person' for people, 'organization' for organizations, "
+    "'location' for locations, 'date' for dates, 'product' for products and "
+    "'other' when unsure. "
+    "Give each entity a confidence between 0 and 1. "
+    "Do not invent: return only names that appear in the text."
 )
 
 
@@ -158,12 +158,12 @@ async def extract_entities(text: str, max_chars: int = MAX_CHARS) -> dict:
         return _empty()
 
     if not is_available():
-        return _empty("AI indisponível")
+        return _empty("AI unavailable")
 
     excerpt = text[:max_chars]
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": f"Texto:\n\n{excerpt}"},
+        {"role": "user", "content": f"Text:\n\n{excerpt}"},
     ]
 
     try:
@@ -182,9 +182,9 @@ async def extract_entities(text: str, max_chars: int = MAX_CHARS) -> dict:
         parsed = _parse_loose_json(raw)
         if parsed is None:
             logger.warning("entity extraction reply had no JSON object")
-            return _empty("Resposta da IA sem JSON válido")
+            return _empty("AI reply had no valid JSON")
         entities = _normalize(parsed.get("entities"))
         return {"entities": entities, "counts": entity_counts(entities)}
     except Exception as exc:
         logger.warning("entity extraction failed: %s", exc)
-        return _empty(f"Falha na extração de entidades: {exc}")
+        return _empty(f"Entity extraction failed: {exc}")

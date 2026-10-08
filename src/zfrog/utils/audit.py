@@ -111,7 +111,7 @@ class AuditLog:
         try:
             extra = dict(metadata) if metadata else {}
         except (TypeError, ValueError):
-            logger.warning("Metadados inválidos na auditoria de %s: %r", action, metadata)
+            logger.warning("Invalid metadata in audit entry for %s: %r", action, metadata)
             extra = {}
 
         entry = AuditEntry(
@@ -126,7 +126,7 @@ class AuditLog:
         try:
             self._append(json.dumps(asdict(entry), ensure_ascii=False))
         except Exception as exc:  # auditing must never break the caller
-            logger.warning("Não foi possível gravar a auditoria em %s: %s", self.path, exc)
+            logger.warning("Could not write audit entry to %s: %s", self.path, exc)
         return entry
 
     def _append(self, line: str) -> None:
@@ -139,7 +139,7 @@ class AuditLog:
         try:
             os.chmod(self.path, LOG_FILE_MODE)
         except OSError as exc:
-            logger.debug("Não foi possível restringir as permissões de %s: %s", self.path, exc)
+            logger.debug("Could not restrict permissions of %s: %s", self.path, exc)
 
     # ── reading ──
 
@@ -151,7 +151,7 @@ class AuditLog:
         except FileNotFoundError:
             return
         except OSError as exc:
-            logger.warning("Não foi possível ler a auditoria em %s: %s", self.path, exc)
+            logger.warning("Could not read audit log at %s: %s", self.path, exc)
             return
 
         for number, raw_line in enumerate(lines, start=1):
@@ -161,9 +161,9 @@ class AuditLog:
             try:
                 raw = json.loads(line)
                 if not isinstance(raw, dict):
-                    raise ValueError("entrada não é um objeto JSON")
+                    raise ValueError("entry is not a JSON object")
             except (ValueError, TypeError) as exc:
-                logger.warning("Linha %d de %s ignorada: %s", number, self.path, exc)
+                logger.warning("Skipping line %d of %s: %s", number, self.path, exc)
                 continue
             metadata = raw.get("metadata")
             yield AuditEntry(

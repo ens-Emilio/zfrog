@@ -780,7 +780,7 @@ def _read_snapshot_json(path: Path) -> dict | None:
     try:
         data = json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
-        logger.warning("Snapshot %s ilegível (%s); ignorando", path, exc)
+        logger.warning("Unreadable snapshot %s (%s); skipping", path, exc)
         return None
     return data if isinstance(data, dict) else None
 

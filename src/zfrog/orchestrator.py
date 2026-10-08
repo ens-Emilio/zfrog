@@ -279,7 +279,7 @@ async def run_job(job: JobCreate, job_id: str | None = None) -> JobResult:
             # modes that are about design — the tokens of the entry page. Both come
             # out of the same visit, so the browser opens once.
             if on_progress:
-                on_progress("Capturando telas...")
+                on_progress("Taking screenshots...")
             wants_design = job.mode in DESIGN_MODES
             capture = await take_screenshots(output_dir, design=wants_design)
             await publish_job_event(job_id, "progress", {"message": "Screenshots taken"})
@@ -297,7 +297,7 @@ async def run_job(job: JobCreate, job_id: str | None = None) -> JobResult:
                 )
                 if card is not None:
                     await publish_job_event(
-                        job_id, "progress", {"message": f"Referência registrada: {card.id[:8]}"}
+                        job_id, "progress", {"message": f"Reference registered: {card.id[:8]}"}
                     )
 
             # Scan cloned content for malware/phishing indicators.
@@ -309,7 +309,7 @@ async def run_job(job: JobCreate, job_id: str | None = None) -> JobResult:
                     report = scan_directory(output_dir, str(job.url))
                     if report.findings:
                         logger.warning(
-                            "safety scan: %s (%d achado(s)) em %s",
+                            "safety scan: %s (%d finding(s)) in %s",
                             report.risk,
                             len(report.findings),
                             job.url,
@@ -317,10 +317,10 @@ async def run_job(job: JobCreate, job_id: str | None = None) -> JobResult:
                         await publish_job_event(
                             job_id,
                             "progress",
-                            {"message": f"Segurança: risco {report.risk} ({len(report.findings)} achado(s))"},
+                            {"message": f"Security: risk {report.risk} ({len(report.findings)} finding(s))"},
                         )
                 except Exception as e:
-                    logger.warning("varredura de segurança falhou: %s", e)
+                    logger.warning("security scan failed: %s", e)
 
             # Package output as ZIP (includes screenshots)
             zip_path = output_dir / "archive.zip"
@@ -359,7 +359,7 @@ async def run_job(job: JobCreate, job_id: str | None = None) -> JobResult:
                     mode=job.mode,
                 )
             except Exception as e:
-                logger.warning("registro de métricas falhou: %s", e)
+                logger.warning("metrics recording failed: %s", e)
 
             
             # Step 5: Record a versioned snapshot for change detection.
@@ -381,7 +381,7 @@ async def run_job(job: JobCreate, job_id: str | None = None) -> JobResult:
                         verdict = await significant_change(str(job.url), prev_snap, new_snap)
                         if verdict and verdict.get("significant"):
                             logger.info(
-                                "mudança significativa em %s (%.2f): %s",
+                                "significant change in %s (%.2f): %s",
                                 job.url,
                                 verdict.get("score", 0.0),
                                 verdict.get("summary", ""),
@@ -389,7 +389,7 @@ async def run_job(job: JobCreate, job_id: str | None = None) -> JobResult:
                             await publish_job_event(
                                 job_id,
                                 "progress",
-                                {"message": f"Mudança relevante: {verdict.get('summary', '')}"[:200]},
+                                {"message": f"Notable change: {verdict.get('summary', '')}"[:200]},
                             )
 
                     if job.versioned:
@@ -402,10 +402,10 @@ async def run_job(job: JobCreate, job_id: str | None = None) -> JobResult:
                             message=f"{engine.name} run",
                         )
                         await publish_job_event(
-                            job_id, "progress", {"message": f"Versão {version.id} salva"}
+                            job_id, "progress", {"message": f"Version {version.id} saved"}
                         )
                 except Exception as e:
-                    logger.warning("snapshot falhou: %s", e)
+                    logger.warning("snapshot failed: %s", e)
             
             # Update job status
             job_record.status = JobStatus.COMPLETED

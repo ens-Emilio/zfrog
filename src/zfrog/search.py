@@ -168,7 +168,7 @@ class SearchIndex:
             try:
                 self._index_file(file, file.as_posix(), page_url, site_name)
             except OSError as exc:
-                logger.warning("Não foi possível indexar %s: %s", file, exc)
+                logger.warning("Could not index %s: %s", file, exc)
                 continue
             count += 1
         return count
@@ -237,9 +237,8 @@ class SearchIndex:
         try:
             vectors = _embed_sync(chunks)
         except Exception as exc:  # embedding backend unreachable, quota, bad model, ...
-            logger.warning("Falha ao gerar embeddings de %s: %s", key, exc)
+            logger.warning("Failed to generate embeddings for %s: %s", key, exc)
             return 0
-
         rows = [
             (key, index, _vector_to_blob(vector))
             for index, vector in enumerate(vectors[: len(chunks)])
@@ -259,18 +258,16 @@ class SearchIndex:
         if mode == "semantic":
             return self._search_semantic(text, _row_limit(limit))
         if mode != "fulltext":
-            raise ValueError(f"Modo de busca inválido: {mode!r} (use 'fulltext' ou 'semantic')")
+            raise ValueError(f"Invalid search mode: {mode!r} (use 'fulltext' or 'semantic')")
         return self._search_fulltext(text, _row_limit(limit))
-
     def _search_fulltext(self, query: str, limit: int) -> list[SearchHit]:
         """FTS5 ``MATCH`` ranked by bm25, with a ``LIKE`` scan as fallback."""
         with self._connect() as conn:
             try:
                 rows = conn.execute(_FTS_SQL, (query, limit)).fetchall()
             except sqlite3.OperationalError as exc:
-                logger.debug("Consulta FTS inválida (%r): %s — usando LIKE", query, exc)
+                logger.debug("Invalid FTS query (%r): %s — falling back to LIKE", query, exc)
                 return _search_like(conn, query, limit)
-
         return [
             SearchHit(
                 path=row["path"],
@@ -297,9 +294,8 @@ class SearchIndex:
             try:
                 query_vector = _embed_sync([query])[0]
             except Exception as exc:  # embedding backend unreachable, quota, bad model, ...
-                logger.warning("Falha ao gerar o embedding da consulta: %s", exc)
+                logger.warning("Failed to generate query embedding: %s", exc)
                 return []
-
             best: dict[str, tuple[float, int]] = {}
             for row in rows:
                 score = _cosine(query_vector, _blob_to_vector(row["vector"]))

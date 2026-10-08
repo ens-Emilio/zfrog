@@ -48,14 +48,14 @@ BREADTH_BONUS = 0.05
 MAX_BREADTH_BONUS = 0.2
 
 SYSTEM_PROMPT = (
-    "Você avalia mudanças em páginas de um site monitorado. "
-    "Diga se as mudanças importam para quem acompanha o site: preço, estoque, "
-    "disponibilidade, dados de contato, prazos ou conteúdo relevante são importantes; "
-    "rodapé, aviso de cookies, ano de copyright, data de atualização automática, "
-    "banners e rodízio de anúncios são ruído. "
-    "Dê uma nota de 0 a 1 para a importância (0 irrelevante, 1 muito importante), "
-    "resuma em uma frase o que mudou e liste os motivos, um por linha. "
-    "Baseie-se apenas no texto fornecido; não invente."
+    "You evaluate changes on pages of a monitored site. "
+    "Say whether the changes matter to someone following the site: price, stock, "
+    "availability, contact details, deadlines or relevant content are important; "
+    "footer, cookie notice, copyright year, auto-update date, "
+    "banners and ad rotation are noise. "
+    "Give a 0-1 score for importance (0 irrelevant, 1 very important), "
+    "summarize in one sentence what changed and list the reasons, one per line. "
+    "Base yourself only on the provided text; do not invent."
 )
 
 
@@ -185,7 +185,7 @@ def _ai_failure(exc: Exception) -> str:
     message = " ".join(str(exc).split())
     if len(message) > MAX_ERROR_CHARS:
         message = message[: MAX_ERROR_CHARS - 1] + "…"
-    return f"Falha na avaliação de significância: {message}"
+    return f"Significance evaluation failed: {message}"
 
 
 def heuristic_significance(candidates: list[ChangeCandidate], threshold: float | None = None) -> dict:
@@ -218,15 +218,15 @@ def heuristic_significance(candidates: list[ChangeCandidate], threshold: float |
 
     top = candidates[order[0]]
     if len(candidates) == 1:
-        summary = f"A página {top.path} mudou {_format_percent(top_ratio)} do texto."
+        summary = f"Page {top.path} changed {_format_percent(top_ratio)} of its text."
     else:
         summary = (
-            f"{len(candidates)} páginas mudaram; a maior mudança foi em "
-            f"{top.path} ({_format_percent(top_ratio)} do texto)."
+            f"{len(candidates)} pages changed; the largest change was in "
+            f"{top.path} ({_format_percent(top_ratio)} of the text)."
         )
 
     reasons = [
-        f"{candidates[index].path}: {_format_percent(ratios[index])} do texto alterado"
+        f"{candidates[index].path}: {_format_percent(ratios[index])} of the text changed"
         for index in order
     ]
 
@@ -277,18 +277,18 @@ def _excerpt(text: str, limit: int = EXCERPT_CHARS) -> str:
 
 def _render_prompt(candidates: list[ChangeCandidate], url: str = "") -> str:
     """Render the candidates as bounded before/after excerpts."""
-    lines = [f"Site: {url or '(desconhecido)'}", ""]
+    lines = [f"Site: {url or '(unknown)'}", ""]
     for index, candidate in enumerate(candidates, start=1):
         lines += [
-            f"### Página {index}: {candidate.path} — {candidate.title or '(sem título)'}",
-            f"Linhas de diff: {candidate.diff_lines}",
-            "ANTES:",
+            f"### Page {index}: {candidate.path} — {candidate.title or '(no title)'}",
+            f"Diff lines: {candidate.diff_lines}",
+            "BEFORE:",
             _excerpt(candidate.before),
-            "DEPOIS:",
+            "AFTER:",
             _excerpt(candidate.after),
             "",
         ]
-    lines.append("Avalie se alguma dessas mudanças é significativa para quem acompanha o site.")
+    lines.append("Judge whether any change is significant for someone following the site.")
     return "\n".join(lines)
 
 
@@ -309,7 +309,7 @@ async def judge_significance(candidates: list[ChangeCandidate], url: str = "") -
 
     if not can_call():
         result = heuristic_significance(candidates)
-        result["error"] = "AI indisponível"
+        result["error"] = "AI unavailable"
         return result
 
     messages = [

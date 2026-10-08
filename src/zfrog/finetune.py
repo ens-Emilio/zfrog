@@ -87,21 +87,21 @@ MIN_HEADING_SENTENCE_CHARS = 20
 
 #: System message used by the chat shape.
 SYSTEM_PROMPT = (
-    "Você é um assistente que responde apenas com informação presente no conteúdo fornecido."
+    "You are an assistant that answers only with information present in the provided content."
 )
 
 #: Instructions produced by the builder (also what :func:`_classify_instruction` reads).
-EXTRACTION_INSTRUCTION = "Extraia os dados principais da página em JSON."
-SUMMARY_INSTRUCTION = "Resuma o conteúdo da página em poucas frases."
-ENTITIES_INSTRUCTION = "Liste em JSON as entidades nomeadas (pessoas, organizações, locais, datas) do texto."
-QA_INSTRUCTION_TEMPLATE = "O que o documento diz sobre «{heading}»?"
+EXTRACTION_INSTRUCTION = "Extract the main data from the page as JSON."
+SUMMARY_INSTRUCTION = "Summarize the page content in a few sentences."
+ENTITIES_INSTRUCTION = "List in JSON the named entities (people, organizations, places, dates) in the text."
+QA_INSTRUCTION_TEMPLATE = "What does the document say about «{heading}»?"
 
 #: Human-readable kind labels, used by :func:`dataset_summary`.
 KIND_LABELS: dict[str, str] = {
-    "extraction": "extração",
-    "qa": "perguntas e respostas",
-    "summary": "resumo",
-    "entities": "entidades",
+    "extraction": "extraction",
+    "qa": "questions and answers",
+    "summary": "summary",
+    "entities": "entities",
 }
 
 #: Sentence terminator, followed by whitespace or the end of the text.
@@ -149,15 +149,15 @@ def validate_example(example: TrainingExample) -> list[str]:
     """Return the problems that make ``example`` useless, or ``[]`` when it is fine."""
     problems: list[str] = []
     if not example.instruction.strip():
-        problems.append("instrução vazia")
+        problems.append("empty instruction")
     output = example.output.strip()
     if not output:
-        problems.append("saída vazia ou só com espaços")
+        problems.append("empty or whitespace-only output")
     elif output == example.input.strip():
-        problems.append("saída idêntica à entrada (uma cópia não é um exemplo)")
+        problems.append("output identical to input (a copy is not an example)")
     elif len(output) < MIN_OUTPUT_CHARS:
         problems.append(
-            f"saída com {len(output)} caracteres, abaixo do mínimo de {MIN_OUTPUT_CHARS}"
+            f"output with {len(output)} characters, below the minimum of {MIN_OUTPUT_CHARS}"
         )
     return problems
 
@@ -247,12 +247,12 @@ def _headings_from_html(html: str, text: str) -> list[tuple[str, str]]:
     try:
         from bs4 import BeautifulSoup
     except Exception as exc:  # pragma: no cover - bs4 ships with the project
-        logger.warning("beautifulsoup4 indisponível (%s); usando o texto da página", exc)
+        logger.warning("beautifulsoup4 unavailable (%s); using the page text", exc)
         return []
     try:
         soup = BeautifulSoup(html, "html.parser")
     except Exception as exc:
-        logger.warning("HTML ilegível (%s); usando o texto da página", exc)
+        logger.warning("unreadable HTML (%s); using the page text", exc)
         return []
 
     pairs: list[tuple[str, str]] = []
@@ -353,11 +353,11 @@ def _write_json_atomic(path: Path, payload: dict) -> None:
 def _example_from_payload(item: Any) -> TrainingExample | None:
     """Rebuild one example from a persisted payload, or ``None`` when it is unusable."""
     if not isinstance(item, dict):
-        logger.warning("exemplo persistido ignorado: não é um objeto JSON")
+        logger.warning("persisted example ignored: not a JSON object")
         return None
     kind = str(item.get("kind") or "").strip()
     if kind not in KINDS:
-        logger.warning("exemplo persistido ignorado: tipo desconhecido %r", kind)
+        logger.warning("persisted example ignored: unknown kind %r", kind)
         return None
     return TrainingExample(
         instruction=str(item.get("instruction") or ""),
@@ -379,10 +379,10 @@ def load_dataset(path: Path) -> list[dict]:
         try:
             record = json.loads(line)
         except (ValueError, TypeError) as exc:
-            logger.warning("linha %d de %s ignorada: %s", number, target, exc)
+            logger.warning("line %d of %s ignored: %s", number, target, exc)
             continue
         if not isinstance(record, dict):
-            logger.warning("linha %d de %s ignorada: não é um objeto JSON", number, target)
+            logger.warning("line %d of %s ignored: not a JSON object", number, target)
             continue
         records.append(record)
     return records
@@ -395,9 +395,9 @@ def _classify_instruction(instruction: str) -> str:
     lowered = first.casefold()
     if first.endswith("?"):
         return "qa"
-    if "entidades" in lowered:
+    if "entit" in lowered:
         return "entities"
-    if "resuma" in lowered or "resumo" in lowered:
+    if "summarize" in lowered or "summary" in lowered or "resuma" in lowered or "resumo" in lowered:
         return "summary"
     if "json" in lowered:
         return "extraction"
@@ -418,7 +418,7 @@ def _record_kind(record: dict) -> str:
 
 
 def dataset_summary(path: Path) -> str:
-    """One Portuguese sentence: how many examples the dataset holds and of which kinds."""
+    """One sentence: how many examples the dataset holds and of which kinds."""
     target = Path(path)
     counts: dict[str, int] = {}
     total = 0
@@ -427,12 +427,12 @@ def dataset_summary(path: Path) -> str:
         counts[kind] = counts.get(kind, 0) + 1
         total += 1
     if not total:
-        return f"Conjunto {target.name} sem exemplos."
+        return f"Dataset {target.name} with no examples."
     parts = ", ".join(
-        f"{count} de {KIND_LABELS.get(kind, kind)}"
+        f"{count} {KIND_LABELS.get(kind, kind)}"
         for kind, count in sorted(counts.items(), key=lambda item: (-item[1], item[0]))
     )
-    return f"Conjunto {target.name} com {total} exemplos: {parts}."
+    return f"Dataset {target.name} with {total} examples: {parts}."
 
 async def _call_extract(fn: Callable[..., Any], text: str, url: str) -> Any:
     """Call ``extract_structured`` tolerating either signature and sync or async forms."""
@@ -444,7 +444,7 @@ async def _call_extract(fn: Callable[..., Any], text: str, url: str) -> Any:
         if inspect.isawaitable(result):
             result = await result
         return result
-    raise TypeError("extract_structured: assinatura não suportada")
+    raise TypeError("extract_structured: unsupported signature")
 
 
 class DatasetBuilder:
@@ -511,7 +511,7 @@ class DatasetBuilder:
             ValueError: ``kind`` is not one of :data:`KINDS`.
         """
         if kind not in KINDS:
-            raise ValueError(f"tipo desconhecido: {kind!r} (use um de {', '.join(KINDS)})")
+            raise ValueError(f"unknown kind: {kind!r} (use one of {', '.join(KINDS)})")
         added = 0
         for page in pages:
             added += self._add_page(page, kind)
@@ -524,11 +524,11 @@ class DatasetBuilder:
         entry = page if isinstance(page, dict) else {}
         text = _page_text(entry)
         if not text:
-            logger.warning("página sem texto ignorada (%s)", entry.get("url") or entry.get("path"))
+            logger.warning("page without text skipped (%s)", entry.get("url") or entry.get("path"))
             return 0
         source = str(entry.get("url") or entry.get("path") or entry.get("title") or "").strip()
         if not source:
-            source = "página sem origem"
+            source = "page without source"
         context = _clip(text, MAX_INPUT_CHARS)
 
         if kind == "extraction":
@@ -542,7 +542,7 @@ class DatasetBuilder:
         if kind == "qa":
             pairs = _qa_pairs(entry, text)
             if not pairs:
-                logger.warning("nenhum título utilizável em %s: sem exemplos de perguntas", source)
+                logger.warning("no usable title in %s: no question examples", source)
                 return 0
             added = 0
             for heading, answer in pairs:
@@ -566,7 +566,7 @@ class DatasetBuilder:
     ) -> int:
         """Append one example, refusing to store an empty target."""
         if not output.strip():
-            logger.warning("exemplo de %s ignorado para %s: saída vazia", kind, source)
+            logger.warning("%s example ignored for %s: empty output", kind, source)
             return 0
         self._examples.append(
             TrainingExample(
@@ -588,10 +588,10 @@ class DatasetBuilder:
         if is_available():
             payload = self._model_extraction(text, str(page.get("url") or ""))
             if payload is not None:
-                logger.info("exemplo de extração construído pelo modelo (%s)", page.get("url"))
+                logger.info("extraction example built by the model (%s)", page.get("url"))
                 return payload
         logger.info(
-            "exemplo de extração construído a partir da própria página (%s): modelo indisponível",
+            "extraction example built from the page itself (%s): model unavailable",
             page.get("url") or page.get("path"),
         )
         fallback = {
@@ -610,13 +610,13 @@ class DatasetBuilder:
         function = getattr(extraction_module, "extract_structured", None)
         if function is None:
             logger.info(
-                "zfrog.ai.extraction.extract_structured indisponível; extração determinística"
+                "zfrog.ai.extraction.extract_structured unavailable; deterministic extraction"
             )
             return None
         try:
             result = _run_maybe_async(lambda: _call_extract(function, text, url))
         except Exception as exc:
-            logger.warning("extract_structured falhou (%s); extração determinística", exc)
+            logger.warning("extract_structured failed (%s); deterministic extraction", exc)
             return None
         payload = _jsonable(result)
         if payload is None:
@@ -627,8 +627,8 @@ class DatasetBuilder:
         """Entities extracted by :mod:`zfrog.ai.entities`; empty when it cannot run."""
         if not is_available():
             logger.warning(
-                "IA indisponível: exemplos de entidades ignorados para %s "
-                "(nenhuma entidade é inventada)",
+                "AI unavailable: entity examples skipped for %s "
+                "(no entity is invented)",
                 source,
             )
             return []
@@ -637,15 +637,15 @@ class DatasetBuilder:
         try:
             result = _run_maybe_async(lambda: entities_module.extract_entities(text))
         except Exception as exc:
-            logger.warning("extração de entidades falhou para %s (%s)", source, exc)
+            logger.warning("entity extraction failed for %s (%s)", source, exc)
             return []
         items = result.get("entities") if isinstance(result, dict) else None
         if not isinstance(items, list):
-            logger.warning("resultado de entidades inesperado para %s: %r", source, type(result))
+            logger.warning("unexpected entity result for %s: %r", source, type(result))
             return []
         entities = [item for item in items if isinstance(item, dict) and item.get("name")]
         if not entities:
-            logger.warning("nenhuma entidade extraída para %s: exemplo não construído", source)
+            logger.warning("no entity extracted for %s: example not built", source)
         return entities
 
     # ── exporting ───────────────────────────────────────────────────
@@ -665,7 +665,7 @@ class DatasetBuilder:
             ValueError: ``fmt`` is neither ``"chat"`` nor ``"alpaca"``.
         """
         if fmt not in FORMATS:
-            raise ValueError(f"formato desconhecido: {fmt!r} (use {' ou '.join(FORMATS)})")
+            raise ValueError(f"unknown format: {fmt!r} (use {' or '.join(FORMATS)})")
         render = chat_format if fmt == "chat" else alpaca_format
         target = Path(path) if path is not None else self._next_dataset_path()
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -681,7 +681,7 @@ class DatasetBuilder:
                     if problems:
                         skipped += 1
                         logger.warning(
-                            "exemplo de %s ignorado na exportação (%s): %s",
+                            "%s example ignored at export (%s): %s",
                             example.kind,
                             example.source,
                             "; ".join(problems),
@@ -703,7 +703,7 @@ class DatasetBuilder:
             "written": written,
             "skipped": skipped,
         }
-        logger.info("conjunto exportado para %s (%d exemplos, %d ignorados)", target, written, skipped)
+        logger.info("dataset exported to %s (%d examples, %d skipped)", target, written, skipped)
         return target
 
     def _next_dataset_path(self) -> Path:
@@ -735,11 +735,11 @@ class DatasetBuilder:
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
         except Exception as exc:
-            logger.warning("não foi possível ler %s: %s", path, exc)
+            logger.warning("could not read %s: %s", path, exc)
             return
         raw = payload.get("examples") if isinstance(payload, dict) else payload
         if not isinstance(raw, list):
-            logger.warning("%s não contém uma lista de exemplos", path)
+            logger.warning("%s does not contain a list of examples", path)
             return
         loaded: list[TrainingExample] = []
         for item in raw:

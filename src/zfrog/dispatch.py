@@ -176,7 +176,7 @@ class Dispatcher:
         assignment = self.registry.assign(url, preferred_region)
         worker = assignment.worker
         if worker is None:
-            logger.info("nenhum worker para %s: %s", url, assignment.reason)
+            logger.info("no worker for %s: %s", url, assignment.reason)
             return DispatchResult("", "", assignment.region, False, assignment.reason)
 
         payload: dict[str, Any] = {"url": url, "mode": mode, "max_depth": max_depth}
@@ -187,8 +187,8 @@ class Dispatcher:
         try:
             response = await self._ensure_client().post(endpoint, json=payload)
         except httpx.HTTPError as exc:
-            logger.warning("falha ao enviar para %s: %s", worker.id, exc)
-            detail = f"falha ao contatar o worker {worker.id}: {exc}"
+            logger.warning("failed to send to %s: %s", worker.id, exc)
+            detail = f"failed to contact worker {worker.id}: {exc}"
             return DispatchResult("", worker.id, worker.region, False, detail)
 
         if not 200 <= response.status_code < 300:
@@ -197,7 +197,7 @@ class Dispatcher:
                 worker.id,
                 worker.region,
                 False,
-                f"worker {worker.id} respondeu HTTP {response.status_code}",
+                f"worker {worker.id} returned HTTP {response.status_code}",
             )
 
         job_id = self._job_id(response)
@@ -207,13 +207,13 @@ class Dispatcher:
                 worker.id,
                 worker.region,
                 False,
-                f"worker {worker.id} aceitou a requisição mas não devolveu job_id",
+                f"worker {worker.id} accepted the request but returned no job_id",
             )
 
         try:
             self.registry.start(worker.id)
         except ValueError as exc:
-            detail = f"worker indisponível: {exc}"
+            detail = f"worker unavailable: {exc}"
             return DispatchResult("", worker.id, worker.region, False, detail)
 
         return DispatchResult(
@@ -221,7 +221,7 @@ class Dispatcher:
             worker.id,
             worker.region,
             True,
-            f"job {job_id} aceito por {worker.id} na região {worker.region}",
+            f"job {job_id} accepted by {worker.id} in region {worker.region}",
         )
 
     @staticmethod
@@ -250,17 +250,17 @@ class Dispatcher:
             try:
                 results.append(await self._send_job(job, preferred_region))
             except Exception as exc:  # one broken job must not sink the batch
-                logger.warning("job descartado no envio em lote: %s", exc)
-                results.append(DispatchResult("", "", "", False, f"job inválido: {exc}"))
+                logger.warning("job discarded in batch send: %s", exc)
+                results.append(DispatchResult("", "", "", False, f"invalid job: {exc}"))
         return results
 
     async def _send_job(self, job: dict, preferred_region: str | None) -> DispatchResult:
         """Send one entry of a batch, reading its per-job options."""
         if not isinstance(job, dict):
-            return DispatchResult("", "", "", False, "job inválido: esperado um dicionário")
+            return DispatchResult("", "", "", False, "invalid job: expected a dict")
         url = _job_url(job)
         if not url:
-            return DispatchResult("", "", "", False, "job sem url")
+            return DispatchResult("", "", "", False, "job without url")
 
         extra = job.get("extra")
         return await self.send(
@@ -280,7 +280,7 @@ class Dispatcher:
         try:
             self.registry.finish(str(worker_id))
         except ValueError:
-            logger.warning("worker %s não está mais no registro; nada a liberar", worker_id)
+            logger.warning("worker %s is no longer in the registry; nothing to release", worker_id)
 
 
 def plan_dispatch(jobs: list[dict], registry: WorkerRegistry | None = None) -> list[dict]:
@@ -310,9 +310,9 @@ def plan_dispatch(jobs: list[dict], registry: WorkerRegistry | None = None) -> l
 
 
 def dispatch_summary(results: list[DispatchResult]) -> str:
-    """One Portuguese sentence: how many were accepted, where, how many failed."""
+    """One sentence: how many were accepted, where, how many failed."""
     if not results:
-        return "Nenhum job para enviar."
+        return "No jobs to send."
 
     accepted = [result for result in results if result.accepted]
     failed = len(results) - len(accepted)
@@ -323,19 +323,19 @@ def dispatch_summary(results: list[DispatchResult]) -> str:
 
     if not accepted:
         head = (
-            "Nenhum job foi aceito"
+            "No jobs were accepted"
             if len(results) == 1
-            else f"Nenhum dos {len(results)} jobs foi aceito"
+            else f"None of the {len(results)} jobs were accepted"
         )
     else:
         regions = ", ".join(f"{region}: {count}" for region, count in sorted(by_region.items()))
-        head = f"{len(accepted)} de {len(results)} jobs aceitos ({regions})"
+        head = f"{len(accepted)} of {len(results)} jobs accepted ({regions})"
 
     if not failed:
         tail = ""
     elif failed == 1:
-        tail = "; 1 falhou"
+        tail = "; 1 failed"
     else:
-        tail = f"; {failed} falharam"
+        tail = f"; {failed} failed"
 
     return f"{head}{tail}."

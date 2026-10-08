@@ -101,13 +101,13 @@ class Marketplace:
         clean_kind = str(kind or "").strip().lower()
         if clean_kind not in KINDS:
             raise ValueError(
-                f"tipo de item desconhecido: {kind!r} (use workflow, plugin ou template)"
+                f"unknown item type: {kind!r} (use workflow, plugin or template)"
             )
         clean_name = name.strip() if isinstance(name, str) else ""
         if not clean_name:
-            raise ValueError("o item precisa de um nome")
+            raise ValueError("the item needs a name")
         if not isinstance(payload, dict) or not payload:
-            raise ValueError("o item precisa de um payload com conteúdo")
+            raise ValueError("the item needs a payload with content")
 
         data = _json_copy(payload)
         _validate_payload(clean_kind, data)
@@ -118,8 +118,8 @@ class Marketplace:
         clean_version = str(version or "").strip() or "1.0.0"
         if previous is not None and previous.payload != data and previous.version == clean_version:
             raise ValueError(
-                f"{asset_id} já existe com outro payload na versão {clean_version}; "
-                "publique uma versão nova"
+                f"{asset_id} already exists with a different payload at version {clean_version}; "
+                "publish a new version"
             )
 
         asset = Asset(
@@ -136,7 +136,7 @@ class Marketplace:
             rating_count=previous.rating_count if previous else 0,
         )
         self._write(path, _asset_to_payload(asset))
-        logger.info("Item %s publicado (%s)", asset.id, clean_kind)
+        logger.info("Item %s published (%s)", asset.id, clean_kind)
         return asset
 
     # ── browsing ────────────────────────────────────────────────────
@@ -184,24 +184,24 @@ class Marketplace:
         """
         found = self._find(asset_id)
         if found is None:
-            raise ValueError(f"item não encontrado: {asset_id}")
+            raise ValueError(f"item not found: {asset_id}")
         asset, path = found
 
         installer = _INSTALLERS.get(asset.kind)
         if installer is None:
-            raise ValueError(f"tipo de item desconhecido: {asset.kind!r}")
+            raise ValueError(f"unknown item type: {asset.kind!r}")
         _validate_payload(asset.kind, asset.payload)
 
         try:
             target, detail = installer(self, asset)
         except OSError as exc:
-            logger.warning("Falha ao instalar %s: %s", asset.id, exc)
+            logger.warning("Failed to install %s: %s", asset.id, exc)
             return {
                 "kind": asset.kind,
                 "name": asset.name,
                 "target": "",
                 "installed": False,
-                "detail": f"falha ao instalar: {exc}",
+                "detail": f"failed to install: {exc}",
             }
 
         asset.installs += 1
@@ -234,18 +234,18 @@ class Marketplace:
         elif asset.kind == "workflow":
             removed = self._uninstall_workflow(asset)
         else:
-            logger.warning("Não sei desinstalar o tipo %s", asset.kind)
+            logger.warning("I do not know how to uninstall kind %s", asset.kind)
             return False
 
         if removed:
-            logger.info("Instalação de %s removida", asset.id)
+            logger.info("Installation of %s removed", asset.id)
         return removed
 
     def rate(self, asset_id: str, score: float) -> Asset:
         """Add ``score`` (0-5) to the asset's average and save the result."""
         found = self._find(asset_id)
         if found is None:
-            raise ValueError(f"item não encontrado: {asset_id}")
+            raise ValueError(f"item not found: {asset_id}")
         asset, path = found
 
         value = _score(score)
@@ -253,7 +253,7 @@ class Marketplace:
         asset.rating_count += 1
         asset.rating = round(total / asset.rating_count, 6)
         self._write(path, _asset_to_payload(asset))
-        logger.info("Item %s avaliado com %.1f (média %.2f)", asset.id, value, asset.rating)
+        logger.info("Item %s rated %.1f (average %.2f)", asset.id, value, asset.rating)
         return asset
 
     def remove(self, asset_id: str) -> bool:
@@ -277,7 +277,7 @@ class Marketplace:
         """
         url = str(index_url or "").strip()
         if not url:
-            raise ValueError("o índice precisa de uma URL")
+            raise ValueError("the index needs a URL")
 
         try:
             with httpx.Client(
@@ -287,7 +287,7 @@ class Marketplace:
                 response.raise_for_status()
                 document = response.json()
         except (httpx.HTTPError, ValueError) as exc:
-            logger.warning("Índice remoto indisponível em %s: %s", url, exc)
+            logger.warning("Remote index unavailable at %s: %s", url, exc)
             return []
 
         return _assets_from_index(document, url)
@@ -324,11 +324,11 @@ class Marketplace:
         try:
             document = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, ValueError) as exc:
-            logger.warning("Item ilegível %s: %s", path, exc)
+            logger.warning("Unreadable item %s: %s", path, exc)
             return None
         asset = _asset_from_payload(document)
         if asset is None:
-            logger.warning("Item inválido em %s", path)
+            logger.warning("Invalid item at %s", path)
         return asset
 
     def _write(self, path: Path, payload: dict) -> None:
@@ -347,13 +347,13 @@ class Marketplace:
         """Save the asset's steps in the workflow store; return its id and path."""
         store = WorkflowStore()
         workflow = store.save(asset.name, list(asset.payload.get("steps") or []))
-        return workflow.id, f"fluxo salvo como {workflow.id} em {store.root}"
+        return workflow.id, f"workflow saved as {workflow.id} in {store.root}"
 
     def _install_plugin(self, asset: Asset) -> tuple[str, str]:
         """Write the plugin source as a loadable module in ``plugins_dir``."""
         path = Path(settings.plugins_dir) / f"{asset.id}.py"
         _write_text(path, str(asset.payload.get("source") or ""))
-        return str(path), f"plugin gravado em {path}"
+        return str(path), f"plugin written to {path}"
 
     def _install_template(self, asset: Asset) -> tuple[str, str]:
         """Write the template JSON under ``output_dir/templates``."""
@@ -367,7 +367,7 @@ class Marketplace:
             **asset.payload,
         }
         self._write(path, document)
-        return str(path), f"template gravado em {path}"
+        return str(path), f"template written to {path}"
 
 
 #: Installers per kind, so an unknown kind can be refused in one place.
@@ -389,7 +389,7 @@ def _asset_id(kind: str, name: str) -> str:
     """Return the stable id of an asset: the kind plus the slug of its name."""
     slug = _slugify(name)
     if not slug:
-        raise ValueError(f"nome inválido para um item: {name!r}")
+        raise ValueError(f"invalid name for item: {name!r}")
     return f"{kind}-{slug}"
 
 
@@ -403,7 +403,7 @@ def _clean_tags(tags: Any) -> list[str]:
         try:
             candidates = list(tags)
         except TypeError as exc:
-            raise ValueError(f"tags inválidas: {tags!r}") from exc
+            raise ValueError(f"invalid tags: {tags!r}") from exc
 
     cleaned: list[str] = []
     for tag in candidates:
@@ -418,7 +418,7 @@ def _json_copy(payload: dict) -> dict:
     try:
         return json.loads(json.dumps(payload, ensure_ascii=False))
     except (TypeError, ValueError) as exc:
-        raise ValueError(f"o payload precisa ser serializável em JSON: {exc}") from exc
+        raise ValueError(f"payload must be JSON-serializable: {exc}") from exc
 
 
 def _matches(asset: Asset, needle: str) -> bool:
@@ -432,9 +432,9 @@ def _score(score: Any) -> float:
     try:
         value = float(score)
     except (TypeError, ValueError) as exc:
-        raise ValueError(f"nota inválida: {score!r}") from exc
+        raise ValueError(f"invalid score: {score!r}") from exc
     if not 0.0 <= value <= MAX_RATING:
-        raise ValueError(f"a nota precisa estar entre 0 e {MAX_RATING:.0f}: {score!r}")
+        raise ValueError(f"score must be between 0 and {MAX_RATING:.0f}: {score!r}")
     return value
 
 
@@ -443,10 +443,10 @@ def _validate_payload(kind: str, payload: Any) -> None:
     validator = _VALIDATORS.get(kind)
     if validator is None:
         raise ValueError(
-            f"tipo de item desconhecido: {kind!r} (use workflow, plugin ou template)"
+            f"unknown item type: {kind!r} (use workflow, plugin or template)"
         )
     if not isinstance(payload, dict) or not payload:
-        raise ValueError("o item precisa de um payload com conteúdo")
+        raise ValueError("the item needs a payload with content")
     validator(payload)
 
 
@@ -454,7 +454,7 @@ def _validate_workflow(payload: dict) -> None:
     """Refuse a workflow payload whose ``steps`` are missing or invalid."""
     steps = payload.get("steps")
     if not isinstance(steps, list) or not steps:
-        raise ValueError("o fluxo precisa de uma lista 'steps' com pelo menos um passo")
+        raise ValueError("workflow requires a 'steps' list with at least one step")
     validate_steps(steps)
 
 
@@ -467,32 +467,32 @@ def _validate_plugin(payload: dict) -> None:
     """
     source = payload.get("source")
     if not isinstance(source, str) or not source.strip():
-        raise ValueError("o plugin precisa de 'source' com o código do motor")
+        raise ValueError("the plugin needs 'source' with the engine code")
 
     namespace: dict[str, Any] = {"__name__": "zfrog_marketplace_plugin"}
     try:
         exec(compile(source, "<plugin>", "exec"), namespace)  # noqa: S102
     except Exception as exc:
-        raise ValueError(f"o plugin não pode ser carregado: {exc}") from exc
+        raise ValueError(f"the plugin cannot be loaded: {exc}") from exc
 
     for value in namespace.values():
         if not isinstance(value, type) or value is EngineAdapter:
             continue
         if issubclass(value, EngineAdapter) and str(getattr(value, "name", "") or "").strip():
             return
-    raise ValueError("o plugin precisa definir um motor (subclasse de EngineAdapter) com 'name'")
+    raise ValueError("plugin must define an engine (EngineAdapter subclass) with 'name'")
 
 
 def _validate_template(payload: dict) -> None:
     """Refuse a template payload without a mapping of non-empty selectors."""
     selectors = payload.get("selectors")
     if not isinstance(selectors, dict) or not selectors:
-        raise ValueError("o template precisa de 'selectors' como objeto não vazio")
+        raise ValueError("the template needs 'selectors' as a non-empty object")
     for key, value in selectors.items():
         if not str(key).strip():
-            raise ValueError("o template tem um seletor sem nome")
+            raise ValueError("the template has an unnamed selector")
         if not isinstance(value, str) or not value.strip():
-            raise ValueError(f"o seletor {key!r} precisa de um valor de texto não vazio")
+            raise ValueError(f"the selector {key!r} needs a non-empty text value")
 
 
 #: Validators per kind, used both when publishing and when installing.
@@ -540,7 +540,7 @@ def _asset_from_payload(payload: Any) -> Asset | None:
     try:
         tags = _clean_tags(payload.get("tags"))
     except ValueError as exc:
-        logger.warning("Tags inválidas em %s: %s", name, exc)
+        logger.warning("Invalid tags in %s: %s", name, exc)
         return None
     return Asset(
         id=stored_id,
@@ -561,14 +561,14 @@ def _assets_from_index(document: Any, source: str) -> list[Asset]:
     """Read the assets of a remote index, skipping the entries that make no sense."""
     entries = document.get("assets") if isinstance(document, dict) else document
     if not isinstance(entries, list):
-        logger.warning("Índice remoto sem lista de itens: %s", source)
+        logger.warning("Remote index missing item list: %s", source)
         return []
 
     assets: list[Asset] = []
     for entry in entries:
         asset = _asset_from_payload(entry)
         if asset is None:
-            logger.warning("Item inválido no índice %s: %r", source, entry)
+            logger.warning("Invalid item in the index %s: %r", source, entry)
             continue
         assets.append(asset)
     return assets

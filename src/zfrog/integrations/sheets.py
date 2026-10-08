@@ -45,7 +45,7 @@ class SheetsClient(DestinationClient):
         token = config_text(destination.config, "token")
         target_range = config_text(destination.config, "range") or DEFAULT_RANGE
         if not spreadsheet_id or not token:
-            result.errors.append("destino sheets sem spreadsheet_id ou token")
+            result.errors.append("sheets destination missing spreadsheet_id or token")
             return result
         if not rows:
             return result
@@ -66,7 +66,7 @@ class SheetsClient(DestinationClient):
                     json={"values": [header, *matrix]},
                 )
         except httpx.HTTPError as exc:
-            result.errors.append(f"falha de rede ao enviar para o Sheets: {exc}")
+            result.errors.append(f"network failure sending to Sheets: {exc}")
             return result
 
         message = response_error(response, "Sheets")
@@ -76,7 +76,7 @@ class SheetsClient(DestinationClient):
 
         created = _updated_rows(response)
         if created is None:
-            result.errors.append("resposta do Sheets sem updates.updatedRows")
+            result.errors.append("Sheets response missing updates.updatedRows")
         else:
             result.created = created
         return result
@@ -87,7 +87,7 @@ def _updated_rows(response: httpx.Response) -> int | None:
     try:
         payload = response.json()
     except ValueError:
-        logger.warning("Resposta do Sheets sem JSON legível: %s", response.text[:200])
+        logger.warning("Sheets response without readable JSON: %s", response.text[:200])
         return None
     updates = payload.get("updates") if isinstance(payload, dict) else None
     if not isinstance(updates, dict):

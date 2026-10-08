@@ -137,7 +137,7 @@ def parse_group_role_map(text: str) -> dict[str, str]:
         group, role = group.strip(), role.strip()
         if not sep or not group or not role:
             raise ValueError(
-                f"oidc_group_role_map inválido: {entry!r} — use 'grupo=papel,outro=papel'"
+                f"invalid oidc_group_role_map: {entry!r} — use 'group=role,other=role'"
             )
         mapping[group] = role
     return mapping
@@ -211,7 +211,7 @@ async def discover(
     document = await _get_json(base + DISCOVERY_PATH, client)
     discovery = _discovery_from_document(document, base)
     _DISCOVERY_CACHE[base] = discovery
-    logger.debug("descoberta OIDC carregada de %s", base)
+    logger.debug("OIDC discovery loaded from %s", base)
     return discovery
 
 
@@ -246,7 +246,7 @@ async def exchange_code(
             a body that is not a JSON object.
     """
     if not code:
-        raise ValueError("código de autorização ausente")
+        raise ValueError("missing authorization code")
 
     data = {
         "grant_type": "authorization_code",
@@ -274,7 +274,7 @@ def decode_unverified(token: str) -> tuple[dict[str, Any], dict[str, Any]]:
     parts = token.split(".") if isinstance(token, str) else []
     if len(parts) != 3 or not parts[0] or not parts[1]:
         raise ValueError("ID token malformado: esperado header.payload.signature")
-    return _decode_json_segment(parts[0], "cabeçalho"), _decode_json_segment(parts[1], "payload")
+    return _decode_json_segment(parts[0], "header"), _decode_json_segment(parts[1], "payload")
 
 
 async def verify_id_token(
@@ -305,16 +305,16 @@ async def verify_id_token(
 
     alg = str(header.get("alg") or "")
     if alg not in SUPPORTED_ALGORITHMS:
-        raise ValueError(f"algoritmo de assinatura não suportado: {alg!r}")
+        raise ValueError(f"unsupported signing algorithm: {alg!r}")
 
     kid = header.get("kid")
     if not kid:
-        raise ValueError("ID token sem 'kid' no cabeçalho")
+        raise ValueError("ID token without 'kid' in the header")
 
     jwks = await _get_json(discovery.jwks_uri, client)
     jwk = _find_jwk(jwks, str(kid))
     if jwk is None:
-        raise ValueError(f"kid desconhecido no JWKS do provedor: {kid!r}")
+        raise ValueError(f"unknown kid in provider JWKS: {kid!r}")
 
     _verify_signature(token, jwk, alg)
     _check_issuer(claims, discovery.issuer)
@@ -364,11 +364,11 @@ async def complete_login(
     payload = await exchange_code(config, discovery, code, client=client)
     token = str(payload.get("id_token") or "")
     if not token:
-        raise ValueError("resposta do provedor sem 'id_token'")
+        raise ValueError("provider response missing 'id_token'")
     claims = await verify_id_token(token, config, discovery, client=client, nonce=nonce)
     role = role_from_groups(claims.groups, config.group_role_map)
     user = {"subject": claims.subject, "email": claims.email, "name": claims.name}
-    logger.info("login SSO concluído para %s (papel %s)", claims.subject or claims.email, role)
+    logger.info("SSO login completed for %s (role %s)", claims.subject or claims.email, role)
     return LoginResult(user=user, role=role, claims=claims)
 
 
@@ -384,7 +384,7 @@ async def _get_json(url: str, client: httpx.AsyncClient | None) -> dict[str, Any
         response = await _request(client, "GET", url)
 
     if response.status_code // 100 != 2:
-        raise ValueError(f"falha ao consultar {url} (HTTP {response.status_code})")
+        raise ValueError(f"failed to fetch {url} (HTTP {response.status_code})")
     return _json_object(response, url)
 
 
@@ -406,7 +406,7 @@ async def _post_form(
     if response.status_code // 100 != 2:
         detail = _redact(_error_detail(response), secret)
         raise ValueError(
-            f"falha ao trocar o código por tokens (HTTP {response.status_code}): {detail}"
+            f"failed to exchange the code for tokens (HTTP {response.status_code}): {detail}"
         )
     return _json_object(response, url)
 
@@ -418,7 +418,7 @@ async def _request(
     try:
         return await client.request(method, url, **kwargs)
     except httpx.HTTPError as e:
-        raise ValueError(f"falha de rede ao consultar {url}: {e}") from e
+        raise ValueError(f"network failure fetching {url}: {e}") from e
 
 
 def _json_object(response: httpx.Response, url: str) -> dict[str, Any]:
@@ -426,9 +426,9 @@ def _json_object(response: httpx.Response, url: str) -> dict[str, Any]:
     try:
         document = response.json()
     except ValueError as e:
-        raise ValueError(f"resposta não-JSON de {url}: {e}") from e
+        raise ValueError(f"non-JSON response from {url}: {e}") from e
     if not isinstance(document, dict):
-        raise ValueError(f"resposta inesperada de {url}: esperado um objeto JSON")
+        raise ValueError(f"unexpected response from {url}: expected a JSON object")
     return document
 
 
@@ -460,7 +460,7 @@ def _discovery_from_document(document: dict[str, Any], base: str) -> OidcDiscove
     for key in ("authorization_endpoint", "token_endpoint", "jwks_uri"):
         value = str(document.get(key) or "").strip()
         if not value:
-            raise ValueError(f"documento de descoberta sem {key!r}")
+            raise ValueError(f"discovery document missing {key!r}")
         values[key] = value
 
     return OidcDiscovery(
@@ -477,7 +477,7 @@ def _find_jwk(document: dict[str, Any], kid: str) -> dict[str, Any] | None:
     """Return the JWK with ``kid`` from a JWKS document."""
     keys = document.get("keys")
     if not isinstance(keys, list):
-        raise ValueError("JWKS inválido: falta a lista 'keys'")
+        raise ValueError("invalid JWKS: missing 'keys' list")
     for key in keys:
         if isinstance(key, dict) and str(key.get("kid") or "") == kid:
             return key
@@ -496,21 +496,21 @@ def _public_key_from_jwk(jwk: dict[str, Any]) -> rsa.RSAPublicKey | ec.EllipticC
         if kty == "EC":
             curve = jwk.get("crv")
             if curve != "P-256":
-                raise ValueError(f"curva EC não suportada: {curve!r}")
+                raise ValueError(f"unsupported EC curve: {curve!r}")
             return ec.EllipticCurvePublicNumbers(
                 _int_from_b64url(jwk.get("x"), "x"),
                 _int_from_b64url(jwk.get("y"), "y"),
                 ec.SECP256R1(),
             ).public_key()
     except (TypeError, ValueError) as e:
-        raise ValueError(f"chave JWKS inválida: {e}") from e
-    raise ValueError(f"tipo de chave JWKS não suportado: {kty!r}")
+        raise ValueError(f"invalid JWKS key: {e}") from e
+    raise ValueError(f"unsupported JWKS key type: {kty!r}")
 
 
 def _int_from_b64url(value: Any, name: str) -> int:
     """Decode a base64url big-endian integer parameter of a JWK."""
     if not isinstance(value, str) or not value:
-        raise ValueError(f"JWK sem {name!r}")
+        raise ValueError(f"JWK missing {name!r}")
     return int.from_bytes(_b64url_decode(value), "big")
 
 
@@ -521,7 +521,7 @@ def _verify_signature(token: str, jwk: dict[str, Any], alg: str) -> None:
     """Verify the token signature with the public key from ``jwk``."""
     parts = token.split(".")
     if len(parts) != 3 or not parts[2]:
-        raise ValueError("ID token malformado: assinatura ausente")
+        raise ValueError("malformed ID token: missing signature")
     signing_input = f"{parts[0]}.{parts[1]}".encode("ascii")
     signature = _b64url_decode(parts[2])
     key = _public_key_from_jwk(jwk)
@@ -529,18 +529,18 @@ def _verify_signature(token: str, jwk: dict[str, Any], alg: str) -> None:
     try:
         if alg == "RS256":
             if not isinstance(key, rsa.RSAPublicKey):
-                raise ValueError("assinatura RS256, mas a chave do JWKS não é RSA")
+                raise ValueError("RS256 signature, but the JWKS key is not RSA")
             key.verify(signature, signing_input, padding.PKCS1v15(), hashes.SHA256())
         else:
             if not isinstance(key, ec.EllipticCurvePublicKey):
-                raise ValueError("assinatura ES256, mas a chave do JWKS não é EC")
+                raise ValueError("ES256 signature, but the JWKS key is not EC")
             key.verify(
                 _ec_signature_to_der(signature, key), signing_input, ec.ECDSA(hashes.SHA256())
             )
     except InvalidSignature as e:
-        raise ValueError("assinatura do ID token inválida") from e
+        raise ValueError("invalid ID token signature") from e
     except (UnsupportedAlgorithm, TypeError, ValueError) as e:
-        raise ValueError(f"assinatura do ID token inválida: {e}") from e
+        raise ValueError(f"invalid ID token signature: {e}") from e
 
 
 def _ec_signature_to_der(signature: bytes, key: ec.EllipticCurvePublicKey) -> bytes:
@@ -559,7 +559,7 @@ def _ec_signature_to_der(signature: bytes, key: ec.EllipticCurvePublicKey) -> by
     if signature[:1] == b"\x30":
         return signature
     raise ValueError(
-        f"assinatura ECDSA com tamanho inesperado: {len(signature)} bytes (esperado {2 * size})"
+        f"unexpected ECDSA signature size: {len(signature)} bytes (expected {2 * size})"
     )
 
 
@@ -567,13 +567,13 @@ def _check_issuer(claims: dict[str, Any], expected: str) -> None:
     """Require ``iss`` to match the issuer of the discovery document."""
     issuer = claims.get("iss")
     if str(issuer or "").rstrip("/") != expected.rstrip("/"):
-        raise ValueError(f"iss do ID token não confere: {issuer!r} != {expected!r}")
+        raise ValueError(f"ID token issuer mismatch: {issuer!r} != {expected!r}")
 
 
 def _check_audience(claims: dict[str, Any], client_id: str) -> None:
     """Require ``aud`` (a string or a list) to contain the client id."""
     if client_id not in _audience_list(claims.get("aud")):
-        raise ValueError(f"aud do ID token não contém o client id: {claims.get('aud')!r}")
+        raise ValueError(f"ID token aud does not contain the client id: {claims.get('aud')!r}")
 
 
 def _audience_list(value: Any) -> list[str]:
@@ -589,9 +589,9 @@ def _check_expiry(claims: dict[str, Any]) -> None:
     """Require ``exp`` to be in the future, allowing 60s of clock skew."""
     expires_at = claims.get("exp")
     if isinstance(expires_at, bool) or not isinstance(expires_at, (int, float)):
-        raise ValueError("ID token sem 'exp' numérico")
+        raise ValueError("ID token without a numeric 'exp'")
     if float(expires_at) < time.time() - CLOCK_SKEW_S:
-        raise ValueError(f"ID token expirado (exp={expires_at})")
+        raise ValueError(f"expired ID token (exp={expires_at})")
 
 
 def _check_nonce(claims: dict[str, Any], nonce: str) -> None:
@@ -599,7 +599,7 @@ def _check_nonce(claims: dict[str, Any], nonce: str) -> None:
     if not nonce:
         return
     if claims.get("nonce") != nonce:
-        raise ValueError("nonce do ID token não confere com o da requisição")
+        raise ValueError("ID token nonce does not match the request")
 
 
 def _claims_from(claims: dict[str, Any], config: OidcConfig) -> IdTokenClaims:
@@ -636,12 +636,12 @@ def _as_list(value: Any) -> list[str]:
 def _b64url_decode(segment: str) -> bytes:
     """Decode an unpadded base64url segment, rejecting anything malformed."""
     if not _B64URL_RE.fullmatch(segment):
-        raise ValueError("segmento base64url inválido")
+        raise ValueError("invalid base64url segment")
     padded = segment + "=" * (-len(segment) % 4)
     try:
         return base64.urlsafe_b64decode(padded.encode("ascii"))
     except (binascii.Error, ValueError) as e:
-        raise ValueError(f"segmento base64url inválido: {e}") from e
+        raise ValueError(f"invalid base64url segment: {e}") from e
 
 
 def _decode_json_segment(segment: str, label: str) -> dict[str, Any]:
@@ -649,7 +649,7 @@ def _decode_json_segment(segment: str, label: str) -> dict[str, Any]:
     try:
         document = json.loads(_b64url_decode(segment))
     except ValueError as e:
-        raise ValueError(f"{label} do ID token ilegível: {e}") from e
+        raise ValueError(f"unreadable ID token {label}: {e}") from e
     if not isinstance(document, dict):
-        raise ValueError(f"{label} do ID token não é um objeto JSON")
+        raise ValueError(f"ID token {label} is not a JSON object")
     return document

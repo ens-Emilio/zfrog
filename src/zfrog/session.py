@@ -360,7 +360,7 @@ async def capture_session(
     """
     domain = domain_for(url)
     if not domain:
-        raise ValueError(f"Não foi possível determinar o domínio de {url!r}")
+        raise ValueError(f"Could not determine the domain of {url!r}")
 
     store = store or SessionStore()
     playwright = None
@@ -377,7 +377,7 @@ async def capture_session(
         if wait_for_enter:
             await asyncio.to_thread(
                 input,
-                "Entre na sua conta e pressione Enter para salvar a sessão... ",
+                "Log in to your account and press Enter to save the session... ",
             )
 
         state = await context.storage_state()

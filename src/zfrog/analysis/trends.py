@@ -321,12 +321,12 @@ def _format_change(change_pct: float) -> str:
 
 def to_markdown(url: str, trends: list[Trend]) -> str:
     """Render trends as a Markdown table, plus a note where history is too short."""
-    lines = [f"# Tendências — {url}", ""]
+    lines = [f"# Trends — {url}", ""]
     if not trends:
-        lines.append("Nenhum termo com histórico suficiente.")
+        lines.append("No term has enough history.")
         return "\n".join(lines) + "\n"
 
-    lines.append("| termo | primeiro | último | variação | direção |")
+    lines.append("| term | first | last | change | direction |")
     lines.append("| --- | --- | --- | --- | --- |")
     for trend in trends:
         lines.append(
@@ -339,8 +339,8 @@ def to_markdown(url: str, trends: list[Trend]) -> str:
         lines.append("")
         for trend in short:
             lines.append(
-                f'- "{trend.term}": apenas {trend.samples} amostra(s) — '
-                "histórico insuficiente para concluir uma tendência."
+                f'- "{trend.term}": only {trend.samples} sample(s) — '
+                "not enough history to conclude a trend."
             )
     return "\n".join(lines) + "\n"
 
@@ -353,13 +353,13 @@ def summarize(trends: list[Trend]) -> str:
         if trend.samples >= 2 and trend.direction in (RISING, FALLING)
     ]
     if not movers:
-        return "Histórico insuficiente para apontar uma tendência."
+        return "Not enough history to point to a trend."
 
     strongest = max(movers, key=lambda trend: abs(trend.change_pct))
-    verb = "alta" if strongest.direction == RISING else "queda"
+    verb = "up" if strongest.direction == RISING else "down"
     return (
-        f'O termo "{strongest.term}" é o que mais se move: {verb} de '
+        f'The term "{strongest.term}" moves the most: {verb} '
         f"{abs(strongest.change_pct):.1f}% "
         f"({_format_value(strongest.first)} → {_format_value(strongest.last)}, "
-        f"{strongest.samples} amostras)."
+        f"{strongest.samples} samples)."
     )

@@ -25,8 +25,8 @@ MAX_CHARS = 6000
 MAX_GLOBAL_CHARS = 8000
 
 SYSTEM_PROMPT = (
-    "Resuma o conteúdo em português. "
-    "Retorne título, resumo (3-5 frases) e 3-7 pontos-chave."
+    "Summarize the content in English. "
+    "Return a title, a summary (3-5 sentences) and 3-7 key points."
 )
 
 
@@ -78,12 +78,12 @@ async def summarize_text(text: str, url: str = "", max_chars: int = MAX_CHARS) -
         return _empty()
 
     if not is_available():
-        return _empty("AI indisponível")
+        return _empty("AI unavailable")
 
     excerpt = text[:max_chars]
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": f"URL: {url}\n\nConteúdo:\n\n{excerpt}"},
+        {"role": "user", "content": f"URL: {url}\n\nContent:\n\n{excerpt}"},
     ]
 
     try:
@@ -113,7 +113,7 @@ async def summarize_text(text: str, url: str = "", max_chars: int = MAX_CHARS) -
         return {"title": "", "summary": raw[:max_chars].strip(), "key_points": []}
     except Exception as exc:
         logger.warning("summarization failed: %s", exc)
-        return _empty(f"Falha na sumarização: {exc}")
+        return _empty(f"Summarization failed: {exc}")
 
 
 async def summarize_directory(dir_path: Path, url: str, max_pages: int = 30) -> dict:
@@ -167,7 +167,7 @@ async def summarize_directory(dir_path: Path, url: str, max_pages: int = 30) -> 
 
 def to_markdown(url: str, summary: dict, pages: list[dict] | None = None) -> str:
     """Render a summary (optionally with per-page entries) as Markdown."""
-    lines = [f"# Resumo — {url}", ""]
+    lines = [f"# Summary — {url}", ""]
 
     if summary.get("error"):
         lines += [f"> {summary['error']}", ""]
@@ -175,18 +175,18 @@ def to_markdown(url: str, summary: dict, pages: list[dict] | None = None) -> str
     if summary.get("title"):
         lines += [f"**{summary['title']}**", ""]
 
-    lines += ["## Resumo", summary.get("summary") or "(sem resumo)", ""]
+    lines += ["## Summary", summary.get("summary") or "(no summary)", ""]
 
     if summary.get("key_points"):
-        lines.append("## Pontos-chave")
+        lines.append("## Key points")
         lines += [f"- {point}" for point in summary["key_points"]]
         lines.append("")
 
     if pages:
-        lines.append("## Páginas")
+        lines.append("## Pages")
         for page in pages:
             lines.append(f"### {page.get('title') or page.get('path', '')}")
-            lines.append(page.get("summary") or "(sem resumo)")
+            lines.append(page.get("summary") or "(no summary)")
             for point in page.get("key_points") or []:
                 lines.append(f"- {point}")
             lines.append("")

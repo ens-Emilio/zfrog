@@ -42,7 +42,7 @@ class CompareEngine(EngineAdapter):
         url = str(job.url)
 
         if on_progress:
-            on_progress("Preparando comparação...")
+            on_progress("Preparing comparison...")
 
         # Get original HTML from URL
         import httpx
@@ -55,14 +55,14 @@ class CompareEngine(EngineAdapter):
 
         # Fetch original
         if on_progress:
-            on_progress("Buscando página original...")
+            on_progress("Fetching original page...")
         try:
             async with create_client() as client:
                 resp = await client.get(url)
                 original_html = resp.text
                 logs.append(f"Original: {len(original_html)} bytes")
         except Exception as e:
-            logs.append(f"Falha ao buscar original: {e}")
+            logs.append(f"Failed to fetch original: {e}")
 
         # For clone HTML, check if there's a previous mirror/singlepage job output
         # in the same output directory parent (user may have cloned before comparing)
@@ -74,18 +74,18 @@ class CompareEngine(EngineAdapter):
                 if html_files:
                     clone_html = html_files[0].read_text(encoding="utf-8", errors="replace")
                     clone_files = [f for f in sibling.rglob("*") if f.is_file()]
-                    logs.append(f"Clone encontrado: {html_files[0].name} ({len(clone_html)} bytes)")
+                    logs.append(f"Clone found: {html_files[0].name} ({len(clone_html)} bytes)")
                     break
 
         if not clone_html:
             # If no clone found, compare original vs itself (baseline)
             clone_html = original_html
             clone_files = []
-            logs.append("Nenhum clone encontrado — comparando original consigo mesmo (baseline)")
+            logs.append("No clone found — comparing the original against itself (baseline)")
 
         # Compute fidelity
         if on_progress:
-            on_progress("Calculando Fidelity Score...")
+            on_progress("Computing Fidelity Score...")
         fidelity = compute_fidelity(
             original_html=original_html,
             clone_html=clone_html,
@@ -134,34 +134,34 @@ class CompareEngine(EngineAdapter):
     def _to_markdown(self, result: CompareResult) -> str:
         f = result.fidelity
         lines = [
-            f"# Comparação — {result.url}",
+            f"# Comparison — {result.url}",
             "",
             f"## Fidelity Score: {f.composite}/100",
             "",
             "### Sub-scores",
-            f"| Métrica | Score | Peso |",
+            f"| Metric | Score | Weight |",
             f"|---|---|---|",
-            f"| Visual (similaridade de estrutura) | {f.visual}/100 | 25% |",
-            f"| Estrutural (tags HTML) | {f.structural}/100 | 30% |",
-            f"| Texto (conteúdo visível) | {f.text}/100 | 30% |",
-            f"| Assets (cobertura de arquivos) | {f.assets}/100 | 15% |",
+            f"| Visual (structure similarity) | {f.visual}/100 | 25% |",
+            f"| Structural (HTML tags) | {f.structural}/100 | 30% |",
+            f"| Text (visible content) | {f.text}/100 | 30% |",
+            f"| Assets (file coverage) | {f.assets}/100 | 15% |",
             "",
-            "### Detalhes",
-            f"- Tamanho original: {result.details.get('original_size', 0):,} bytes",
-            f"- Tamanho clone: {result.details.get('clone_size', 0):,} bytes",
-            f"- Arquivos originais: {result.details.get('original_files', 0)}",
-            f"- Arquivos clone: {result.details.get('clone_files', 0)}",
+            "### Details",
+            f"- Original size: {result.details.get('original_size', 0):,} bytes",
+            f"- Clone size: {result.details.get('clone_size', 0):,} bytes",
+            f"- Original files: {result.details.get('original_files', 0)}",
+            f"- Clone files: {result.details.get('clone_files', 0)}",
             "",
-            "### Interpretação",
+            "### Interpretation",
         ]
 
         if f.composite >= 95:
-            lines.append("🟢 **Excelente** — clone praticamente idêntico ao original.")
+            lines.append("🟢 **Excellent** — clone practically identical to the original.")
         elif f.composite >= 80:
-            lines.append("🟡 **Bom** — clone fiel com pequenas diferenças.")
+            lines.append("🟡 **Good** — faithful clone with small differences.")
         elif f.composite >= 60:
-            lines.append("🟠 **Razoável** — clone funcional mas com diferenças notáveis.")
+            lines.append("🟠 **Fair** — functional clone but with notable differences.")
         else:
-            lines.append("🔴 **Baixo** — clone difere significativamente do original.")
+            lines.append("🔴 **Poor** — clone differs significantly from the original.")
 
         return "\n".join(lines)

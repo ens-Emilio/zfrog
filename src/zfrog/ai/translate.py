@@ -23,11 +23,11 @@ MAX_CHARS = 6000
 _PARAGRAPH_BREAK = re.compile(r"\n[ \t]*\n+")
 
 SYSTEM_PROMPT = (
-    "Traduza o texto recebido para o idioma de destino indicado. "
-    "Retorne o texto traduzido, o idioma detectado no original (source_language) "
-    "e o idioma de destino (target_language), usando códigos ISO como 'pt' ou 'en'. "
-    "Preserve a formatação, os parágrafos e os nomes próprios. "
-    "Não resuma, não comente e não acrescente nada ao texto."
+    "Translate the given text into the indicated target language. "
+    "Return the translated text, the language detected in the original (source_language) "
+    "and the target language (target_language), using ISO codes like 'pt' or 'en'. "
+    "Preserve the formatting, the paragraphs and the proper names. "
+    "Do not summarize, do not comment and do not add anything to the text."
 )
 
 
@@ -168,7 +168,7 @@ async def _translate_chunk(text: str, target: str, source: str) -> dict:
             "text": text,
             "source_language": source,
             "target_language": target,
-            "error": f"Falha na tradução: {exc}",
+            "error": f"Translation failed: {exc}",
         }
 
 
@@ -208,7 +208,7 @@ async def translate_text(
             "text": "",
             "source_language": source_language,
             "target_language": target_language,
-            "error": "AI indisponível",
+            "error": "AI unavailable",
         }
 
     chunks = split_for_translation(text, max_chars=max_chars)

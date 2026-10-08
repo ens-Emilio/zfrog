@@ -89,7 +89,7 @@ def _page_files(dir_path: Path) -> list[Path]:
     try:
         candidates = sorted(root.rglob("*"))
     except OSError as exc:
-        logger.warning("não foi possível percorrer %s: %s", root, exc)
+        logger.warning("could not walk %s: %s", root, exc)
         return []
     return [
         path
@@ -103,7 +103,7 @@ def _read_html(path: Path) -> str:
     try:
         return path.read_text(encoding="utf-8", errors="replace")
     except OSError as exc:
-        logger.warning("não foi possível ler %s: %s", path, exc)
+        logger.warning("could not read %s: %s", path, exc)
         return ""
 
 
@@ -112,7 +112,7 @@ def _page_title(html: str) -> str:
     try:
         soup = BeautifulSoup(html, "lxml")
     except Exception as exc:
-        logger.warning("não foi possível ler o título da página: %s", exc)
+        logger.warning("could not read the page title: %s", exc)
         return ""
     if soup.title is None:
         return ""
@@ -136,7 +136,7 @@ def _ai_available() -> bool:
     try:
         return bool(is_available())
     except Exception as exc:
-        logger.warning("verificação de disponibilidade da IA falhou: %s", exc)
+        logger.warning("AI availability check failed: %s", exc)
         return False
 
 
@@ -145,12 +145,12 @@ def _extract_prices(html: str) -> list[Any]:
     try:
         from zfrog.pricing import extract_from_html
     except ImportError:
-        logger.warning("zfrog.pricing indisponível: preços não serão extraídos")
+        logger.warning("zfrog.pricing unavailable: prices will not be extracted")
         return []
     try:
         return list(extract_from_html(html, settings.price_currency_hint))
     except Exception as exc:
-        logger.warning("falha ao extrair preços: %s", exc)
+        logger.warning("failed to extract prices: %s", exc)
         return []
 
 
@@ -177,7 +177,7 @@ async def _site_entities(text: str) -> list[dict]:
     try:
         result = await extract_entities(text)
     except Exception as exc:
-        logger.warning("extração de entidades falhou: %s", exc)
+        logger.warning("entity extraction failed: %s", exc)
         return []
     found = result.get("entities") if isinstance(result, dict) else None
     return [entity for entity in (found or []) if isinstance(entity, dict)]
@@ -355,7 +355,7 @@ def _content_gaps(sites: list[SiteSnapshot]) -> list[str]:
         leanest_pages = min(other.pages for other in others)
         if leanest_pages > 0 and snapshot.pages < leanest_pages * GAP_RATIO:
             gaps.append(
-                f"{snapshot.site} tem {snapshot.pages} páginas e os outros têm "
+                f"{snapshot.site} has {snapshot.pages} pages and the others have "
                 f"{leanest_pages} ou mais."
             )
         else:
@@ -363,12 +363,12 @@ def _content_gaps(sites: list[SiteSnapshot]) -> list[str]:
             leanest_words = min(other.words for other in others)
             if leanest_words > 0 and snapshot.words < leanest_words * GAP_RATIO:
                 gaps.append(
-                    f"{snapshot.site} tem {snapshot.words} palavras e os outros têm "
+                    f"{snapshot.site} has {snapshot.words} words and the others have "
                     f"{leanest_words} ou mais."
                 )
 
         if not snapshot.prices and any(other.prices for other in others):
-            gaps.append(f"{snapshot.site} não tem nenhum preço detectado.")
+            gaps.append(f"{snapshot.site} has no detected price.")
     return gaps
 
 
@@ -395,7 +395,7 @@ def _summary(sites: list[SiteSnapshot], gaps: list[str], price_spread: dict) -> 
 
     labels = ", ".join(snapshot.site for snapshot in sites)
     if gaps:
-        return f"Comparação de {labels}: {gaps[0]}"
+        return f"Comparison of {labels}: {gaps[0]}"
 
     widest = _widest_spread(price_spread)
     if widest is not None:
@@ -404,11 +404,11 @@ def _summary(sites: list[SiteSnapshot], gaps: list[str], price_spread: dict) -> 
         high = float(stats["max"])
         change = (high - low) / abs(low) * 100.0 if low else 0.0
         return (
-            f"Comparação de {labels}: {label or 'os preços'} varia {change:.1f}% "
-            f"entre os sites, e {stats['cheapest']} tem o menor preço."
+            f"Comparison of {labels}: {label or 'the prices'} varies {change:.1f}% "
+            f"across the sites, and {stats['cheapest']} has the lowest price."
         )
 
-    return f"Comparação de {labels}: nenhuma diferença relevante encontrada."
+    return f"Comparison of {labels}: no relevant difference found."
 
 
 def compare(sites: list[SiteSnapshot]) -> Comparison:
@@ -462,50 +462,50 @@ def _bullets(lines: list[str], entries: list[str], empty: str) -> list[str]:
 
 def to_markdown(comparison: Comparison) -> str:
     """Render a comparison as a readable Markdown report."""
-    lines = ["# Comparação de sites", ""]
+    lines = ["# Site comparison", ""]
     if not comparison.sites:
-        lines.append("Nenhum site para comparar.")
+        lines.append("No sites to compare.")
         return "\n".join(lines) + "\n"
 
     for snapshot in comparison.sites:
         lines += [
             f"## {snapshot.site}",
             "",
-            f"- URL: {snapshot.url or 'não informada'}",
-            f"- Páginas: {snapshot.pages}",
-            f"- Palavras: {snapshot.words}",
-            f"- Preços detectados: {len(snapshot.prices)}",
-            f"- Entidades: {len(snapshot.entities)}",
-            f"- Títulos: {', '.join(snapshot.titles) if snapshot.titles else 'nenhum'}",
+            f"- URL: {snapshot.url or 'not provided'}",
+            f"- Pages: {snapshot.pages}",
+            f"- Words: {snapshot.words}",
+            f"- Detected prices: {len(snapshot.prices)}",
+            f"- Entities: {len(snapshot.entities)}",
+            f"- Titles: {', '.join(snapshot.titles) if snapshot.titles else 'none'}",
         ]
         exclusives = comparison.unique_entities.get(snapshot.site) or []
-        lines.append(f"- Exclusivas: {', '.join(exclusives) if exclusives else 'nenhuma'}")
+        lines.append(f"- Unique: {', '.join(exclusives) if exclusives else 'none'}")
         lines.append("")
 
-    lines += ["## Preços", ""]
+    lines += ["## Prices", ""]
     if comparison.price_spread:
         lines += [
-            "| Produto | Mínimo | Máximo | Média | Mais barato |",
+            "| Product | Min | Max | Mean | Cheapest |",
             "| --- | --- | --- | --- | --- |",
         ]
         for label, stats in comparison.price_spread.items():
             lines.append(
-                f"| {label or '(sem rótulo)'} | {_amount(stats['min'])} | {_amount(stats['max'])} "
+                f"| {label or '(no label)'} | {_amount(stats['min'])} | {_amount(stats['max'])} "
                 f"| {_amount(stats['mean'])} | {stats['cheapest']} |"
             )
     else:
-        lines.append("Nenhum preço em comum entre os sites.")
+        lines.append("No price shared across the sites.")
     lines.append("")
 
-    lines += ["## Entidades comuns", ""]
-    lines = _bullets(lines, comparison.shared_entities, "- Nenhuma entidade em comum.")
+    lines += ["## Shared entities", ""]
+    lines = _bullets(lines, comparison.shared_entities, "- No shared entity.")
     lines.append("")
 
-    lines += ["## Lacunas", ""]
-    lines = _bullets(lines, comparison.content_gaps, "- Nenhuma diferença relevante.")
+    lines += ["## Gaps", ""]
+    lines = _bullets(lines, comparison.content_gaps, "- No relevant difference.")
     lines.append("")
 
-    lines += ["## Resumo", "", comparison.summary or "Sem resumo para menos de dois sites.", ""]
+    lines += ["## Summary", "", comparison.summary or "No summary for fewer than two sites.", ""]
     return "\n".join(lines)
 
 

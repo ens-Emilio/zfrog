@@ -122,7 +122,7 @@ def _check_mode(mode: str) -> str:
     """Normalise a search mode, rejecting anything the backends cannot honour."""
     value = (mode or "fulltext").strip().lower()
     if value not in MODES:
-        raise ValueError(f"Modo de busca inválido: {mode!r} (use 'fulltext' ou 'semantic')")
+        raise ValueError(f"Invalid search mode: {mode!r} (use 'fulltext' or 'semantic')")
     return value
 
 
@@ -138,7 +138,7 @@ def _document(page: dict) -> dict | None:
     """Build the indexed document for a page dict, or ``None`` when it has no path."""
     path = str(page.get("path") or "").strip()
     if not path:
-        logger.warning("Página sem 'path' ignorada ao indexar")
+        logger.warning("Page without 'path' skipped during indexing")
         return None
     return {
         "id": page_id(path),
@@ -191,7 +191,7 @@ class _HttpBackend(SearchBackend):
             response = await self.client().request(method, path, **kwargs)
             response.raise_for_status()
         except Exception as exc:  # connect error, timeout, bad url, 4xx/5xx, ...
-            logger.warning("%s %s em %s falhou: %s", method, path, self.name, exc)
+            logger.warning("%s %s at %s failed: %s", method, path, self.name, exc)
             return None
         return response
 
@@ -201,7 +201,7 @@ class _HttpBackend(SearchBackend):
         try:
             data = response.json()
         except ValueError as exc:
-            logger.warning("Resposta inválida do backend de busca: %s", exc)
+            logger.warning("Invalid search backend response: %s", exc)
             return {}
         return data if isinstance(data, dict) else {}
 
@@ -288,7 +288,7 @@ class SqliteBackend(SearchBackend):
                 target.write_text(_mirror_html(document), encoding="utf-8")
                 self.indexer.index_file(target, document["url"], _site_of(document))
             except (OSError, ValueError) as exc:
-                logger.warning("Não foi possível indexar %s: %s", document["path"], exc)
+                logger.warning("Could not index %s: %s", document["path"], exc)
                 continue
             self._mirrored.setdefault(_site_of(document), set()).add(target)
             count += 1
@@ -304,7 +304,7 @@ class SqliteBackend(SearchBackend):
         try:
             hits = self.indexer.search(query, mode=mode, limit=limit)
         except Exception as exc:  # corrupt database, invalid FTS query, ...
-            logger.warning("Busca no índice SQLite falhou: %s", exc)
+            logger.warning("Search on the SQLite index failed: %s", exc)
             return []
         return [self._to_hit(hit) for hit in hits]
 
@@ -322,7 +322,7 @@ class SqliteBackend(SearchBackend):
             try:
                 target.unlink(missing_ok=True)
             except OSError as exc:
-                logger.warning("Não foi possível remover %s: %s", target, exc)
+                logger.warning("Could not remove %s: %s", target, exc)
         return removed
 
     async def healthy(self) -> bool:
@@ -330,7 +330,7 @@ class SqliteBackend(SearchBackend):
         try:
             self.indexer.stats()
         except Exception as exc:  # unreadable or locked database
-            logger.warning("Índice SQLite indisponível: %s", exc)
+            logger.warning("SQLite index unavailable: %s", exc)
             return False
         return True
 
@@ -396,9 +396,8 @@ class MeilisearchBackend(_HttpBackend):
         )
         if response is None:
             return 0
-        logger.debug("Meilisearch aceitou %d documentos (%s)", len(documents), self.index_name)
+        logger.debug("Meilisearch accepted %d documents (%s)", len(documents), self.index_name)
         return len(documents)
-
     async def search(
         self, query: str, mode: str = "fulltext", limit: int = 20
     ) -> list[BackendHit]:
@@ -525,7 +524,7 @@ class ElasticsearchBackend(_HttpBackend):
         if not payload:
             return 0
         if payload.get("errors"):
-            logger.warning("Elasticsearch rejeitou documentos do lote em %s", self.index_name)
+            logger.warning("Elasticsearch rejected batch documents in %s", self.index_name)
         failed = 0
         items = payload.get("items")
         for item in items if isinstance(items, list) else []:
@@ -536,7 +535,7 @@ class ElasticsearchBackend(_HttpBackend):
             if result.get("error") or (isinstance(status, int) and status >= 400):
                 failed += 1
                 logger.warning(
-                    "Elasticsearch rejeitou %s: %s", result.get("_id"), result.get("error")
+                    "Elasticsearch rejected %s: %s", result.get("_id"), result.get("error")
                 )
         return max(len(documents) - failed, 0)
 
@@ -612,10 +611,10 @@ async def _embed_query(text: str) -> list[float] | None:
     try:
         vectors = await embed([text])
     except Exception as exc:  # embedding backend unreachable, quota, bad model, ...
-        logger.warning("Falha ao gerar o embedding da consulta: %s", exc)
+        logger.warning("Failed to embed the query: %s", exc)
         return None
     if not vectors or not vectors[0]:
-        logger.warning("Embeddings indisponíveis: busca semântica ignorada")
+        logger.warning("Embeddings unavailable: semantic search skipped")
         return None
     return [float(value) for value in vectors[0]]
 
@@ -637,7 +636,7 @@ def backend_for(name: str | None = None) -> SearchBackend:
     if chosen == "elasticsearch":
         return ElasticsearchBackend()
     valid = ", ".join(repr(item) for item in BACKENDS)
-    raise ValueError(f"Backend de busca desconhecido: {name!r} (use {valid})")
+    raise ValueError(f"Unknown search backend: {name!r} (use {valid})")
 
 
 async def index_and_search(

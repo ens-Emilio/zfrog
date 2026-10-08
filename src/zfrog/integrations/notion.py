@@ -53,7 +53,7 @@ class NotionClient(DestinationClient):
         database_id = config_text(destination.config, "database_id")
         token = config_text(destination.config, "token")
         if not database_id or not token:
-            result.errors.append("destino notion sem database_id ou token")
+            result.errors.append("notion destination missing database_id or token")
             return result
         if not rows:
             return result
@@ -76,7 +76,7 @@ class NotionClient(DestinationClient):
             for row_number, row in enumerate(matrix, start=1):
                 properties = _properties(header, row, title_key)
                 if properties is None:
-                    result.errors.append(f"linha {row_number}: sem valor para o título {title_key!r}")
+                    result.errors.append(f"row {row_number}: no value for the title {title_key!r}")
                     continue
                 try:
                     response = await client.post(
@@ -85,18 +85,18 @@ class NotionClient(DestinationClient):
                         json={"parent": parent, "properties": properties},
                     )
                 except httpx.HTTPError as exc:
-                    result.errors.append(f"linha {row_number}: falha de rede no Notion: {exc}")
+                    result.errors.append(f"row {row_number}: network failure in Notion: {exc}")
                     continue
 
                 message = response_error(response, "Notion")
                 if message:
-                    result.errors.append(f"linha {row_number}: {message}")
+                    result.errors.append(f"row {row_number}: {message}")
                     continue
 
                 if _page_id(response):
                     result.created += 1
                 else:
-                    result.errors.append(f"linha {row_number}: resposta do Notion sem id de página")
+                    result.errors.append(f"row {row_number}: Notion response missing page id")
         return result
 
 
@@ -138,7 +138,7 @@ def _page_id(response: httpx.Response) -> str:
     try:
         payload = response.json()
     except ValueError:
-        logger.warning("Resposta do Notion sem JSON legível: %s", response.text[:200])
+        logger.warning("Notion response without readable JSON: %s", response.text[:200])
         return ""
     if not isinstance(payload, dict):
         return ""

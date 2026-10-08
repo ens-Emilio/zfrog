@@ -128,21 +128,21 @@ def _render_markdown(report: dict) -> str:
     lines = [
         f"# Streams — {report['url']}",
         "",
-        f"- Streams encontrados: {len(streams)}",
-        f"- Erros: {len(errors)}",
+        f"- Streams found: {len(streams)}",
+        f"- Errors: {len(errors)}",
         "",
     ]
 
     if not streams:
-        lines += ["Nenhum stream encontrado.", ""]
+        lines += ["No streams found.", ""]
 
     for index, stream in enumerate(streams, start=1):
         lines += [
             f"## {index}. {stream['url']}",
             "",
-            f"- Tipo: {stream['kind']}",
-            f"- Criptografado: {'sim' if stream['encrypted'] else 'não'}",
-            f"- Variantes: {len(stream['variants'])}",
+            f"- Kind: {stream['kind']}",
+            f"- Encrypted: {'yes' if stream['encrypted'] else 'no'}",
+            f"- Variants: {len(stream['variants'])}",
         ]
         for variant in stream["variants"]:
             detail = f"  - {variant['resolution'] or '?'} @ {variant['bandwidth']:,} bps"
@@ -150,14 +150,14 @@ def _render_markdown(report: dict) -> str:
                 detail += f" ({variant['codecs']})"
             lines.append(detail)
         lines += [
-            f"- Segmentos: {stream['segments']}",
-            f"- Baixado: {'sim' if stream['downloaded'] else 'não'} "
+            f"- Segments: {stream['segments']}",
+            f"- Downloaded: {'yes' if stream['downloaded'] else 'no'} "
             f"({_format_bytes(stream['bytes'])})",
             "",
         ]
 
     if errors:
-        lines += ["## Erros", ""]
+        lines += ["## Errors", ""]
         lines += [f"- {error}" for error in errors]
         lines.append("")
 
@@ -183,7 +183,7 @@ class VideoEngine(EngineAdapter):
         url = str(job.url)
 
         if on_progress:
-            on_progress("Procurando streams...")
+            on_progress("Scanning for streams...")
 
         segment_files: list[Path] = []
         video_path: Path | None = None
@@ -196,8 +196,8 @@ class VideoEngine(EngineAdapter):
                 html = response.text
                 logs.append(f"Fetched {len(html):,} bytes from {url}")
             except Exception as exc:
-                errors.append(f"Falha ao buscar {url}: {exc}")
-                logs.append(f"Falha ao buscar {url}: {exc}")
+                errors.append(f"Failed to fetch {url}: {exc}")
+                logs.append(f"Failed to fetch {url}: {exc}")
 
             page_is_manifest = bool(html) and (_is_hls(html) or is_dash(html))
             pending: list[tuple[str, str | None]] = []
@@ -207,7 +207,7 @@ class VideoEngine(EngineAdapter):
                 if page_is_manifest and candidate == url:
                     continue
                 pending.append((candidate, None))
-            logs.append(f"Candidatos de stream: {len(pending)}")
+            logs.append(f"Stream candidates: {len(pending)}")
 
             for candidate, preloaded in pending:
                 try:
@@ -217,10 +217,10 @@ class VideoEngine(EngineAdapter):
                         text, truncated = await _fetch_text(client, candidate)
                     if truncated:
                         logs.append(
-                            f"Manifesto truncado em {_format_bytes(_SNIFF_MAX_BYTES)}: {candidate}"
+                            f"Manifest truncated at {_format_bytes(_SNIFF_MAX_BYTES)}: {candidate}"
                         )
                 except Exception as exc:
-                    errors.append(f"Falha ao buscar {candidate}: {exc}")
+                    errors.append(f"Failed to fetch {candidate}: {exc}")
                     continue
 
                 if is_dash(text):
@@ -228,7 +228,7 @@ class VideoEngine(EngineAdapter):
                 elif is_master_playlist(text) or _is_hls(text):
                     info = parse_m3u8(text, candidate)
                 else:
-                    logs.append(f"Ignorado (não é um manifesto): {candidate}")
+                    logs.append(f"Skipped (not a manifest): {candidate}")
                     continue
 
                 entry = {
@@ -248,33 +248,33 @@ class VideoEngine(EngineAdapter):
                 if video_path is not None:
                     break
                 if entry["encrypted"]:
-                    logs.append(f"Stream criptografado, download ignorado: {entry['url']}")
+                    logs.append(f"Encrypted stream, download skipped: {entry['url']}")
                     continue
 
                 segments = list(info["segments"])
                 if info["kind"] == "master":
                     variant = select_variant(info["variants"])
                     if variant is None:
-                        logs.append(f"Master sem variantes utilizáveis: {entry['url']}")
+                        logs.append(f"Master with no usable variants: {entry['url']}")
                         continue
                     try:
                         media_text, _ = await _fetch_text(client, variant.uri)
                     except Exception as exc:
-                        errors.append(f"Falha ao buscar {variant.uri}: {exc}")
+                        errors.append(f"Failed to fetch {variant.uri}: {exc}")
                         continue
                     media = parse_m3u8(media_text, variant.uri)
                     if media["encrypted"]:
                         entry["encrypted"] = True
-                        logs.append(f"Stream criptografado, download ignorado: {variant.uri}")
+                        logs.append(f"Encrypted stream, download skipped: {variant.uri}")
                         continue
                     segments = list(media["segments"])
                     entry["segments"] = len(segments)
 
                 if not segments:
-                    logs.append(f"Sem segmentos para baixar: {entry['url']}")
+                    logs.append(f"No segments to download: {entry['url']}")
                     continue
 
-                logs.append(f"Baixando {len(segments)} segmento(s) de {entry['url']}")
+                logs.append(f"Downloading {len(segments)} segment(s) from {entry['url']}")
                 video_path, segment_files, downloaded, _truncated = await self._download_segments(
                     client, segments, output_dir, logs, errors
                 )
@@ -296,7 +296,7 @@ class VideoEngine(EngineAdapter):
             files.append(video_path)
 
         if on_progress:
-            on_progress("Streams concluídos")
+            on_progress("Streams complete")
 
         return EngineResult(
             output_dir=output_dir,
@@ -331,11 +331,11 @@ class VideoEngine(EngineAdapter):
         for index, segment in enumerate(segments):
             if max_segments > 0 and len(chunks) >= max_segments:
                 truncated = True
-                logs.append(f"Limite de {max_segments} segmentos atingido, download truncado")
+                logs.append(f"Segment limit of {max_segments} reached, download truncated")
                 break
             if max_bytes > 0 and total >= max_bytes:
                 truncated = True
-                logs.append(f"Limite de {_format_bytes(max_bytes)} atingido, download truncado")
+                logs.append(f"Size limit of {_format_bytes(max_bytes)} reached, download truncated")
                 break
 
             headers: dict[str, str] | None = None
@@ -349,7 +349,7 @@ class VideoEngine(EngineAdapter):
                     client, segment.uri, limit, headers
                 )
             except Exception as exc:
-                errors.append(f"Falha ao baixar segmento {segment.uri}: {exc}")
+                errors.append(f"Failed to download segment {segment.uri}: {exc}")
                 break
 
             if segment_truncated:
@@ -364,7 +364,7 @@ class VideoEngine(EngineAdapter):
                 total += len(data)
 
             if truncated:
-                logs.append(f"Download truncado no segmento {index} ({_format_bytes(total)})")
+                logs.append(f"Download truncated at segment {index} ({_format_bytes(total)})")
                 break
 
         if not chunks:
@@ -372,7 +372,7 @@ class VideoEngine(EngineAdapter):
 
         video_path = output_dir / "video.ts"
         video_path.write_bytes(b"".join(chunks))
-        logs.append(f"video.ts: {_format_bytes(total)} de {len(chunks)} segmento(s)")
+        logs.append(f"video.ts: {_format_bytes(total)} across {len(chunks)} segment(s)")
         return video_path, files, total, truncated
 
     def can_handle(self, probe: ProbeResult) -> bool:

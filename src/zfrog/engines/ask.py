@@ -1,7 +1,7 @@
 """Ask engine — natural language queries over web content.
 
 Two modes:
-1. extract: Ask "quais são os preços?" → structured JSON
+1. extract: Ask "what are the prices?" → structured JSON
 2. query: Ask anything about a previously cloned site → answer with sources
 
 Uses AI module (LiteLLM) for generation and RAG for context.
@@ -44,10 +44,10 @@ class AskEngine(EngineAdapter):
 
         # The query comes from job.follow_links (repurposed as query field)
         # In a real implementation, this would be a dedicated field
-        query = getattr(job, "query", "") or "Extraia as informações principais desta página"
+        query = getattr(job, "query", "") or "Extract the main information from this page"
 
         if on_progress:
-            on_progress("Preparando consulta...")
+            on_progress("Preparing query...")
 
         # Step 1: Fetch page content
         from zfrog.utils.http import create_client
@@ -60,7 +60,7 @@ class AskEngine(EngineAdapter):
                 html = resp.text
                 logs.append(f"Fetched {len(html)} bytes from {url}")
         except Exception as e:
-            logs.append(f"Falha ao buscar {url}: {e}")
+            logs.append(f"Failed to fetch {url}: {e}")
 
         # Step 2: Extract clean text
         if html:
@@ -101,14 +101,14 @@ class AskEngine(EngineAdapter):
                 {
                     "role": "system",
                     "content": (
-                        "Extraia informações do texto fornecido de acordo com a pergunta. "
-                        "Retorne um JSON com os campos encontrados e seus valores. "
-                        "Se não encontrar algo, retorne null para esse campo."
+                        "Extract information from the provided text according to the question. "
+                        "Return JSON with the fields found and their values. "
+                        "If something is not found, return null for that field."
                     ),
                 },
                 {
                     "role": "user",
-                    "content": f"Texto:\n\n{text[:4000]}\n\n---\nPergunta: {query}",
+                    "content": f"Text:\n\n{text[:4000]}\n\n---\nQuestion: {query}",
                 },
             ]
 
@@ -122,7 +122,7 @@ class AskEngine(EngineAdapter):
             except Exception:
                 extraction_dict = None
         else:
-            answer = "Módulo de IA indisponível. Instale litellm: pip install litellm"
+            answer = "AI module unavailable. Install litellm: pip install litellm"
             sources = []
             context = []
             extraction_dict = None
@@ -145,7 +145,7 @@ class AskEngine(EngineAdapter):
         md_path.write_text(self._to_markdown(result), encoding="utf-8")
 
         if on_progress:
-            on_progress("Consulta concluída")
+            on_progress("Query complete")
 
         files = [report_path, md_path]
         total_bytes = sum(f.stat().st_size for f in files)
@@ -162,22 +162,22 @@ class AskEngine(EngineAdapter):
 
     def _to_markdown(self, result: AskResult) -> str:
         lines = [
-            f"# Consulta — {result.url}",
-            f"**Pergunta:** {result.query}",
+            f"# Query — {result.url}",
+            f"**Question:** {result.query}",
             "",
-            "## Resposta",
-            result.answer or "(sem resposta)",
+            "## Answer",
+            result.answer or "(no answer)",
             "",
         ]
 
         if result.sources:
-            lines.append("## Fontes")
+            lines.append("## Sources")
             for s in result.sources:
                 lines.append(f"- {s}")
             lines.append("")
 
         if result.extraction:
-            lines.append("## Extração Estruturada")
+            lines.append("## Structured Extraction")
             lines.append("```json")
             lines.append(json.dumps(result.extraction, indent=2, ensure_ascii=False))
             lines.append("```")

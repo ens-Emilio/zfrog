@@ -169,16 +169,39 @@ class BrowserPool:
             pass
 
     def _chromium_launch(self):
-        """Launch a plain headless Chromium browser."""
-        return self._playwright.chromium.launch(
-            headless=True,
-            args=[
-                "--no-sandbox",
-                "--disable-dev-shm-usage",
-                "--disable-gpu",
-            ],
-        )
+        """Launch a browser, preferring a system install (no download on first run).
 
+        Tauri desktop hybrid strategy (PLANO-TAURI.md §4.1):
+        1. Try ``channel="chrome"`` / ``channel="msedge"`` — uses the browser the
+           user already has (Edge is always present on Windows).
+        2. Fall back to the bundled Chromium from ``playwright install``.
+        The channel is tried at ``launch`` time; if the channel is not installed
+        Playwright raises, so we catch and retry without it.
+        """
+        return self._try_launch_with_channel()
+
+    async def _try_launch_with_channel(self):  # type: ignore[no-untyped-def]
+        # Import locally so the module still imports when playwright isn't installed
+        # (e.g. in a minimal CI that only runs non-browser tests).
+        for channel in ("chrome", "msedge", None):
+            try:
+                kwargs: dict = dict(headless=True, args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"])
+                if channel:
+                    kwargs["channel"] = channel
+                browser = await self._playwright.chromium.launch(**kwargs)  # type: ignore[union-attr]
+                if channel:
+                    logger.info("Browser launched via channel=%s (system install)", channel)
+                return browser
+            except Exception as e:
+                # "chromium" channel not installed — try the next one
+                msg = str(e).lower()
+                if channel and ("executable doesn't exist" in msg or "browser" in msg or "channel" in msg):
+                    logger.debug("Channel %s not available, trying next: %s", channel, e)
+                    continue
+                if channel is None:
+                    raise
+                # Unexpected error with a channel — don't mask it
+                raise
 
 # Global pool (lazy initialized)
 _pool: BrowserPool | None = None
@@ -239,9 +262,9 @@ class PlaywrightEngine(EngineAdapter):
         session_state = session_state_for(str(job.url))
         context = await pool.get_context(storage_state=session_state)
         if session_state:
-            logs.append(f"Sessão salva em uso: {session_state}")
+            logs.append(f"Saved session in use: {session_state}")
             if on_progress:
-                on_progress("Usando sessão salva")
+                on_progress("Using saved session")
         
         try:
             # Create page with network interception

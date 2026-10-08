@@ -171,7 +171,7 @@ class DeltaEngine(EngineAdapter):
                 on_progress(message)
 
         plan = plan_delta(str(job.url))
-        progress(f"Revalidando {len(plan.known)} páginas conhecidas...")
+        progress(f"Revalidating {len(plan.known)} known pages...")
 
         root = str(job.url)
         max_pages = min(job.max_pages, settings.delta_max_pages)
@@ -216,7 +216,7 @@ class DeltaEngine(EngineAdapter):
                     )
                 except httpx.HTTPError as exc:
                     logger.warning("delta request failed for %s: %s", url, exc)
-                    logs.append(f"Falha ao buscar {url}: {exc}")
+                    logs.append(f"Failed to fetch {url}: {exc}")
                     continue
 
                 final_url = str(response.url)
@@ -225,7 +225,7 @@ class DeltaEngine(EngineAdapter):
                     if known is None:
                         # Nothing to fall back on: a 304 for a page we never
                         # validated would otherwise be stored as an empty file.
-                        logs.append(f"304 sem versão conhecida para {url}; ignorado")
+                        logs.append(f"304 with no known version for {url}; skipped")
                         continue
                     # Revalidated: the copy we already have is still current.
                     page_url = str(known.get("url") or final_url)
@@ -244,12 +244,12 @@ class DeltaEngine(EngineAdapter):
                     continue
 
                 if response.status_code >= 400:
-                    logs.append(f"HTTP {response.status_code} para {url}")
+                    logs.append(f"HTTP {response.status_code} for {url}")
                     continue
 
                 if not _is_html(response.headers.get("content-type", "")):
                     logs.append(
-                        f"Ignorando conteúdo não HTML "
+                        f"Skipping non-HTML content "
                         f"({response.headers.get('content-type', '')}): {url}"
                     )
                     continue
@@ -287,7 +287,7 @@ class DeltaEngine(EngineAdapter):
             json.dumps(asdict(result), ensure_ascii=False, indent=2), encoding="utf-8"
         )
 
-        progress(f"Delta concluído: {len(result.added)} novas, {len(result.changed)} alteradas")
+        progress(f"Delta complete: {len(result.added)} added, {len(result.changed)} changed")
 
         return EngineResult(
             output_dir=output_dir,

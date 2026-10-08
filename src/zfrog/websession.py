@@ -74,12 +74,12 @@ def read_key(path: Path | None = None) -> bytes | None:
     except FileNotFoundError:
         return None
     except OSError as exc:
-        logger.warning("Chave de sessão ilegível %s: %s", key_file, exc)
+        logger.warning("Unreadable session key %s: %s", key_file, exc)
         return None
 
     if len(key) != KEY_BYTES:
         logger.warning(
-            "Chave de sessão %s tem %d bytes (esperado %d): ignorada",
+            "Session key %s has %d bytes (expected %d): ignored",
             key_file,
             len(key),
             KEY_BYTES,
@@ -114,10 +114,10 @@ def load_or_create_key(path: Path | None = None) -> bytes | None:
         # An already existing file keeps its old mode, so enforce it again.
         os.chmod(key_file, KEY_FILE_MODE)
     except OSError as exc:
-        logger.warning("Não foi possível escrever a chave de sessão %s: %s", key_file, exc)
+        logger.warning("Could not write the session key %s: %s", key_file, exc)
         return None
 
-    logger.info("Chave de sessão criada em %s", key_file)
+    logger.info("Session key created at %s", key_file)
     return key
 
 
@@ -145,7 +145,7 @@ def issue(
 
     subject = str(user_id or "").strip()
     if not subject:
-        raise ValueError("user_id obrigatório")
+        raise ValueError("user_id is required")
 
     issued = time.time() if now is None else now
     lifetime = settings.websession_ttl_s if ttl_s is None else ttl_s

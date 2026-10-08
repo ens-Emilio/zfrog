@@ -248,9 +248,8 @@ def parse_mpd(text: str, base_url: str) -> dict:
     try:
         root = ElementTree.fromstring(payload)
     except ElementTree.ParseError as exc:
-        logger.warning("MPD inválido: %s", exc)
+        logger.warning("invalid MPD: %s", exc)
         return result
-
     if _local_name(root.tag) != "MPD":
         return result
 

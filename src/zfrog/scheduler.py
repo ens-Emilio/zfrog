@@ -60,12 +60,12 @@ def next_run_for(schedule: Schedule, now: datetime | None = None) -> str | None:
     try:
         cron = parse_cron(schedule.cron)
     except ValueError as exc:
-        logger.warning("Agendamento %s tem cron inválido (%r): %s", schedule.id, schedule.cron, exc)
+        logger.warning("Schedule %s has invalid cron (%r): %s", schedule.id, schedule.cron, exc)
         return None
 
     upcoming = cron.next_after(reference)
     if upcoming is None:
-        logger.warning("Agendamento %s nunca irá rodar: %r", schedule.id, schedule.cron)
+        logger.warning("Schedule %s will never run: %r", schedule.id, schedule.cron)
         return None
     return _as_utc(upcoming).isoformat()
 
@@ -77,7 +77,7 @@ def _is_due(schedule: Schedule, now: datetime) -> bool:
     try:
         upcoming = datetime.fromisoformat(schedule.next_run)
     except ValueError:
-        logger.warning("Agendamento %s tem next_run inválido: %r", schedule.id, schedule.next_run)
+        logger.warning("Schedule %s has invalid next_run: %r", schedule.id, schedule.next_run)
         return False
     return _as_utc(upcoming) <= now
 
@@ -96,10 +96,10 @@ class ScheduleStore:
         try:
             raw = json.loads(self.path.read_text(encoding="utf-8"))
         except json.JSONDecodeError as exc:
-            raise ValueError(f"arquivo de agendamentos inválido ({self.path}): {exc}") from exc
+            raise ValueError(f"invalid schedules file ({self.path}): {exc}") from exc
 
         if not isinstance(raw, list):
-            raise ValueError(f"arquivo de agendamentos inválido ({self.path}): esperado uma lista")
+            raise ValueError(f"invalid schedules file ({self.path}): expected a list")
 
         return [self._from_dict(item) for item in raw]
 
@@ -170,12 +170,12 @@ class ScheduleStore:
     def _from_dict(self, item: object) -> Schedule:
         """Build a Schedule from one JSON record."""
         if not isinstance(item, dict):
-            raise ValueError(f"arquivo de agendamentos inválido ({self.path}): registro não é objeto")
+            raise ValueError(f"invalid schedules file ({self.path}): record is not an object")
 
         missing = [key for key in ("id", "cron", "url") if not item.get(key)]
         if missing:
             raise ValueError(
-                f"arquivo de agendamentos inválido ({self.path}): faltam campos {', '.join(missing)}"
+                f"invalid schedules file ({self.path}): missing fields {', '.join(missing)}"
             )
 
         return Schedule(
@@ -217,17 +217,17 @@ def due_schedules(now: datetime | None = None) -> list[Schedule]:
 def _log_job_result(schedule_id: str, job_id: str, task: asyncio.Task) -> None:
     """Report the outcome of a scheduled job; never raises into the event loop."""
     if task.cancelled():
-        logger.warning("Job %s do agendamento %s foi cancelado", job_id, schedule_id)
+        logger.warning("Job %s of schedule %s was cancelled", job_id, schedule_id)
         return
 
     error = task.exception()
     if error is not None:
-        logger.error("Job %s do agendamento %s falhou: %s", job_id, schedule_id, error)
+        logger.error("Job %s of schedule %s failed: %s", job_id, schedule_id, error)
         return
 
     result = task.result()
     logger.info(
-        "Job %s do agendamento %s concluído (job %s): %s arquivo(s)",
+        "Job %s of schedule %s completed (job %s): %s file(s)",
         job_id,
         schedule_id,
         getattr(result, "job_id", "-"),
@@ -251,7 +251,7 @@ async def run_due(now: datetime | None = None) -> list[str]:
         try:
             job = JobCreate(url=schedule.url, mode=schedule.mode, max_depth=schedule.max_depth)
         except Exception as exc:
-            logger.error("Agendamento %s tem destino inválido (%s): %s", schedule.id, schedule.url, exc)
+            logger.error("Schedule %s has invalid destination (%s): %s", schedule.id, schedule.url, exc)
             continue
 
         job_id = str(uuid.uuid4())
@@ -262,7 +262,7 @@ async def run_due(now: datetime | None = None) -> list[str]:
         task = asyncio.create_task(run_job(job))
         task.add_done_callback(partial(_log_job_result, schedule.id, job_id))
         job_ids.append(job_id)
-        logger.info("Agendamento %s disparou o job %s (%s)", schedule.id, job_id, schedule.url)
+        logger.info("Schedule %s triggered job %s (%s)", schedule.id, job_id, schedule.url)
 
     return job_ids
 
@@ -277,12 +277,12 @@ async def daemon(interval_s: int | None = None, stop_event: asyncio.Event | None
     timeout = interval if interval and interval > 0 else 0.001
     stop = stop_event if stop_event is not None else asyncio.Event()
 
-    logger.info("Agendador iniciado — verificando a cada %ss", interval)
+    logger.info("Scheduler started — checking every %ss", interval)
     while not stop.is_set():
         try:
             await run_due()
         except Exception:
-            logger.exception("Falha ao verificar os agendamentos")
+            logger.exception("Failed to check schedules")
 
         try:
             await asyncio.wait_for(stop.wait(), timeout=timeout)
@@ -290,4 +290,4 @@ async def daemon(interval_s: int | None = None, stop_event: asyncio.Event | None
             continue
         break
 
-    logger.info("Agendador parado")
+    logger.info("Scheduler stopped")

@@ -177,10 +177,10 @@ class DestinationStore:
             kind = str(payload["kind"])
             config = payload.get("config") or {}
         except (OSError, ValueError, KeyError, TypeError) as exc:
-            logger.warning("Destino ilegível em %s: %s", path, exc)
+            logger.warning("Unreadable destination at %s: %s", path, exc)
             return None
         if not isinstance(config, dict):
-            logger.warning("Destino %s ignorado: config não é um objeto JSON", path)
+            logger.warning("Destination %s ignored: config is not a JSON object", path)
             return None
         return Destination(kind=kind, name=name, config=dict(config))
 
@@ -241,7 +241,7 @@ def rows_from_records(
     """
     for record in records:
         if not isinstance(record, dict):
-            raise TypeError(f"registro não é um objeto JSON: {type(record).__name__}")
+            raise TypeError(f"record is not a JSON object: {type(record).__name__}")
 
     header: list[str] = []
     if fields is None:

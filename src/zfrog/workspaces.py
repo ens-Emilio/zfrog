@@ -128,11 +128,11 @@ def slug_org(org: str) -> str:
         return _slug(settings.default_org) or "default"
 
     if _UNSAFE_RE.search(raw):
-        raise ValueError(f"nome de organização inválido: {org!r}")
+        raise ValueError(f"invalid organization name: {org!r}")
 
     slug = _slug(raw)
     if not slug:
-        raise ValueError(f"nome de organização inválido: {org!r}")
+        raise ValueError(f"invalid organization name: {org!r}")
     return slug
 
 
@@ -329,7 +329,7 @@ class WorkspaceManager:
         except FileNotFoundError:
             return []
         except OSError as exc:
-            logger.warning("Não foi possível listar %s: %s", self.orgs_dir, exc)
+            logger.warning("Could not list %s: %s", self.orgs_dir, exc)
             return []
 
         return sorted(
@@ -351,12 +351,12 @@ class WorkspaceManager:
         for shared in (settings.users_file, settings.orgs_file):
             if _inside(shared, root):
                 raise ValueError(
-                    f"identidade compartilhada ({shared}) está dentro de {root}: "
-                    "recusando apagar"
+                    f"shared identity ({shared}) is inside {root}: "
+                    "refusing to delete"
                 )
 
         shutil.rmtree(root)
-        logger.info("Workspace %s removido (%s)", slug_org(org), root)
+        logger.info("Workspace %s removed (%s)", slug_org(org), root)
         return True
 
 

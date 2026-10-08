@@ -103,35 +103,35 @@ class AnalyzeEngine(EngineAdapter):
         url = str(job.url)
 
         if on_progress:
-            on_progress("Iniciando análise técnica...")
+            on_progress("Starting technical analysis...")
 
         # 1. Fetch and measure
         if on_progress:
-            on_progress("Medindo tempo de resposta...")
+            on_progress("Measuring response time...")
         perf, html, final_url = await self._measure_performance(url)
         logs.append(f"Performance: {perf.response_time_ms}ms, {perf.content_size_bytes} bytes")
 
         # 2. Content analysis
         if on_progress:
-            on_progress("Extraindo conteúdo principal...")
+            on_progress("Extracting main content...")
         content = self._analyze_content(html)
         logs.append(f"Content: {content.word_count} words, {content.reading_time_min:.1f} min read")
 
         # 3. SEO analysis
         if on_progress:
-            on_progress("Verificando SEO...")
+            on_progress("Checking SEO...")
         seo = self._analyze_seo(html)
         logs.append(f"SEO: {len(seo.issues)} issues found")
 
         # 4. Stack detection
         if on_progress:
-            on_progress("Detectando stack tecnológica...")
+            on_progress("Detecting tech stack...")
         stack = self._detect_stack(html)
         logs.append(f"Stack: {', '.join(stack) if stack else 'unknown'}")
 
         # 5. Accessibility (axe-core via Playwright)
         if on_progress:
-            on_progress("Verificando acessibilidade...")
+            on_progress("Checking accessibility...")
         a11y = await self._check_accessibility(url)
         logs.append(f"A11y: score={a11y.score}, {len(a11y.issues)} issues")
 
@@ -161,7 +161,7 @@ class AnalyzeEngine(EngineAdapter):
         summary_path.write_text(self._to_markdown(result), encoding="utf-8")
 
         if on_progress:
-            on_progress(f"Análise concluída — score: {score}/100")
+            on_progress(f"Technical analysis complete — score: {score}/100")
 
         files = [report_path, summary_path]
         total_bytes = sum(f.stat().st_size for f in files)
@@ -265,9 +265,9 @@ class AnalyzeEngine(EngineAdapter):
             seo.has_title = True
             seo.title_length = len(title_tag.get_text(strip=True))
             if seo.title_length < 30:
-                seo.issues.append("Title muito curta (< 30 caracteres)")
+                seo.issues.append("Title too short (< 30 characters)")
             elif seo.title_length > 60:
-                seo.issues.append("Title muito longa (> 60 caracteres)")
+                seo.issues.append("Title too long (> 60 characters)")
 
         # Meta description
         meta_desc = soup.find("meta", attrs={"name": "description"})
@@ -289,7 +289,7 @@ class AnalyzeEngine(EngineAdapter):
             if level == 1 and count == 0:
                 seo.issues.append("H1 ausente")
             elif level == 1 and count > 1:
-                seo.issues.append(f"Múltiplos H1 ({count})")
+                seo.issues.append(f"Multiple H1s ({count})")
         seo.heading_hierarchy = headings
         seo.h1_count = headings[0] if headings else 0
         seo.has_h1 = seo.h1_count > 0
@@ -475,15 +475,15 @@ class AnalyzeEngine(EngineAdapter):
     def _to_markdown(self, result: AnalyzeResult) -> str:
         """Generate a readable markdown report."""
         lines = [
-            f"# Análise Técnica — {result.url}",
-            f"*Gerado em {result.analyzed_at}*",
+            f"# Technical Analysis — {result.url}",
+            f"*Generated at {result.analyzed_at}*",
             f"## Score Geral: {result.score}/100",
             "",
-            "## Conteúdo",
-            f"- **Título:** {result.content.title or '(não encontrado)'}",
+            "## Content",
+            f"- **Title:** {result.content.title or '(not found)'}",
             f"- **Palavras:** {result.content.word_count}",
-            f"- **Tempo de leitura:** {result.content.reading_time_min:.1f} min",
-            f"- **Idioma:** {result.content.language or 'não detectado'}",
+            f"- **Reading time:** {result.content.reading_time_min:.1f} min",
+            f"- **Language:** {result.content.language or 'not detected'}",
             "",
             "## SEO",
             f"- Title: {'✅' if result.seo.has_title else '❌'} ({result.seo.title_length} chars)",
@@ -494,14 +494,14 @@ class AnalyzeEngine(EngineAdapter):
         ]
         if result.seo.issues:
             lines.append("")
-            lines.append("**Problemas SEO:**")
+            lines.append("**SEO issues:**")
             for issue in result.seo.issues:
                 lines.append(f"- {issue}")
 
         lines.extend([
             "",
-            "## Acessibilidade",
-            f"- **Score:** {result.accessibility.score}/100" if result.accessibility.score >= 0 else "- Não foi possível verificar",
+            "## Accessibility",
+            f"- **Score:** {result.accessibility.score}/100" if result.accessibility.score >= 0 else "- Could not verify",
             f"- Passes: {result.accessibility.passes}",
             f"- Issues: {len(result.accessibility.issues)}",
         ])
@@ -513,12 +513,12 @@ class AnalyzeEngine(EngineAdapter):
         lines.extend([
             "",
             "## Performance",
-            f"- Tempo de resposta: {result.performance.response_time_ms}ms",
-            f"- Tamanho: {result.performance.content_size_bytes:,} bytes",
+            f"- Response time: {result.performance.response_time_ms}ms",
+            f"- Size: {result.performance.content_size_bytes:,} bytes",
             f"- Recursos referenciados: {result.performance.num_resources}",
             "",
-            "## Stack Detectado",
-            ", ".join(result.detected_stack) if result.detected_stack else "Não detectado",
+            "## Detected Stack",
+            ", ".join(result.detected_stack) if result.detected_stack else "Not detected",
         ])
 
         return "\n".join(lines)

@@ -1,24 +1,24 @@
-"""Identidade: quem chama a API e a qual organização os dados pertencem.
+"""Identity: who is calling the API and which organization owns the data.
 
-``zfrog.auth`` responde "esta chave pode fazer isso"; este módulo responde
-"quem é esta pessoa e onde moram os dados dela". São duas camadas separadas de
-propósito: uma chave de API pode pertencer a um usuário sem que o usuário
-precise de senha (SSO), e um usuário pode existir sem chave alguma.
+``zfrog.auth`` answers "can this key do that"; this module answers
+"who is this person and where does their data live". These are two separate
+layers of purpose: an API key can belong to a user without the user
+needing a password (SSO), and a user can exist without any key.
 
-Dois arquivos JSON, ambos escritos de forma atômica (arquivo temporário +
-``os.replace``) e com modo **0600**, porque guardam hashes de senha e
-associação a organizações:
+Two JSON files, both written atomically (temporary file +
+``os.replace``) with mode **0600**, because they hold password hashes and
+organization membership:
 
-* ``settings.users_file`` — contas locais (``UserStore``).
-* ``settings.orgs_file`` — organizações e seus membros (``OrgStore``).
+* ``settings.users_file`` — local accounts (``UserStore``).
+* ``settings.orgs_file`` — organizations and their members (``OrgStore``).
 
-Arquivo corrompido nunca derruba o processo: é registrado em log e tratado
-como vazio.
+A corrupted file never takes the process down: it is logged and treated
+as empty.
 
-Senhas: ``hash_password`` usa PBKDF2-HMAC-SHA256 (200 000 iterações, sal
-aleatório de 16 bytes). Isso serve **apenas** para contas locais; usuários que
-entram por SSO não têm senha (``password_hash`` vazio) e não podem ser
-autenticados por ``UserStore.authenticate``.
+Passwords: ``hash_password`` uses PBKDF2-HMAC-SHA256 (200 000 iterations,
+random 16-byte salt). This serves **local accounts only**; users who
+sign in via SSO have no password (empty ``password_hash``) and cannot be
+authenticated by ``UserStore.authenticate``.
 """
 
 from __future__ import annotations
@@ -164,7 +164,7 @@ class _JsonStore:
         except FileNotFoundError:
             return []
         except OSError as exc:
-            logger.warning("Não foi possível ler %s (%s): %s", self._label, self.path, exc)
+            logger.warning("Could not read %s (%s): %s", self._label, self.path, exc)
             return []
 
         if not raw.strip():
@@ -173,12 +173,12 @@ class _JsonStore:
         try:
             data = json.loads(raw)
         except ValueError as exc:
-            logger.warning("%s corrompido (%s): %s — começando vazio", self._label, self.path, exc)
+            logger.warning("%s corrupted (%s): %s — starting empty", self._label, self.path, exc)
             return []
 
         if not isinstance(data, list):
             logger.warning(
-                "%s corrompido (%s): esperado uma lista — começando vazio", self._label, self.path
+                "%s corrupted (%s): expected a list — starting empty", self._label, self.path
             )
             return []
 
@@ -186,7 +186,7 @@ class _JsonStore:
         for item in data:
             if not isinstance(item, dict):
                 logger.warning(
-                    "%s corrompido (%s): registro não é objeto — começando vazio",
+                    "%s corrupted (%s): record is not an object — starting empty",
                     self._label,
                     self.path,
                 )
@@ -217,7 +217,7 @@ class UserStore:
     """JSON-file store of accounts, written atomically with mode 0600."""
 
     def __init__(self, path: Path | None = None) -> None:
-        self._file = _JsonStore(path, settings.users_file, "arquivo de usuários")
+        self._file = _JsonStore(path, settings.users_file, "users file")
 
     @property
     def path(self) -> Path:
@@ -244,16 +244,16 @@ class UserStore:
         """
         if role not in ROLES:
             raise ValueError(
-                f"papel desconhecido: {role!r} (válidos: {', '.join(sorted(ROLES))})"
+                f"unknown role: {role!r} (valid: {', '.join(sorted(ROLES))})"
             )
 
         normalized = normalize_email(email)
         if not normalized:
-            raise ValueError("e-mail obrigatório")
+            raise ValueError("email is required")
 
         users = self._load()
         if any(user.email == normalized for user in users):
-            raise ValueError(f"e-mail já cadastrado: {normalized}")
+            raise ValueError(f"email already registered: {normalized}")
 
         user = User(
             id=secrets.token_hex(8),
@@ -278,7 +278,7 @@ class UserStore:
                 users[index] = user
                 self._save(users)
                 return user
-        raise ValueError(f"usuário desconhecido: {user.id!r}")
+        raise ValueError(f"unknown user: {user.id!r}")
 
     def set_enabled(self, user_id: str, enabled: bool) -> bool:
         """Enable or disable ``user_id``; return False when it does not exist."""
@@ -366,7 +366,7 @@ class UserStore:
         """
         wanted = str(subject or "").strip()
         if not wanted:
-            raise ValueError("subject obrigatório")
+            raise ValueError("subject is required")
 
         existing = self.by_sso_subject(wanted)
         if existing is not None:
@@ -397,7 +397,7 @@ class UserStore:
                 users.append(self._from_dict(item))
             except (TypeError, ValueError) as exc:
                 logger.warning(
-                    "arquivo de usuários corrompido (%s): %s — começando vazio", self.path, exc
+                    "users file corrupted (%s): %s — starting empty", self.path, exc
                 )
                 return []
         return users
@@ -433,7 +433,7 @@ class OrgStore:
     """
 
     def __init__(self, path: Path | None = None) -> None:
-        self._file = _JsonStore(path, settings.orgs_file, "arquivo de organizações")
+        self._file = _JsonStore(path, settings.orgs_file, "organizations file")
 
     @property
     def path(self) -> Path:
@@ -456,11 +456,11 @@ class OrgStore:
 
         orgs = self._load()
         if any(org.id == identifier for org in orgs):
-            raise ValueError(f"organização já existe: {identifier}")
+            raise ValueError(f"organization already exists: {identifier}")
 
         owner_id = str(owner or "").strip()
         if not owner_id:
-            raise ValueError("dono obrigatório")
+            raise ValueError("owner is required")
 
         org = Organization(
             id=identifier,
@@ -482,7 +482,7 @@ class OrgStore:
         """
         member_id = str(user_id or "").strip()
         if not member_id:
-            raise ValueError("usuário obrigatório")
+            raise ValueError("user is required")
 
         orgs = self._load()
         for org in orgs:
@@ -490,7 +490,7 @@ class OrgStore:
                 org.members[member_id] = str(role or "viewer")
                 self._save(orgs)
                 return org
-        raise ValueError(f"organização desconhecida: {org_id!r}")
+        raise ValueError(f"unknown organization: {org_id!r}")
 
     def remove_member(self, org_id: str, user_id: str) -> Organization:
         """Drop ``user_id`` from ``org_id`` and return the org.
@@ -504,7 +504,7 @@ class OrgStore:
                 org.members.pop(str(user_id), None)
                 self._save(orgs)
                 return org
-        raise ValueError(f"organização desconhecida: {org_id!r}")
+        raise ValueError(f"unknown organization: {org_id!r}")
 
     def set_enabled(self, org_id: str, enabled: bool) -> bool:
         """Enable or disable ``org_id``; return False when it does not exist."""
@@ -562,7 +562,7 @@ class OrgStore:
                 orgs.append(self._from_dict(item))
             except (TypeError, ValueError) as exc:
                 logger.warning(
-                    "arquivo de organizações corrompido (%s): %s — começando vazio",
+                    "organizations file corrupted (%s): %s — starting empty",
                     self.path,
                     exc,
                 )
@@ -573,10 +573,10 @@ class OrgStore:
         """Build an Organization from one JSON record."""
         missing = [name for name in ("id", "owner") if not item.get(name)]
         if missing:
-            raise ValueError(f"faltam campos {', '.join(missing)}")
+            raise ValueError(f"missing fields {', '.join(missing)}")
         members = item.get("members") or {}
         if not isinstance(members, dict):
-            raise ValueError("membros inválidos")
+            raise ValueError("invalid members")
         return Organization(
             id=str(item["id"]),
             name=str(item.get("name") or item["id"]),

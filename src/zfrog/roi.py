@@ -24,8 +24,7 @@ never disagree.
 
 Page counts are the weak spot and are documented rather than hidden: the metrics store
 records the number of *files* a run produced, never a page count, so the ROI uses that
-column as a proxy and says so in the note (``páginas estimadas pelos arquivos
-gerados``).
+column as a proxy and says so in the note (``pages estimated from generated files``).
 """
 
 from __future__ import annotations
@@ -147,20 +146,20 @@ def _value_per_page(inputs: RoiInputs) -> float:
     return inputs.minutes_per_page / _MINUTES_PER_HOUR * inputs.hourly_rate
 
 def _assumptions_note(inputs: RoiInputs) -> str:
-    """The Portuguese sentence naming both assumptions and the currency."""
-    currency = inputs.currency or "moeda não configurada"
+    """The English sentence naming both assumptions and the currency."""
+    currency = inputs.currency or "currency not configured"
     return (
-        f"Valor = páginas × {_number(inputs.minutes_per_page)} min por página ÷ "
-        f"{_MINUTES_PER_HOUR:g} × {format_cost(inputs.hourly_rate, inputs.currency)} por hora, "
-        f"em {currency} — minutos por página e valor da hora são premissas do usuário, "
-        "não medições."
+        f"Value = pages × {_number(inputs.minutes_per_page)} min per page ÷ "
+        f"{_MINUTES_PER_HOUR:g} × {format_cost(inputs.hourly_rate, inputs.currency)} per hour, "
+        f"in {currency} — minutes per page and hourly rate are user assumptions, "
+        "not measurements."
     )
 
 def _metrics_note(inputs: RoiInputs) -> str:
     """``_assumptions_note`` plus the page-proxy caveat of :func:`roi_from_metrics`."""
     return (
-        f"{_assumptions_note(inputs)} As páginas estimadas pelos arquivos gerados em cada "
-        "execução são um proxy, não uma contagem página a página."
+        f"{_assumptions_note(inputs)} The pages estimated by the files generated in each "
+        "run are a proxy, not a page-by-page count."
     )
 
 def compute_roi(
@@ -223,12 +222,12 @@ def _runs_totals(store: Any) -> dict[str, Any]:
     try:
         conn = open_connection(path, read_only=True)
     except sqlite3.Error as exc:
-        logger.warning("Não foi possível ler as métricas em %s: %s", path, exc)
+        logger.warning("Could not read the metrics at %s: %s", path, exc)
         return empty
     try:
         row = conn.execute(_TOTALS_SQL).fetchone()
     except sqlite3.Error as exc:
-        logger.warning("Métricas em %s não puderam ser somadas: %s", path, exc)
+        logger.warning("Metrics at %s could not be summed: %s", path, exc)
         return empty
     finally:
         conn.close()
@@ -250,12 +249,12 @@ def _engine_files(store: Any) -> dict[str, int]:
     try:
         conn = open_connection(path, read_only=True)
     except sqlite3.Error as exc:
-        logger.warning("Não foi possível ler as métricas em %s: %s", path, exc)
+        logger.warning("Could not read the metrics at %s: %s", path, exc)
         return {}
     try:
         rows = conn.execute(_ENGINE_FILES_SQL).fetchall()
     except sqlite3.Error as exc:
-        logger.warning("Métricas em %s não puderam ser somadas por engine: %s", path, exc)
+        logger.warning("Metrics at %s could not be summed per engine: %s", path, exc)
         return {}
     finally:
         conn.close()
@@ -344,34 +343,34 @@ def to_markdown(result: RoiResult) -> str:
     """Render the ROI as a Markdown report: value, cost, net, ratio, assumptions, engines."""
     currency = result.currency
     lines = [
-        "# Retorno do investimento (ROI)",
+        "# Return on investment (ROI)",
         "",
-        "## Resumo",
+        "## Summary",
         "",
         "| Item | Valor |",
         "| --- | --- |",
-        f"| Execuções | {result.runs} |",
-        f"| Páginas (proxy dos arquivos gerados) | {result.pages} |",
+        f"| Runs | {result.runs} |",
+        f"| Pages (proxy of the generated files) | {result.pages} |",
         f"| Bytes | {result.bytes} |",
-        f"| Duração (s) | {_number(result.duration_s)} |",
-        f"| Valor do trabalho manual evitado | {format_cost(result.value, currency)} |",
-        f"| Custo estimado | {format_cost(result.cost, currency)} |",
-        f"| Saldo (valor − custo) | {format_cost(result.net, currency)} |",
-        f"| Retorno (valor ÷ custo) | {_ratio_text(result.ratio)} |",
+        f"| Duration (s) | {_number(result.duration_s)} |",
+        f"| Avoided manual work value | {format_cost(result.value, currency)} |",
+        f"| Estimated cost | {format_cost(result.cost, currency)} |",
+        f"| Net (value − cost) | {format_cost(result.net, currency)} |",
+        f"| Return (value ÷ cost) | {_ratio_text(result.ratio)} |",
         "",
-        "## Premissas (não são medições)",
+        "## Assumptions (not measurements)",
         "",
-        f"- Minutos por página: {_number(result.inputs.minutes_per_page)}",
-        f"- Valor da hora: {format_cost(result.inputs.hourly_rate, result.inputs.currency)}",
-        f"- Moeda: {currency or 'não configurada'}",
+        f"- Minutes per page: {_number(result.inputs.minutes_per_page)}",
+        f"- Hourly rate: {format_cost(result.inputs.hourly_rate, result.inputs.currency)}",
+        f"- Currency: {currency or 'not configured'}",
         f"- {result.note}",
         "",
-        "## Por engine",
+        "## Per engine",
         "",
     ]
     if result.per_engine:
         lines += [
-            "| Engine | Execuções | Páginas (proxy) | Bytes | Duração (s) | Valor | Custo | Saldo |",
+            "| Engine | Runs | Pages (proxy) | Bytes | Duration (s) | Value | Cost | Net |",
             "| --- | --- | --- | --- | --- | --- | --- | --- |",
         ]
         for row in result.per_engine:
@@ -383,6 +382,6 @@ def to_markdown(result: RoiResult) -> str:
                 f"{format_cost(row.get('net', 0.0), currency)} |"
             )
     else:
-        lines.append("_Nenhuma execução registrada._")
+        lines.append("_No runs recorded._")
     lines.append("")
     return "\n".join(lines)

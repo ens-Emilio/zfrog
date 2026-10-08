@@ -219,7 +219,7 @@ def _scan_obfuscation(code: str, file: str) -> list[Finding]:
                     "obfuscated_js",
                     "medium",
                     file,
-                    "Chamada dinâmica com string codificada (código ofuscado)",
+                    "Dynamic call with an encoded string (obfuscated code)",
                     f"{call.group().strip()} {escaped.group()[:60]}",
                 )
             )
@@ -231,8 +231,8 @@ def _scan_obfuscation(code: str, file: str) -> list[Finding]:
                     "obfuscated_js",
                     "medium",
                     file,
-                    "Cadeia String.fromCharCode montando texto em tempo de execução",
-                    f"String.fromCharCode({len(arguments)} argumentos)",
+                    "String.fromCharCode chain building text at runtime",
+                    f"String.fromCharCode({len(arguments)} arguments)",
                 )
             )
             break
@@ -249,7 +249,7 @@ def _scan_atob_eval(code: str, file: str) -> list[Finding]:
             "atob_eval",
             "high",
             file,
-            "Código decodificado em base64 e executado dinamicamente",
+            "Base64-decoded code executed dynamically",
             match.group().strip(),
         )
     ]
@@ -265,7 +265,7 @@ def _scan_js_schemes(code: str, file: str) -> list[Finding]:
             "data_uri_script",
             "high",
             file,
-            "URL com esquema perigoso embutido no script",
+            "URL with dangerous scheme embedded in script",
             match.group(),
         )
     ]
@@ -300,21 +300,21 @@ def _scan_iframes(soup: BeautifulSoup, file: str) -> list[Finding]:
         style = str(iframe.get("style") or "").lower().replace(" ", "")
         reasons: list[str] = []
         if width in ("0", "1") or height in ("0", "1"):
-            reasons.append(f"dimensões {width or '?'}x{height or '?'}")
+            reasons.append(f"dimensions {width or '?'}x{height or '?'}")
         if _ZERO_DIMENSION.search(style):
-            reasons.append("dimensões zeradas no estilo")
+            reasons.append("zeroed dimensions in the style")
         if "display:none" in style or "visibility:hidden" in style:
-            reasons.append("estilo oculto")
+            reasons.append("hidden style")
         offset = _NEGATIVE_OFFSET.search(style)
         if offset:
-            reasons.append(f"deslocamento negativo (-{offset.group(1)}px)")
+            reasons.append(f"negative offset (-{offset.group(1)}px)")
         if reasons:
             found.append(
                 _finding(
                     "iframe_hidden",
                     "medium",
                     file,
-                    "Iframe invisível: " + ", ".join(reasons),
+                    "Invisible iframe: " + ", ".join(reasons),
                     str(iframe)[:160],
                 )
             )
@@ -333,18 +333,18 @@ def _scan_forms(soup: BeautifulSoup, file: str, page_domain: str) -> list[Findin
         )
         reasons: list[str] = []
         if has_password and target_domain and action.lower().startswith("http://"):
-            reasons.append("campo de senha enviado por http:// sem criptografia")
+            reasons.append("password field sent over unencrypted http://")
         # Only flag a cross-domain post when we know the page's own domain:
         # without it, a legitimate https login would look external.
         if _crosses_domain(action, page_domain, unknown_is_external=False):
-            reasons.append(f"envio para outro domínio ({target_domain})")
+            reasons.append(f"submission to another domain ({target_domain})")
         if reasons:
             found.append(
                 _finding(
                     "form_exfil",
                     "high",
                     file,
-                    "Formulário suspeito: " + "; ".join(reasons),
+                    "Suspicious form: " + "; ".join(reasons),
                     str(form)[:160],
                 )
             )
@@ -371,7 +371,7 @@ def _scan_meta_refresh(soup: BeautifulSoup, file: str, page_domain: str) -> list
                     "meta_refresh_external",
                     "medium",
                     file,
-                    f"Redirecionamento automático para {target}",
+                    f"Automatic redirect to {target}",
                     str(meta)[:160],
                 )
             )
@@ -391,7 +391,7 @@ def _scan_urls(soup: BeautifulSoup, file: str) -> list[Finding]:
                     "data_uri_script",
                     "high",
                     file,
-                    "URL com esquema perigoso em href",
+                    "URL with dangerous scheme in href",
                     href[:160],
                 )
             )
@@ -403,7 +403,7 @@ def _scan_urls(soup: BeautifulSoup, file: str) -> list[Finding]:
                     "known_bad_tld",
                     "low",
                     file,
-                    f"Link para domínio {domain} com TLD de alto risco",
+                    f"Link to domain {domain} with a high-risk TLD",
                     href[:160],
                 )
             )
@@ -413,7 +413,7 @@ def _scan_urls(soup: BeautifulSoup, file: str) -> list[Finding]:
                     "suspicious_download",
                     "medium",
                     file,
-                    "Link para download de arquivo executável",
+                    "Link to executable file download",
                     href[:160],
                 )
             )
@@ -425,7 +425,7 @@ def _scan_urls(soup: BeautifulSoup, file: str) -> list[Finding]:
                     "data_uri_script",
                     "high",
                     file,
-                    "URL com esquema perigoso em src",
+                    "URL with dangerous scheme in src",
                     src[:160],
                 )
             )
@@ -500,8 +500,8 @@ def _risk_of(findings: list[Finding]) -> str:
 
 def _summary(risk: str, findings: int, files: int) -> str:
     return (
-        f"Risco {risk}: {findings} indicador(es) de segurança em "
-        f"{files} arquivo(s) inspecionado(s)."
+        f"Risk {risk}: {findings} security indicator(s) in "
+        f"{files} inspected file(s)."
     )
 
 

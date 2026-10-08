@@ -67,7 +67,7 @@ def _apply_pragmas(conn: sqlite3.Connection, *, read_only: bool) -> None:
     try:
         conn.execute(f"PRAGMA busy_timeout = {int(DEFAULT_BUSY_TIMEOUT_MS)}")
     except sqlite3.Error as exc:  # pragma: no cover - depends on the build
-        logger.warning("Não foi possível definir busy_timeout: %s", exc)
+        logger.warning("Could not set busy_timeout: %s", exc)
 
     if read_only:
         return
@@ -78,10 +78,10 @@ def _apply_pragmas(conn: sqlite3.Connection, *, read_only: bool) -> None:
         mode = conn.execute(f"PRAGMA journal_mode = {_JOURNAL_MODE}").fetchone()
         if mode and str(mode[0]).lower() != _JOURNAL_MODE.lower():
             logger.warning(
-                "journal_mode ficou em %s (WAL indisponível neste sistema de arquivos)", mode[0]
+                "journal_mode stayed at %s (WAL unavailable on this filesystem)", mode[0]
             )
     except sqlite3.Error as exc:  # pragma: no cover - depends on the build
-        logger.warning("Não foi possível ativar WAL: %s", exc)
+        logger.warning("Could not enable WAL: %s", exc)
 
 
 def schema_version(conn: sqlite3.Connection) -> int:
@@ -118,9 +118,9 @@ def migrate(conn: sqlite3.Connection, migrations: Sequence[tuple[int, str]]) -> 
                 # int from our own list, never user input.
                 conn.execute(f"PRAGMA user_version = {int(version)}")
         except sqlite3.Error as exc:
-            logger.error("Migração %d falhou: %s", version, exc)
+            logger.error("Migration %d failed: %s", version, exc)
             raise
-        logger.info("Banco migrado para a versão %d", version)
+        logger.info("Database migrated to version %d", version)
         target = version
 
     return max(current, target)

@@ -84,7 +84,7 @@ def register_reference(
             )
         )
     except Exception as exc:
-        logger.warning("não foi possível registrar a referência de %s: %s", url, exc)
+        logger.warning("could not record the reference of %s: %s", url, exc)
         return None
 
     return card

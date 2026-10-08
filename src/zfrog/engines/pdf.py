@@ -44,15 +44,15 @@ class PdfEngine(EngineAdapter):
         pdf_path = output_dir / f"{sanitize_pdf_name(job.pdf_filename or 'index')}.pdf"
 
         if on_progress:
-            on_progress("Gerando PDF...")
+            on_progress("Generating PDF...")
 
         pool = await get_pool()
         session_state = session_state_for(str(job.url))
         context = await pool.get_context(storage_state=session_state)
         if session_state:
-            logs.append(f"Sessão salva em uso: {session_state}")
+            logs.append(f"Saved session in use: {session_state}")
             if on_progress:
-                on_progress("Usando sessão salva")
+                on_progress("Using saved session")
         page = await context.new_page()
         try:
             try:
@@ -74,7 +74,7 @@ class PdfEngine(EngineAdapter):
         logs.append(f"Saved PDF: {pdf_path}")
 
         if on_progress:
-            on_progress("PDF concluído")
+            on_progress("PDF complete")
 
         return EngineResult(
             output_dir=output_dir,

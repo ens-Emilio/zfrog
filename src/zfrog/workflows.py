@@ -145,36 +145,36 @@ def validate_steps(steps: list[dict]) -> list[Step]:
     cycle are refused, the cycle showing its path.
     """
     if not steps:
-        raise ValueError("o fluxo precisa de pelo menos um passo")
+        raise ValueError("the workflow needs at least one step")
 
     validated: list[Step] = []
     for index, raw in enumerate(steps, 1):
         if not isinstance(raw, dict):
-            raise ValueError(f"passo {index}: esperado um objeto com 'type' e 'params'")
+            raise ValueError(f"step {index}: expected an object with 'type' and 'params'")
 
         step_type = raw.get("type")
         if step_type not in STEP_PARAMS:
-            raise ValueError(f"passo {index}: tipo de passo desconhecido: {step_type!r}")
+            raise ValueError(f"step {index}: unknown step type: {step_type!r}")
 
         params = raw.get("params") or {}
         if not isinstance(params, dict):
-            raise ValueError(f"passo {index} ({step_type}): 'params' precisa ser um objeto")
+            raise ValueError(f"step {index} ({step_type}): 'params' must be an object")
 
         unknown_fields = sorted(set(raw) - {"type", "params", "id", "needs"})
         if unknown_fields:
             raise ValueError(
-                f"passo {index} ({step_type}): campo desconhecido: {unknown_fields[0]!r}"
+                f"step {index} ({step_type}): unknown field: {unknown_fields[0]!r}"
             )
 
         unknown = sorted(set(params) - STEP_PARAMS[step_type])
         if unknown:
             raise ValueError(
-                f"passo {index} ({step_type}): parâmetro desconhecido: {unknown[0]!r}"
+                f"step {index} ({step_type}): unknown parameter: {unknown[0]!r}"
             )
 
         for required in sorted(REQUIRED_PARAMS.get(step_type, frozenset())):
             if not params.get(required):
-                raise ValueError(f"passo {index} ({step_type}): falta o parâmetro {required!r}")
+                raise ValueError(f"step {index} ({step_type}): missing parameter {required!r}")
 
         validated.append(
             Step(
@@ -204,7 +204,7 @@ def _parse_id(raw: dict, index: int, step_type: str, position: int) -> str:
     if label is None or label == "":
         return f"step-{position}"
     if not isinstance(label, str) or not label.strip():
-        raise ValueError(f"passo {index} ({step_type}): 'id' precisa ser um texto não vazio")
+        raise ValueError(f"step {index} ({step_type}): 'id' must be non-empty text")
     return label.strip()
 
 def _parse_needs(raw: dict, index: int, step_type: str) -> list[str] | None:
@@ -219,12 +219,12 @@ def _parse_needs(raw: dict, index: int, step_type: str) -> list[str] | None:
         return None
     if not isinstance(needs, list) or any(not isinstance(item, str) for item in needs):
         raise ValueError(
-            f"passo {index} ({step_type}): 'needs' precisa ser uma lista de ids"
+            f"step {index} ({step_type}): 'needs' must be a list of ids"
         )
 
     cleaned = [item.strip() for item in needs]
     if any(not item for item in cleaned):
-        raise ValueError(f"passo {index} ({step_type}): 'needs' tem um id vazio")
+        raise ValueError(f"step {index} ({step_type}): 'needs' has an empty id")
     return cleaned
 
 def execution_waves(steps: list[Step]) -> list[list[Step]]:
@@ -275,7 +275,7 @@ def _index_by_id(steps: list[Step]) -> dict[str, int]:
         step_id = _step_id(step, position)
         if step_id in index_by_id:
             raise ValueError(
-                f"passo {position + 1} ({step.type}): id repetido: {step_id!r}"
+                f"step {position + 1} ({step.type}): duplicate id: {step_id!r}"
             )
         index_by_id[step_id] = position
 
@@ -283,8 +283,8 @@ def _index_by_id(steps: list[Step]) -> dict[str, int]:
         for need in step.needs:
             if need not in index_by_id:
                 raise ValueError(
-                    f"passo {position + 1} ({step.type}): 'needs' aponta para um passo "
-                    f"inexistente: {need!r}"
+                    f"step {position + 1} ({step.type}): 'needs' points to a step "
+                    f"nonexistent: {need!r}"
                 )
     return index_by_id
 
@@ -324,8 +324,8 @@ def _cycle_message(steps: list[Step], cycle: list[int]) -> str:
     """Describe a dependency cycle the way it can be read back to the author."""
     labels = [f"{_step_id(steps[index], index)} ({steps[index].type})" for index in cycle]
     if not labels:
-        return "ciclo no fluxo"
-    return "ciclo no fluxo: " + " → ".join(labels + labels[:1])
+        return "cycle in the workflow"
+    return "cycle in the workflow: " + " → ".join(labels + labels[:1])
 
 class WorkflowStore:
     """One JSON file per workflow under ``root`` (default ``settings.output_dir/workflows``)."""
@@ -346,16 +346,15 @@ class WorkflowStore:
         """
         cleaned_name = name.strip() if isinstance(name, str) else ""
         if not cleaned_name:
-            raise ValueError("o fluxo precisa de um nome")
+            raise ValueError("workflow requires a name")
 
         validated = validate_steps(steps)
         workflow_id = self._id_for_name(cleaned_name) or self._new_id()
         workflow = Workflow(id=workflow_id, name=cleaned_name, steps=validated)
 
         self._write_atomic(self._path(workflow_id), _to_payload(workflow))
-        logger.info("Fluxo %s salvo (%d passos)", workflow_id, len(validated))
+        logger.info("Workflow %s saved (%d steps)", workflow_id, len(validated))
         return workflow
-
     def list(self) -> list[Workflow]:
         """Return every stored workflow, sorted by name (unreadable files skipped)."""
         if not self.root.is_dir():
@@ -437,7 +436,7 @@ class WorkflowStore:
             ]
             return Workflow(id=str(payload["id"]), name=str(payload["name"]), steps=steps)
         except Exception as exc:
-            logger.warning("Ignorando fluxo ilegível %s: %s", path, exc)
+            logger.warning("Skipping unreadable workflow %s: %s", path, exc)
             return None
 
 def _to_payload(workflow: Workflow) -> dict:
@@ -502,15 +501,15 @@ def preview_steps(steps: list[dict]) -> dict:
     waves = execution_waves(validated)
     positions = {_step_id(step, index): index for index, step in enumerate(validated)}
     summaries = {
-        "probe": "Descobre como o site é feito.",
-        "clone": "Baixa o site no modo escolhido.",
-        "summarize": "Escreve um resumo curto da página.",
-        "analyze": "Checa SEO, acessibilidade e desempenho.",
-        "extract": "Separa título, texto, links e imagens.",
-        "compare": "Mede o quanto a cópia ficou fiel ao original.",
-        "pdf": "Salva a página como um arquivo PDF.",
-        "search": "Deixa o que foi baixado pesquisável.",
-        "commit": "Salva o resultado como uma versão no histórico.",
+        "probe": "Discovers how the site is built.",
+        "clone": "Downloads the site in the chosen mode.",
+        "summarize": "Writes a short summary of the page.",
+        "analyze": "Checks SEO, accessibility and performance.",
+        "extract": "Separates title, text, links and images.",
+        "compare": "Measures how faithful the copy is to the original.",
+        "pdf": "Saves the page as a PDF file.",
+        "search": "Makes what was downloaded searchable.",
+        "commit": "Saves the result as a version in the history.",
     }
 
     preview: list[dict] = []
@@ -518,16 +517,15 @@ def preview_steps(steps: list[dict]) -> dict:
 
     for index, step in enumerate(validated):
         warnings: list[str] = []
-        label = f"Passo {index + 1} ({step.type})"
+        label = f"Step {index + 1} ({step.type})"
         needs = list(step.needs or [])
-
         # A step that reads a URL needs one from its params or from a `probe` it waits for.
         if step.type in ("clone", "summarize", "analyze", "extract", "compare", "pdf", "probe"):
             has_param_url = bool(step.params.get("url"))
             probes = [need for need in needs if validated[positions[need]].type == "probe"]
             if not has_param_url and not probes:
                 warnings.append(
-                    f"{label}: sem endereço — informe 'url' ou declare em 'needs' um passo 'probe'."
+                    f"{label}: no address — provide 'url' or declare a 'probe' step in 'needs'."
                 )
 
         # `search`/`commit` read the output of the steps they wait for.
@@ -539,11 +537,11 @@ def preview_steps(steps: list[dict]) -> dict:
             ]
             if not producers:
                 warnings.append(
-                    f"{label}: não recebe nenhum diretório — declare em 'needs' o passo que baixa o site."
+                    f"{label}: receives no directory — declare in 'needs' the step that downloads the site."
                 )
 
         if step.type == "commit" and not step.params.get("message"):
-            warnings.append(f"{label}: sem 'message' — a versão ficará sem descrição.")
+            warnings.append(f"{label}: without 'message' — the version will have no description.")
 
         summary = summaries.get(step.type, step.type)
         if step.params.get("url"):
@@ -563,11 +561,10 @@ def preview_steps(steps: list[dict]) -> dict:
     if parallel:
         first = parallel[0]
         all_warnings.append(
-            "Passos independentes rodam ao mesmo tempo: "
-            + ", ".join(f"passo {positions[_step_id(step, 0)] + 1}" for step in first)
+            "Independent steps run in parallel: "
+            + ", ".join(f"step {positions[_step_id(step, 0)] + 1}" for step in first)
             + "."
         )
-
     return {"steps": preview, "warnings": all_warnings, "total": len(validated)}
 
 
@@ -577,7 +574,7 @@ async def run_workflow(
 ) -> RunResult:
     """Run every step of ``workflow``, one wave of the graph at a time.
 
-    ``on_progress`` receives one message per step, e.g. ``"Passo 2/5: clone"``.
+    ``on_progress`` receives one message per step, e.g. ``"Step 2/5: clone"``.
     The steps of a wave run together, at most ``settings.max_parallel_steps`` at
     a time, and each of them starts from the context of the steps it ``needs``.
     A failing step marks the run ``"failed"`` and records the steps that depend
@@ -589,14 +586,13 @@ async def run_workflow(
     try:
         return await _run_steps(workflow, on_progress, results)
     except Exception as exc:
-        logger.exception("Falha inesperada no fluxo %s", workflow.id)
+        logger.exception("Unexpected failure in workflow %s", workflow.id)
         return RunResult(
             workflow_id=workflow.id,
             status="failed",
             steps=results,
-            error=f"falha inesperada: {exc}",
+            error=f"unexpected failure: {exc}",
         )
-
 async def _run_steps(
     workflow: Workflow,
     on_progress: Callable[[str], Any] | None,
@@ -638,8 +634,7 @@ async def _run_steps(
         for index in wave:
             step = steps[index]
             if run.on_progress is not None:
-                run.on_progress(f"Passo {index + 1}/{total}: {step.type}")
-
+                run.on_progress(f"Step {index + 1}/{total}: {step.type}")
             blocked_by = _blocking_dependency(step, run.index_by_id, statuses)
             if blocked_by is None:
                 runnable.append(index)
@@ -647,7 +642,6 @@ async def _run_steps(
 
             statuses[index] = "skipped"
             outcomes[index] = _skipped_result(step, blocked_by, steps, statuses)
-
         if runnable:
             finished = await asyncio.gather(
                 *(_run_step(run, index, steps[index]) for index in runnable)
@@ -664,7 +658,7 @@ async def _run_steps(
         return RunResult(workflow_id=workflow.id, status="ok", steps=list(results))
 
     error = "; ".join(
-        f"passo {index + 1} ({steps[index].type}) falhou: {outcomes[index].detail}"
+        f"step {index + 1} ({steps[index].type}) failed: {outcomes[index].detail}"
         for index in failed
     )
     return RunResult(
@@ -681,7 +675,7 @@ async def _run_step(
             outcome = await _execute_step(step, context, index + 1, run.on_progress)
         except Exception as exc:
             detail = str(exc) or exc.__class__.__name__
-            logger.warning("Passo %d (%s) falhou: %s", index + 1, step.type, detail)
+            logger.warning("Step %d (%s) failed: %s", index + 1, step.type, detail)
             outcome = StepResult(type=step.type, status="failed", detail=detail)
 
     return index, outcome, context
@@ -710,11 +704,11 @@ def _skipped_result(
 ) -> StepResult:
     """Record a step whose dependency failed (or was itself skipped)."""
     blocker = steps[blocked_by]
-    fate = "falhou" if statuses.get(blocked_by) == "failed" else "foi pulado"
+    fate = "failed" if statuses.get(blocked_by) == "failed" else "was skipped"
     return StepResult(
         type=step.type,
         status="skipped",
-        detail=f"pulado: depende do passo {blocked_by + 1} ({blocker.type}) que {fate}",
+        detail=f"skipped: depends on step {blocked_by + 1} ({blocker.type}) which {fate}",
     )
 
 async def _execute_step(
@@ -742,14 +736,12 @@ async def _run_probe(step: Step, context: _Context) -> StepResult:
         probe = await probe_url(url, client)
     finally:
         await client.aclose()
-
     context.probe = probe
     return StepResult(
         type="probe",
         status="ok",
-        detail=f"motor sugerido: {probe.suggested_engine}",
+        detail=f"suggested engine: {probe.suggested_engine}",
     )
-
 async def _run_clone(step: Step, context: _Context) -> StepResult:
     """Clone the context URL and make the job output directory the current one."""
     url = _resolve_url(step, context)
@@ -761,10 +753,9 @@ async def _run_clone(step: Step, context: _Context) -> StepResult:
     return StepResult(
         type="clone",
         status="ok",
-        detail=f"{_count_files(output_dir)} arquivos em {output_dir}",
+        detail=f"{_count_files(output_dir)} files in {output_dir}",
         output=str(output_dir),
     )
-
 async def _run_engine(
     step: Step,
     context: _Context,
@@ -782,50 +773,48 @@ async def _run_engine(
     return StepResult(
         type=step.type,
         status="ok",
-        detail=f"{_count_files(step_dir)} arquivos em {step_dir}",
+        detail=f"{_count_files(step_dir)} files in {step_dir}",
         output=str(step_dir),
     )
-
 def _run_search(context: _Context) -> StepResult:
     """Index the current output directory."""
     if context.output_dir is None:
         raise ValueError(
-            "o passo 'search' precisa de um diretório de saída: declare em 'needs' um passo "
-            "'clone' que o produza"
+            "the 'search' step needs an output directory: declare in 'needs' a "
+            "'clone' step that produces it"
         )
 
     from zfrog.search import SearchIndex
 
     indexed = SearchIndex().index_directory(context.output_dir, url=context.url)
     detail = (
-        f"{indexed} páginas indexadas em {context.output_dir}"
+        f"{indexed} pages indexed in {context.output_dir}"
         if isinstance(indexed, int)
-        else f"índice atualizado em {context.output_dir}"
+        else f"index updated at {context.output_dir}"
     )
     return StepResult(type="search", status="ok", detail=detail)
-
 def _run_commit(step: Step, context: _Context) -> StepResult:
     """Snapshot the current output directory and commit it to the version store."""
     if context.output_dir is None:
         raise ValueError(
-            "o passo 'commit' precisa de um diretório de saída: declare em 'needs' um passo "
-            "'clone' que o produza"
+            "the 'commit' step needs an output directory: declare in 'needs' a "
+            "'clone' step that produces it"
         )
     if not context.url:
         raise ValueError(
-            "o passo 'commit' precisa de uma URL: declare em 'needs' um passo 'probe'"
+            "the 'commit' step needs a URL: declare a 'probe' step in 'needs'"
         )
 
     from zfrog.versioning import VersionStore
 
     snapshot_path, _previous = capture_snapshot(context.output_dir, context.url, WORKFLOW_ENGINE)
-    message = step.params.get("message") or f"fluxo {context.workflow_id}"
+    message = step.params.get("message") or f"workflow {context.workflow_id}"
     version = VersionStore().commit(context.url, snapshot_path, context.output_dir, message)
 
     return StepResult(
         type="commit",
         status="ok",
-        detail=f"versão {version.id} criada",
+        detail=f"version {version.id} created",
         output=str(version.id),
     )
 
@@ -834,12 +823,11 @@ def _resolve_url(step: Step, context: _Context) -> str:
     url = step.params.get("url") or context.url
     if not url:
         raise ValueError(
-            f"o passo '{step.type}' precisa de uma URL: informe em params.url "
-            "ou declare em 'needs' um passo 'probe' que a informe"
+            f"the '{step.type}' step needs a URL: provide it in params.url "
+            f"or declare a 'probe' step in 'needs' that provides it"
         )
     context.url = url
     return url
-
 def _build_job(url: str, mode: str, params: dict[str, Any]) -> JobCreate:
     """Build the :class:`JobCreate` for a step, forwarding only the params it accepts."""
     kwargs: dict[str, Any] = {"url": url, "mode": mode}

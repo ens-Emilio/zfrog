@@ -55,9 +55,6 @@ _WORD_TO_CODE = {
     "dollars": "USD",
     "dolar": "USD",
     "dolares": "USD",
-    "dólar": "USD",
-    "dólares": "USD",
-    "eur": "EUR",
     "euro": "EUR",
     "euros": "EUR",
     "gbp": "GBP",
@@ -75,7 +72,7 @@ _PREFIX_PRICE_RE = re.compile(rf"(?P<sym>{_SYMBOLS_ALT})\s?(?P<num>{_NUMBER})")
 _SUFFIX_PRICE_RE = re.compile(rf"(?P<num>{_NUMBER})\s?(?P<sym>{_SYMBOLS_ALT})")
 _WORD_PRICE_RE = re.compile(
     rf"(?P<num>{_NUMBER})\s*(?P<word>reais|real|BRL|USD|EUR|GBP|euros?|libras?|"
-    rf"d[óo]lares?|dollars?)\b",
+    rf"dolares?|dollars?)\b",
     re.IGNORECASE,
 )
 
@@ -357,7 +354,7 @@ def _element_currency(el, text: str, currency_hint: str = "") -> str:
     if symbol:
         return _resolve_currency(symbol.group(1), currency_hint)
     word = re.search(
-        r"\b(reais|real|BRL|USD|EUR|GBP|euros?|libras?|d[óo]lares?|dollars?)\b",
+        r"\b(reais|real|BRL|USD|EUR|GBP|euros?|libras?|dolares?|dollars?)\b",
         text,
         re.IGNORECASE,
     )
@@ -665,11 +662,11 @@ class PriceTracker:
 
 
 def format_change(change: PriceChange) -> str:
-    """Render a change as a Portuguese sentence with both values.
+    """Render a change as a short sentence with both values.
 
-    Example: ``Notebook: R$ 3.499,00 → R$ 3.199,00 (-8.6%)``.
+    Example: ``Notebook: $ 3,499.00 → $ 3,199.00 (-8.6%)``.
     """
-    label = change.label or "Preço"
+    label = change.label or "Price"
     before = _format_amount(change.before, change.currency)
     after = _format_amount(change.after, change.currency)
     percent = "0.0%" if change.direction == "same" else f"{change.change_pct:+.1f}%"

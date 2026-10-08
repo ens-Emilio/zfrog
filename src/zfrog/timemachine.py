@@ -73,13 +73,13 @@ def parse_when(when: str) -> datetime:
     """
     text = str(when or "").strip()
     if not text:
-        raise ValueError(f"data vazia; formatos aceitos: {WHEN_HELP}")
+        raise ValueError(f"empty date; accepted formats: {WHEN_HELP}")
 
     date_only = "T" not in text and " " not in text
     try:
         parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
     except ValueError:
-        raise ValueError(f"data inválida: '{text}'; formatos aceitos: {WHEN_HELP}") from None
+        raise ValueError(f"invalid date: '{text}'; accepted formats: {WHEN_HELP}") from None
 
     if date_only:
         parsed = datetime.combine(parsed.date(), time(23, 59, 59))
@@ -144,12 +144,12 @@ def timeline_summary(entries: list[TimelineEntry]) -> str:
     """One Portuguese sentence describing a timeline: how many, from when to when."""
     total = len(entries)
     if total == 0:
-        return "Nenhuma versão guardada para este site."
-    first = entries[0].captured_at or "data desconhecida"
+        return "No versions saved for this site."
+    first = entries[0].captured_at or "unknown date"
     if total == 1:
-        return f"1 versão guardada, capturada em {first}."
-    last = entries[-1].captured_at or "data desconhecida"
-    return f"{total} versões guardadas, de {first} a {last}."
+        return f"1 saved version, captured at {first}."
+    last = entries[-1].captured_at or "unknown date"
+    return f"{total} saved versions, from {first} to {last}."
 
 
 class TimeMachine:
@@ -214,7 +214,7 @@ class TimeMachine:
         if isinstance(raw_pages, list):
             pages = [self._archived_page(raw) for raw in raw_pages if isinstance(raw, dict)]
         else:
-            logger.warning("snapshot da versão %s indisponível; listando os arquivos arquivados", version.id)
+            logger.warning("snapshot of version %s unavailable; listing the archived files", version.id)
             pages = self._pages_from_files(version)
         return sorted((page for page in pages if page.path), key=lambda page: page.path)
 
@@ -244,11 +244,11 @@ class TimeMachine:
         rel = str(path or "").strip()
         digest = version.files.get(rel)
         if digest is None:
-            logger.warning("'%s' não pertence à versão %s de %s", rel, version.id, self.url)
+            logger.warning("'%s' does not belong to version %s of %s", rel, version.id, self.url)
             return None
         blob = self.store.store.get(digest)
         if blob is None:
-            logger.warning("blob %s ausente para '%s' na versão %s", digest, rel, version.id)
+            logger.warning("blob %s missing for '%s' at version %s", digest, rel, version.id)
             return None
         return blob.read_bytes().decode("utf-8", errors="replace")
 
@@ -273,18 +273,18 @@ class TimeMachine:
         restored = 0
         for rel, digest in sorted(version.files.items()):
             if not _is_safe_relative(rel):
-                logger.warning("caminho inválido na versão %s: %s", version.id, rel)
+                logger.warning("invalid path at version %s: %s", version.id, rel)
                 continue
             blob = self.store.store.get(digest)
             if blob is None:
-                logger.warning("blob %s ausente; %s não restaurado", digest, rel)
+                logger.warning("blob %s missing; %s not restored", digest, rel)
                 continue
             target = destination / rel
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(blob, target)
             restored += 1
 
-        logger.info("versão %s restaurada em %s (%d arquivo(s))", version.id, destination, restored)
+        logger.info("version %s restored at %s (%d file(s))", version.id, destination, restored)
         return destination
 
     # ------------------------------------------------------------------ helpers
@@ -293,7 +293,7 @@ class TimeMachine:
         """Resolve ``ref``, raising ``ValueError`` when it is not a version of this site."""
         version = self.store.resolve(self.url, ref)
         if version is None:
-            raise ValueError(f"versão desconhecida: '{ref}' em {self.url}")
+            raise ValueError(f"unknown version: '{ref}' at {self.url}")
         return version
 
     def _resolve_or_none(self, ref: str) -> Version | None:
@@ -301,7 +301,7 @@ class TimeMachine:
         try:
             return self._require(ref)
         except ValueError as exc:
-            logger.warning("referência inválida '%s' em %s: %s", ref, self.url, exc)
+            logger.warning("invalid reference '%s' at %s: %s", ref, self.url, exc)
             return None
 
     def _snapshot_path(self, version: Version) -> Path:
@@ -311,12 +311,12 @@ class TimeMachine:
         """Read the version's snapshot JSON; missing/unreadable becomes ``None``."""
         path = self._snapshot_path(version)
         if not path.is_file():
-            logger.warning("snapshot '%s' da versão %s não encontrado", version.snapshot, version.id)
+            logger.warning("snapshot '%s' of version %s not found", version.snapshot, version.id)
             return None
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
         except Exception as exc:
-            logger.warning("snapshot ilegível %s: %s", path, exc)
+            logger.warning("unreadable snapshot %s: %s", path, exc)
             return None
         return data if isinstance(data, dict) else None
 
@@ -347,7 +347,7 @@ class TimeMachine:
         for rel, digest in sorted(version.files.items()):
             blob = self.store.store.get(digest)
             if blob is None:
-                logger.warning("blob %s ausente para '%s' na versão %s", digest, rel, version.id)
+                logger.warning("blob %s missing for '%s' at version %s", digest, rel, version.id)
             pages.append(
                 ArchivedPage(
                     path=rel,

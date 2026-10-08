@@ -64,11 +64,11 @@ async def fetch_page(url: str) -> dict:
 def validate_selector(selector: str) -> None:
     """Raise ``ValueError`` when ``selector`` is blank or not valid CSS."""
     if selector is None or not str(selector).strip():
-        raise ValueError("O seletor CSS não pode estar vazio")
+        raise ValueError("The CSS selector cannot be empty")
     try:
         compile_selector(selector)
     except (SelectorSyntaxError, NotImplementedError) as exc:
-        raise ValueError(f"Seletor CSS inválido: {selector!r} ({exc})") from exc
+        raise ValueError(f"Invalid CSS selector: {selector!r} ({exc})") from exc
 
 
 def preview_selector(html: str, selector: str, limit: int = 50) -> list[SelectorMatch]:
@@ -176,7 +176,7 @@ def _select(soup: BeautifulSoup, selector: str) -> list[Tag]:
     try:
         return soup.select(selector)
     except (SelectorSyntaxError, NotImplementedError) as exc:
-        raise ValueError(f"Seletor CSS inválido: {selector!r} ({exc})") from exc
+        raise ValueError(f"Invalid CSS selector: {selector!r} ({exc})") from exc
 
 
 def _matches(elements: list[Tag], limit: int | None) -> list[SelectorMatch]:

@@ -1,6 +1,6 @@
 """The reference catalog: one card per captured page, searchable.
 
-A card is what the plan calls a *referência*: the screenshot, the design tokens that
+A card is what the plan calls a *reference*: the screenshot, the design tokens that
 came off the page, the source URL, when it was captured, and tags the user defined.
 Cards live in one SQLite file so they can be filtered by tag, by dominant colour, by
 site or by date without loading the screenshots.
@@ -8,7 +8,7 @@ site or by date without loading the screenshots.
 Two design decisions worth stating:
 
 * The screenshot embedding lives in its own table, keyed by card. That is what makes
-  "moodboards escuros com cards arredondados" possible — the description is embedded
+  "dark moodboards with rounded cards" possible — the description is embedded
   and compared against the *image* vector, not against the page text.
 * Colours are indexed by hex in a side table, because "find captures with this accent"
   is a query over `json_each(palette)`, and doing it on every search would scan every

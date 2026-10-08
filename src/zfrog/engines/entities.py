@@ -28,14 +28,14 @@ def _confidence_text(value: object) -> str:
 
 def to_markdown(url: str, result: dict) -> str:
     """Render an entity result as Markdown (table of entities plus counts)."""
-    lines = [f"# Entidades — {url}", ""]
+    lines = [f"# Entities — {url}", ""]
 
     if result.get("error"):
         lines += [f"> {result['error']}", ""]
 
     entities = result.get("entities") or []
     if entities:
-        lines += ["| Nome | Tipo | Confiança |", "| --- | --- | --- |"]
+        lines += ["| Name | Type | Confidence |", "| --- | --- | --- |"]
         for entity in entities:
             name = str(entity.get("name") or "").replace("|", "\\|").replace("\n", " ")
             lines.append(
@@ -43,11 +43,11 @@ def to_markdown(url: str, result: dict) -> str:
             )
         lines.append("")
     else:
-        lines += ["Nenhuma entidade encontrada.", ""]
+        lines += ["No entities found.", ""]
 
     counts = result.get("counts") or {}
     if counts:
-        lines.append("## Contagem por tipo")
+        lines.append("## Count by type")
         lines += [f"- {entity_type}: {count}" for entity_type, count in counts.items()]
         lines.append("")
 
@@ -70,7 +70,7 @@ class EntitiesEngine(EngineAdapter):
         url = str(job.url)
 
         if on_progress:
-            on_progress("Extraindo entidades...")
+            on_progress("Extracting entities...")
 
         html = ""
         try:
@@ -80,7 +80,7 @@ class EntitiesEngine(EngineAdapter):
                 html = response.text
                 logs.append(f"Fetched {len(html)} bytes from {url}")
         except Exception as exc:
-            logs.append(f"Falha ao buscar {url}: {exc}")
+            logs.append(f"Failed to fetch {url}: {exc}")
 
         text = extract_text(html)
         if text:
@@ -108,7 +108,7 @@ class EntitiesEngine(EngineAdapter):
         md_path.write_text(to_markdown(url, result), encoding="utf-8")
 
         if on_progress:
-            on_progress("Entidades concluídas")
+            on_progress("Entities complete")
 
         return EngineResult(
             output_dir=output_dir,

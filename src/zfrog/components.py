@@ -311,33 +311,33 @@ def component_to_markdown(component: ComponentExtract) -> str:
     box = component.box
 
     lines = [
-        f"# Componente — {component.label}",
+        f"# Component — {component.label}",
         "",
-        f"Fonte: {component.url}",
-        f"Seletor: `{component.selector}`"
-        + (f" — {component.match_count} correspondência(s), extraída a primeira"
+        f"Source: {component.url}",
+        f"Selector: `{component.selector}`"
+        + (f" — {component.match_count} match(es), first one extracted"
            if component.match_count > 1 else ""),
         "",
-        "## Caixa",
+        "## Box",
         "",
         f"{int(box.get('width', 0))}×{int(box.get('height', 0))} px"
-        f" em ({int(box.get('x', 0))}, {int(box.get('y', 0))})",
+        f" at ({int(box.get('x', 0))}, {int(box.get('y', 0))})",
         "",
         "## Layout",
         "",
         _pairs(groups["layout"]),
         "",
-        "## Cor e superfície",
+        "## Color and surface",
         "",
         _pairs(groups["paint"]),
         "",
-        "## Tipografia",
+        "## Typography",
         "",
         _pairs(groups["typography"]),
     ]
 
     if component.children:
-        lines += ["", "## Filhos diretos", ""]
+        lines += ["", "## Direct children", ""]
         for child in component.children[:20]:
             cls = f".{child['cls'].split()[0]}" if child.get("cls") else ""
             text = f" — {child['text'][:50]}" if child.get("text") else ""
@@ -348,7 +348,7 @@ def component_to_markdown(component: ComponentExtract) -> str:
 
     lines += ["", "## HTML", "", "```html", component.html.strip(), "```"]
     if component.truncated:
-        lines += ["", f"> Markup truncado em {_MAX_HTML_CHARS} caracteres."]
+        lines += ["", f"> Markup truncated at {_MAX_HTML_CHARS} characters."]
 
     return "\n".join(lines) + "\n"
 

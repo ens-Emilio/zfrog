@@ -48,9 +48,9 @@ MAX_ERROR_CHARS = 200
 # Worst first: this is the sort order of the findings.
 SEVERITY_ORDER = {"blocking": 0, "warning": 1, "info": 2}
 RISK_LABELS = {
-    "restricted": "Conteúdo restrito para coleta automatizada",
-    "caution": "Coleta automatizada exige atenção",
-    "clear": "Nenhuma restrição aparente para coleta automatizada",
+    "restricted": "Content restricted for automated collection",
+    "caution": "Automated collection requires attention",
+    "clear": "No apparent restrictions for automated collection",
 }
 
 # Crawlers that collect content for AI training/inference. A robots.txt that
@@ -59,8 +59,8 @@ RISK_LABELS = {
 AI_CRAWLERS = ("gptbot", "ccbot", "google-extended", "anthropic-ai")
 
 LEGAL_NOTICE = (
-    "Esta é uma leitura automática dos termos e do robots.txt; "
-    "não constitui orientação jurídica."
+    "This is an automated reading of the terms and robots.txt; "
+    "it does not constitute legal advice."
 )
 
 
@@ -131,12 +131,12 @@ def _risk(findings: list[TosFinding]) -> str:
 def _summary(url: str, risk: str, findings: list[TosFinding]) -> str:
     """One user-facing paragraph: verdict, counts, and the legal-advice caveat."""
     counts = Counter(f.severity for f in findings)
-    parts = [f"{RISK_LABELS.get(risk, risk)} — {url or 'documento informado'}: {len(findings)} sinal(is)."]
+    parts = [f"{RISK_LABELS.get(risk, risk)} — {url or 'given document'}: {len(findings)} sign(s)."]
     if counts:
         detail = ", ".join(f"{counts[sev]} {sev}" for sev in ("blocking", "warning", "info") if counts[sev])
-        parts.append(f"Gravidade: {detail}.")
+        parts.append(f"Severity: {detail}.")
     else:
-        parts.append("Nenhum sinal de restrição encontrado nos documentos analisados.")
+        parts.append("No restriction signs found in the analyzed documents.")
     parts.append(LEGAL_NOTICE)
     return " ".join(parts)
 
@@ -261,20 +261,20 @@ def robots_signals(base_url: str, robots_txt: str, path: str = "/") -> list[TosF
                 value, raw = matched[1], matched[2]
                 if value == "/":
                     kind = "robots_block_all"
-                    detail = "robots.txt proíbe o acesso de qualquer crawler a todo o site."
+                    detail = "robots.txt denies any crawler access to the whole site."
                 else:
                     kind = "robots_disallow_path"
-                    detail = f"robots.txt proíbe o acesso de qualquer crawler a {value}."
+                    detail = f"robots.txt denies any crawler access to {value}."
                 findings.append(TosFinding(kind, "blocking", detail, raw, source))
         bots = [bot for bot in AI_CRAWLERS if bot in group.agents]
         if bots:
             matched = _matching_rule(group.rules, target)
             if matched and matched[0] == "disallow":
-                detail = f"robots.txt bloqueia crawlers de IA: {', '.join(bots)}."
+                detail = f"robots.txt blocks AI crawlers: {', '.join(bots)}."
                 findings.append(TosFinding("ai_crawler_disallow", "warning", detail, matched[2], source))
         for directive, value, raw in group.rules:
             if directive == "crawl-delay" and value:
-                detail = f"robots.txt pede um intervalo de {value} entre requisições."
+                detail = f"robots.txt asks for a {value} interval between requests."
                 findings.append(TosFinding("crawl_delay", "info", detail, raw, source))
 
     return _dedupe(_order(findings))
@@ -297,12 +297,12 @@ class _Phrase:
     requires: tuple[str, ...] = ()
 
 
-# Portuguese and English wording that restricts automated collection.
+# Folded PT and EN wording that restricts automated collection.
 _PHRASES = (
     _Phrase(
         kind="automated_collection_prohibited",
         severity="blocking",
-        detail="Os termos proíbem coleta automatizada (robôs, scraping ou mineração de dados).",
+        detail="The terms prohibit automated collection (robots, scraping or data mining).",
         terms=(
             "proibido o uso de robos",
             "proibido o uso de bots",
@@ -312,32 +312,52 @@ _PHRASES = (
             "meios automatizados",
             "data mining",
             "mineracao de dados",
+            "use of robots is prohibited",
+            "use of bots is prohibited",
+            "crawling is prohibited",
         ),
     ),
     _Phrase(
         kind="unauthorized_reproduction",
         severity="warning",
-        detail="Os termos restringem a reprodução do conteúdo sem autorização.",
-        terms=("reproducao nao autorizada", "reproducao proibida"),
+        detail="The terms restrict reproduction of the content without authorization.",
+        terms=(
+            "unauthorized reproduction",
+            "reproduction is prohibited",
+            "reproducao nao autorizada",
+            "reproducao proibida",
+        ),
     ),
     _Phrase(
         kind="copyright_reproduction",
         severity="warning",
-        detail="Os termos reservam os direitos de reprodução do conteúdo.",
+        detail="The terms reserve the rights to reproduce the content.",
         terms=("reproduction",),
         requires=("all rights reserved",),
     ),
     _Phrase(
         kind="rate_limit",
         severity="warning",
-        detail="Os termos impõem limite de requisições.",
-        terms=("rate limit", "limite de requisicoes", "limites de requisicoes"),
+        detail="The terms impose a rate limit on requests.",
+        terms=(
+            "rate limit",
+            "rate limiting",
+            "limit the number of requests",
+            "limite de requisicoes",
+            "limites de requisicoes",
+        ),
     ),
     _Phrase(
         kind="account_termination",
         severity="warning",
-        detail="Os termos preveem encerramento da conta por uso automatizado.",
-        terms=("conta sera encerrada", "conta podera ser encerrada", "terminate your account"),
+        detail="The terms provide for account termination over automated use.",
+        terms=(
+            "account will be terminated",
+            "account may be terminated",
+            "terminate your account",
+            "conta sera encerrada",
+            "conta podera ser encerrada",
+        ),
     ),
 )
 
@@ -379,14 +399,14 @@ def terms_signals(html: str, url: str) -> list[TosFinding]:
         TosFinding(
             kind="legal_notice",
             severity="info",
-            detail="Verificação automática dos documentos; não substitui orientação jurídica.",
+            detail="Automated review of the documents; not a substitute for legal advice.",
             evidence=LEGAL_NOTICE,
             source=url,
         )
     )
     return _dedupe(_order(findings))
 
-# Link keywords that mark a Terms/Privacy page. Folded, so "condições" matches
+# Link keywords that mark a Terms/Privacy page. Folded, so "condicoes" matches
 # "condicoes" and "Privacidade" matches "privacidade".
 _TERMS_KEYWORDS = ("termos", "terms", "legal", "condicoes", "privacidade", "privacy")
 
@@ -409,7 +429,7 @@ def find_terms_url(html: str, base_url: str) -> str | None:
     try:
         soup = BeautifulSoup(html, "lxml")
     except Exception:
-        logger.debug("HTML ilegível ao procurar o link de termos")
+        logger.debug("Unreadable HTML while looking for the terms link")
         return None
     for anchor in soup.find_all("a", href=True):
         href = str(anchor.get("href") or "").strip()
@@ -455,13 +475,13 @@ async def _get_text(
     try:
         response = await client.get(url)
     except Exception as exc:  # DNS, TLS, timeout, malformed URL: all just signals
-        logger.debug("Falha ao buscar %s: %s", url, exc)
+        logger.debug("Failed to fetch %s: %s", url, exc)
         errors.append(f"{label}: {exc}")
         return ""
     if response.status_code == 200:
         return response.text
     if tolerate_missing:
-        logger.debug("Sem conteúdo em %s (HTTP %s)", url, response.status_code)
+        logger.debug("No content at %s (HTTP %s)", url, response.status_code)
     else:
         errors.append(f"{label}: HTTP {response.status_code}")
     return ""
@@ -494,7 +514,7 @@ async def check_site(url: str, fetch_terms: bool = True) -> TosReport:
                 findings.extend(robots_signals(url, robots_txt, _path_of(url)))
 
             if fetch_terms:
-                home = await _get_text(client, url, "página inicial", errors)
+                home = await _get_text(client, url, "homepage", errors)
                 if home:
                     terms_url = find_terms_url(home, url)
                     terms_html = ""
@@ -505,6 +525,6 @@ async def check_site(url: str, fetch_terms: bool = True) -> TosReport:
                     else:
                         findings.extend(terms_signals(home, url))
     except Exception as exc:  # nothing below may escape: callers show this to users
-        logger.warning("Falha ao verificar %s: %s", url, exc)
-        errors.append(f"verificação: {exc}")
+        logger.warning("Check of %s failed: %s", url, exc)
+        errors.append(f"check: {exc}")
     return _build(url, findings, _error_text(errors))

@@ -93,7 +93,7 @@ def _parse_int(value: str, *, field: str, entry: str) -> int:
     try:
         return int(text)
     except ValueError:
-        logger.warning("regions: %s inválido em %r: %r", field, entry, value)
+        logger.warning("regions: %s invalid in %r: %r", field, entry, value)
         return 0
 
 def _parse_region(entry: str, local: str) -> Region:
@@ -207,13 +207,13 @@ def _matches_residency(region: Region, tokens: set[str]) -> bool:
     return bool(tokens & _name_parts(region.name))
 
 def _describe(region: Region, score: float, *, residency: bool) -> str:
-    """Human-readable (Portuguese) justification for a chosen region."""
-    bits = [f"latência {region.latency_ms} ms", f"{region.workers} worker(s)"]
+    """Human-readable (English) justification for a chosen region."""
+    bits = [f"latency {region.latency_ms} ms", f"{region.workers} worker(s)"]
     if region.name == _local_name():
-        bits.append("região local")
+        bits.append("local region")
     if residency:
-        bits.append("residência de dados pelo domínio")
-    return f"{region.name}: " + ", ".join(bits) + f" (pontuação {score:.2f})"
+        bits.append("data residency by domain")
+    return f"{region.name}: " + ", ".join(bits) + f" (score {score:.2f})"
 
 def route(
     url: str,
@@ -246,8 +246,8 @@ def route(
         return RouteDecision(
             region=local,
             reason=(
-                "nenhuma região elegível (desativada ou sem workers); "
-                f"processando na região local {local}"
+                "no eligible region (disabled or without workers); "
+                f"processing in local region {local}"
             ),
             score=0.0,
         )
@@ -297,7 +297,7 @@ async def dispatch(url: str, job: dict, regions: list[Region] | None = None) -> 
     }
 
 def data_residency_note(url: str, region: str) -> str:
-    """One-sentence Portuguese note telling the user where the copy is processed."""
-    host = urlparse(url).hostname or url.strip() or "esta página"
+    """One-sentence English note telling the user where the copy is processed."""
+    host = urlparse(url).hostname or url.strip() or "this page"
     target = (region or "").strip() or _local_name()
-    return f"Os dados de {host} serão processados na região {target}."
+    return f"Data from {host} will be processed in region {target}."

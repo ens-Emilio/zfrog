@@ -103,7 +103,7 @@ def checksum_for(asset: Any) -> str:
     try:
         canonical = json.dumps(document, sort_keys=True, ensure_ascii=False)
     except (TypeError, ValueError) as exc:
-        raise ValueError(f"o item não pode ser resumido em um checksum: {exc}") from exc
+        raise ValueError(f"the item cannot be summarized into a checksum: {exc}") from exc
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 def verify_entry(entry: Any, asset: Any) -> bool:
@@ -140,7 +140,7 @@ def build_index(assets: Iterable[Any], source: str = "") -> dict:
         "count": len(entries),
         "assets": [asdict(entry) for entry in entries],
     }
-    logger.info("Índice com %d itens gerado a partir de %s", index["count"], source or "local")
+    logger.info("Index with %d items generated from %s", index["count"], source or "local")
     return index
 
 def index_from_marketplace(marketplace: Marketplace | None = None, source: str = "") -> dict:
@@ -151,7 +151,7 @@ def index_from_marketplace(marketplace: Marketplace | None = None, source: str =
     """
     store = marketplace if marketplace is not None else Marketplace()
     index = build_index(store.list(), source=source)
-    logger.info("Índice lido de %s: %d itens", store.root, index["count"])
+    logger.info("Index read from %s: %d items", store.root, index["count"])
     return index
 
 # ── files ───────────────────────────────────────────────────────────
@@ -176,7 +176,7 @@ def write_index(path: Path, index: dict) -> Path:
     except BaseException:
         tmp_path.unlink(missing_ok=True)
         raise
-    logger.info("Índice gravado em %s", target)
+    logger.info("Index written to %s", target)
     return target
 
 def read_index(path: Path) -> dict:
@@ -190,25 +190,25 @@ def read_index(path: Path) -> dict:
     try:
         text = source.read_text(encoding="utf-8")
     except OSError as exc:
-        raise ValueError(f"não foi possível ler o índice {source}: {exc}") from exc
+        raise ValueError(f"could not read the index {source}: {exc}") from exc
     try:
         document = json.loads(text)
     except ValueError as exc:
-        raise ValueError(f"o índice {source} não é JSON válido: {exc}") from exc
+        raise ValueError(f"the index {source} is not valid JSON: {exc}") from exc
     return _validate_index(document, source=str(source))
 
 def _validate_index(document: Any, source: str = "") -> dict:
     """Return ``document`` when it is a usable index, or raise :class:`ValueError`."""
     where = f" em {source}" if source else ""
     if not isinstance(document, dict):
-        raise ValueError(f"o índice{where} precisa ser um objeto JSON com 'version' e 'assets'")
+        raise ValueError(f"the index{where} must be a JSON object with 'version' and 'assets'")
     version = document.get("version")
     if version != INDEX_VERSION:
         raise ValueError(
-            f"versão de índice não suportada{where}: {version!r} (esperada {INDEX_VERSION})"
+            f"unsupported index version{where}: {version!r} (expected {INDEX_VERSION})"
         )
     if not isinstance(document.get("assets"), list):
-        raise ValueError(f"o índice{where} precisa de uma lista 'assets'")
+        raise ValueError(f"the index{where} needs an 'assets' list")
     return document
 
 # ── merging a remote index into a local marketplace ─────────────────
@@ -237,7 +237,7 @@ def merge_index(
     document = _validate_index(index)
     store = marketplace if marketplace is not None else Marketplace()
     if trust:
-        logger.info("trust=True: a intenção é explícita, mas os payloads continuam validados")
+        logger.info("trust=True: the intent is explicit, but payloads are still validated")
 
     result = SyncResult()
     with tempfile.TemporaryDirectory(prefix=_CHECK_ROOT_PREFIX) as check_root:
@@ -247,7 +247,7 @@ def merge_index(
                 entry = _entry_from(raw)
             except ValueError as exc:
                 result.skipped += 1
-                result.errors.append(f"item inválido no índice: {exc}")
+                result.errors.append(f"invalid item in the index: {exc}")
                 continue
 
             local = store.get(entry.id)
@@ -268,7 +268,7 @@ def merge_index(
                 result.updated += 1
 
     logger.info(
-        "Índice sincronizado: %d novos, %d atualizados, %d iguais, %d ignorados",
+        "Index synced: %d new, %d updated, %d unchanged, %d skipped",
         result.added,
         result.updated,
         result.unchanged,
@@ -289,13 +289,13 @@ def _publish_entry(store: Marketplace, checker: Marketplace, entry: IndexEntry) 
     checked = _publish(checker, entry)
     if checked.id != entry.id:
         raise ValueError(
-            f"o id {entry.id!r} não corresponde a {entry.kind}/{entry.name!r} "
-            f"(o Marketplace usaria {checked.id!r})"
+            f"the id {entry.id!r} does not match {entry.kind}/{entry.name!r} "
+            f"(the Marketplace would use {checked.id!r})"
         )
 
     local = store.get(entry.id)
     if local is not None and local.version == entry.version and local.payload != entry.payload:
-        logger.info("Item %s trocado por outro payload na mesma versão", entry.id)
+        logger.info("Item %s swapped for a different payload at the same version", entry.id)
         store.remove(entry.id)
     return _publish(store, entry)
 
@@ -325,7 +325,7 @@ async def fetch_index(index_url: str, client: httpx.AsyncClient | None = None) -
     """
     url = _text(index_url)
     if not url:
-        raise ValueError("o índice precisa de uma URL")
+        raise ValueError("the index needs a URL")
 
     owns_client = client is None
     http = client or httpx.AsyncClient(
@@ -335,7 +335,7 @@ async def fetch_index(index_url: str, client: httpx.AsyncClient | None = None) -
         response = await http.get(url)
         response.raise_for_status()
     except httpx.HTTPError as exc:
-        raise ValueError(f"índice remoto indisponível em {url}: {exc}") from exc
+        raise ValueError(f"remote index unavailable at {url}: {exc}") from exc
     finally:
         if owns_client:
             await http.aclose()
@@ -343,20 +343,20 @@ async def fetch_index(index_url: str, client: httpx.AsyncClient | None = None) -
     try:
         document = response.json()
     except ValueError as exc:
-        raise ValueError(f"o índice em {url} não é JSON válido: {exc}") from exc
+        raise ValueError(f"the index at {url} is not valid JSON: {exc}") from exc
     return _validate_index(document, source=url)
 
 def index_summary(index: dict) -> str:
-    """Return one Portuguese sentence about ``index``: how many items, which kinds, from where."""
+    """Return one English sentence about ``index``: how many items, which kinds, from where."""
     document = _validate_index(index)
     source = _text(document.get("source")) or "local"
     assets = document["assets"]
     if not assets:
-        return f"O índice de {source} não tem nenhum item publicado."
+        return f"The index from {source} has no published items."
 
-    kinds = Counter(_text(_get(asset, "kind")).lower() or "desconhecido" for asset in assets)
+    kinds = Counter(_text(_get(asset, "kind")).lower() or "unknown" for asset in assets)
     detail = ", ".join(f"{count} {kind}" for kind, count in sorted(kinds.items()))
-    return f"O índice de {source} tem {len(assets)} itens ({detail})."
+    return f"The index from {source} has {len(assets)} items ({detail})."
 
 # ── helpers ─────────────────────────────────────────────────────────
 
@@ -371,14 +371,14 @@ def _entry_from(asset: Any) -> IndexEntry:
     name = _text(_get(asset, "name"))
     asset_id = _text(_get(asset, "id"))
     if not kind:
-        raise ValueError(f"item sem tipo: {name!r}")
+        raise ValueError(f"item without type: {name!r}")
     if not name:
-        raise ValueError(f"item {asset_id or kind} sem nome")
+        raise ValueError(f"item {asset_id or kind} without name")
     if not asset_id:
-        raise ValueError(f"item {kind}/{name!r} sem id")
+        raise ValueError(f"item {kind}/{name!r} without id")
     payload = _get(asset, "payload")
     if not isinstance(payload, dict) or not payload:
-        raise ValueError(f"item {asset_id} sem payload utilizável")
+        raise ValueError(f"item {asset_id} without usable payload")
 
     entry = IndexEntry(
         id=asset_id,

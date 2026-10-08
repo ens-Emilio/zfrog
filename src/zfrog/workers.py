@@ -44,7 +44,7 @@ REGISTRY_FILE_NAME = "workers.json"
 DEFAULT_REGION = "local"
 
 #: Reason returned when there is nothing to assign the job to.
-NO_WORKER_REASON = "nenhum worker disponível"
+NO_WORKER_REASON = "no worker available"
 
 
 @dataclass
@@ -143,8 +143,6 @@ class WorkerRegistry:
     def __init__(self, path: Path | None = None) -> None:
         self.path = Path(path) if path is not None else _default_path()
 
-    # ── persistence ──────────────────────────────────────────────────────────
-
     def _load(self) -> dict[str, Worker]:
         """Read the registry; a missing or corrupt file yields an empty inventory."""
         if not self.path.exists():
@@ -152,17 +150,17 @@ class WorkerRegistry:
         try:
             raw = json.loads(self.path.read_text(encoding="utf-8"))
         except (OSError, ValueError) as exc:
-            logger.warning("Registro de workers ilegível em %s (%s); tratando como vazio", self.path, exc)
+            logger.warning("Unreadable worker registry at %s (%s); treating as empty", self.path, exc)
             return {}
         if not isinstance(raw, list):
-            logger.warning("Registro de workers inválido em %s (esperado uma lista); tratando como vazio", self.path)
+            logger.warning("Invalid worker registry in %s (expected a list); treating as empty", self.path)
             return {}
 
         workers: dict[str, Worker] = {}
         for item in raw:
             worker = self._from_record(item)
             if worker is None:
-                logger.warning("Registro de workers em %s tem um item inválido; item ignorado", self.path)
+                logger.warning("Worker registry in %s has an invalid item; item skipped", self.path)
                 continue
             workers[worker.id] = worker
         return workers
@@ -230,7 +228,7 @@ class WorkerRegistry:
         """
         worker_id = str(worker_id).strip()
         if not worker_id:
-            raise ValueError("worker_id não pode ser vazio")
+            raise ValueError("worker_id cannot be empty")
         region = str(region).strip() or DEFAULT_REGION
         capacity = max(0, _as_int(capacity, 1))
         now = _now()
@@ -269,7 +267,7 @@ class WorkerRegistry:
         workers = self._load()
         worker = workers.get(str(worker_id))
         if worker is None:
-            raise ValueError(f"worker desconhecido: {worker_id}")
+            raise ValueError(f"unknown worker: {worker_id}")
 
         worker.last_seen = _now()
         if running is not None:
@@ -313,9 +311,8 @@ class WorkerRegistry:
         for worker_id in expired:
             del workers[worker_id]
         self._save(workers)
-        logger.info("Removidos %d workers sem heartbeat: %s", len(expired), ", ".join(expired))
+        logger.info("Removed %d workers without heartbeat: %s", len(expired), ", ".join(expired))
         return expired
-
     # ── assignment ───────────────────────────────────────────────────────────
 
     def assign(self, url: str, preferred_region: str | None = None) -> Assignment:
@@ -337,7 +334,7 @@ class WorkerRegistry:
             return Assignment(
                 worker=local,
                 region=region,
-                reason=f"worker {local.id} na região {region} (livre: {local.free()}/{local.capacity})",
+                reason=f"worker {local.id} in region {region} (free: {local.free()}/{local.capacity})",
             )
 
         elsewhere = self._pick(
@@ -348,15 +345,14 @@ class WorkerRegistry:
                 worker=elsewhere,
                 region=elsewhere.region,
                 reason=(
-                    f"nenhum worker vivo em {region}; usando {elsewhere.id} na região "
-                    f"{elsewhere.region} (livre: {elsewhere.free()}/{elsewhere.capacity})"
+                    f"no live worker in {region}; using {elsewhere.id} in region "
+                    f"{elsewhere.region} (free: {elsewhere.free()}/{elsewhere.capacity})"
                 ),
             )
 
         return Assignment(worker=None, region=region, reason=NO_WORKER_REASON)
 
     def _pick(self, candidates: list[Worker]) -> Worker | None:
-        """Most free capacity among usable workers, ties broken by id."""
         usable = [worker for worker in candidates if worker.enabled]
         if not usable:
             return None
@@ -369,8 +365,7 @@ class WorkerRegistry:
         workers = self._load()
         worker = workers.get(str(worker_id))
         if worker is None:
-            raise ValueError(f"worker desconhecido: {worker_id}")
-
+            raise ValueError(f"unknown worker: {worker_id}")
         worker.running += 1
         worker.last_seen = _now()
         self._save(workers)
@@ -381,7 +376,7 @@ class WorkerRegistry:
         workers = self._load()
         worker = workers.get(str(worker_id))
         if worker is None:
-            raise ValueError(f"worker desconhecido: {worker_id}")
+            raise ValueError(f"unknown worker: {worker_id}")
 
         worker.running = max(0, worker.running - 1)
         worker.last_seen = _now()
@@ -424,7 +419,7 @@ class WorkerRegistry:
         """Whether ``worker`` heartbeated within ``settings.workers_heartbeat_ttl_s``."""
         seen = _parse_time(worker.last_seen)
         if seen is None:
-            logger.warning("Worker %s tem last_seen inválido (%r); considerado expirado", worker.id, worker.last_seen)
+            logger.warning("Worker %s has invalid last_seen (%r); considered expired", worker.id, worker.last_seen)
             return False
         ttl = max(0, int(settings.workers_heartbeat_ttl_s))
         return (datetime.now(timezone.utc) - seen).total_seconds() <= ttl
@@ -463,7 +458,7 @@ async def heartbeat_loop(
                 store.register(worker_id, region)
             store.heartbeat(worker_id)
         except Exception as exc:  # noqa: BLE001 - a heartbeat must never raise
-            logger.warning("Falha ao registrar heartbeat do worker %s: %s", worker_id, exc)
+            logger.warning("Failed to register heartbeat for worker %s: %s", worker_id, exc)
 
         try:
             await asyncio.wait_for(stop.wait(), timeout=max(0.0, float(interval_s)))

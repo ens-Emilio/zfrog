@@ -1,8 +1,8 @@
 """The ``jump`` engine: capture a page and turn it into a reference card.
 
-This is the motor the plan describes as the heart of zfrog — "sempre. É o motor
-principal". It renders the page, takes a full-page screenshot, extracts the design
-tokens, and writes a card into the catalog so the capture is findable later.
+This is the motor the plan describes as the heart of zfrog — the main engine. It renders
+the page, takes a full-page screenshot, extracts the design tokens, and
+writes a card into the catalog so the capture is findable later.
 
 It complements the other motors rather than replacing them: Playwright/wget/Scrapy
 still do the *downloading*, and this reads what they produced. That is why the token
@@ -72,7 +72,7 @@ class JumpEngine(EngineAdapter):
         token = getattr(job, "token_breakpoint", None) or DEFAULT_BREAKPOINT
         width, height = BREAKPOINTS.get(token, BREAKPOINTS[DEFAULT_BREAKPOINT])
 
-        note(f"Abrindo {job.url} em {token} ({width}×{height})")
+        note(f"Opening {job.url} in {token} ({width}×{height})")
 
         # Imported here so the module stays importable without Playwright installed.
         from zfrog.engines.playwright import get_pool, session_state_for
@@ -89,7 +89,7 @@ class JumpEngine(EngineAdapter):
         # a screenshot, which matters once a catalog has hundreds of them.
         image_format = (job.screenshot_format or "png").lower()
         if image_format not in ("png", "webp"):
-            raise ValueError(f"Formato de imagem não suportado: {image_format} (use png ou webp)")
+            raise ValueError(f"Unsupported image format: {image_format} (use png or webp)")
 
         full_page = job.screenshot_full_page
         screenshot_path = shots_dir / f"{token}.{image_format}"
@@ -103,13 +103,13 @@ class JumpEngine(EngineAdapter):
             await page.wait_for_timeout(600)
 
             note(
-                "Capturando screenshot de página inteira"
+                "Capturing full-page screenshot"
                 if full_page
-                else "Capturando screenshot do viewport"
+                else "Capturing viewport screenshot"
             )
             await page.screenshot(path=str(screenshot_path), full_page=full_page)
 
-            note("Lendo os tokens de design")
+            note("Reading design tokens")
             snapshot = await collect_snapshot(page)
             tokens = extract_tokens(snapshot)
             if not tokens.title:
@@ -123,7 +123,7 @@ class JumpEngine(EngineAdapter):
                 tokens_to_markdown(tokens), encoding="utf-8"
             )
             note(
-                f"{len(tokens.palette)} cores, {len(tokens.fonts)} famílias, "
+                f"{len(tokens.palette)} colors, {len(tokens.fonts)} font families, "
                 f"{len(tokens.assets)} assets"
             )
         finally:
@@ -146,9 +146,9 @@ class JumpEngine(EngineAdapter):
                 catalog=self.catalog,
             )
             note(
-                f"Referência registrada no catálogo: {card.id}"
+                f"Reference registered in the catalog: {card.id}"
                 if card is not None
-                else "Catálogo indisponível; a captura continua em disco"
+                else "Catalog unavailable; the capture remains on disk"
             )
 
         files = [path for path in output_dir.rglob("*") if path.is_file()]

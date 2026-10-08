@@ -42,7 +42,7 @@ class TongueEngine(EngineAdapter):
 
         selector = getattr(job, "selector", None)
         if not selector:
-            raise ValueError("O modo tongue exige um seletor CSS (use --selector)")
+            raise ValueError("tongue mode requires a CSS selector (use --selector)")
 
         from zfrog.components import (
             build_extract,
@@ -52,7 +52,7 @@ class TongueEngine(EngineAdapter):
         )
         from zfrog.engines.playwright import get_pool, session_state_for
 
-        note(f"Abrindo {job.url}")
+        note(f"Opening {job.url}")
         pool = await get_pool()
         context = await pool.get_context(storage_state=session_state_for(str(job.url)))
         page = await context.new_page()
@@ -61,7 +61,7 @@ class TongueEngine(EngineAdapter):
             await page.goto(str(job.url), wait_until="load", timeout=30_000)
             await page.wait_for_timeout(400)
 
-            note(f"Extraindo `{selector}`")
+            note(f"Extracting `{selector}`")
             raw = await collect_component(page, selector)
         finally:
             try:
@@ -71,10 +71,10 @@ class TongueEngine(EngineAdapter):
 
         component = build_extract(raw, url=str(job.url), selector=selector)
         if component is None:
-            raise ValueError(f"O seletor `{selector}` não encontrou nenhum elemento em {job.url}")
+            raise ValueError(f"The selector `{selector}` found no element at {job.url}")
 
         if component.match_count > 1:
-            note(f"{component.match_count} elementos casaram; extraído o primeiro")
+            note(f"{component.match_count} elements matched; extracted the first")
 
         (output_dir / "component.html").write_text(component.html, encoding="utf-8")
         (output_dir / "component.json").write_text(component_to_json(component), encoding="utf-8")

@@ -86,9 +86,9 @@ def _normalize_job_id(job_id: str) -> str:
     """
     value = str(job_id or "").strip()
     if not value:
-        raise ValueError("O id do job não pode estar vazio")
+        raise ValueError("The job id cannot be empty")
     if ".." in value or any(sep in value for sep in _PATH_SEPARATORS):
-        raise ValueError(f"Id de job inválido: {job_id!r}")
+        raise ValueError(f"Invalid job id: {job_id!r}")
     return value
 
 
@@ -100,7 +100,7 @@ def _require_text(text: str, what: str) -> str:
     """
     value = str(text or "").strip()
     if not value:
-        raise ValueError(f"{what} não pode estar vazia")
+        raise ValueError(f"{what} cannot be empty")
     return value
 
 
@@ -134,13 +134,13 @@ def _validate_selector(selector: str) -> None:
         from soupsieve import SelectorSyntaxError
         from soupsieve import compile as compile_selector
     except ImportError:
-        logger.warning("Validação de seletor CSS indisponível; aceitando %r", selector)
+        logger.warning("CSS selector validation unavailable; accepting %r", selector)
         return
 
     try:
         compile_selector(selector)
     except (SelectorSyntaxError, NotImplementedError) as exc:
-        raise ValueError(f"Seletor CSS inválido: {selector!r} ({exc})") from exc
+        raise ValueError(f"Invalid CSS selector: {selector!r} ({exc})") from exc
 
 
 def _clean_selector(selector: str) -> str:
@@ -175,14 +175,14 @@ class AnnotationStore:
         clean_job = _normalize_job_id(job_id)
         page = str(path or "").strip()
         if not page:
-            raise ValueError("O caminho da página não pode estar vazio")
+            raise ValueError("The page path cannot be empty")
 
         annotation = Annotation(
             id=_new_id(),
             job_id=clean_job,
             path=page,
             selector=_clean_selector(selector),
-            text=_require_text(text, "A anotação"),
+            text=_require_text(text, "The annotation"),
             author=str(author or "").strip(),
             created_at=_now(),
             tags=_clean_tags(tags),
@@ -192,7 +192,7 @@ class AnnotationStore:
         annotations = self._load(clean_job)
         annotations.append(annotation)
         self._save(clean_job, annotations)
-        logger.info("Anotação %s criada no job %s (%s)", annotation.id, clean_job, page)
+        logger.info("Annotation %s created on job %s (%s)", annotation.id, clean_job, page)
         return annotation
 
     def get(self, annotation_id: str) -> Annotation | None:
@@ -245,7 +245,7 @@ class AnnotationStore:
         job_id, annotations, annotation = self._require(annotation_id)
 
         if text is not None:
-            annotation.text = _require_text(text, "A anotação")
+            annotation.text = _require_text(text, "The annotation")
         if selector is not None:
             annotation.selector = _clean_selector(selector)
         if tags is not None:
@@ -277,7 +277,7 @@ class AnnotationStore:
         entry = Reply(
             id=_new_id(),
             author=str(author or "").strip(),
-            text=_require_text(text, "A resposta"),
+            text=_require_text(text, "Response"),
             created_at=_now(),
         )
         annotation.replies.append(asdict(entry))
@@ -345,14 +345,14 @@ class AnnotationStore:
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
         except json.JSONDecodeError as exc:
-            raise ValueError(f"Arquivo de anotações inválido ({path}): {exc}") from exc
+            raise ValueError(f"Invalid annotations file ({path}): {exc}") from exc
 
         if not isinstance(payload, dict):
-            raise ValueError(f"Arquivo de anotações inválido ({path}): esperado um objeto")
+            raise ValueError(f"Invalid annotations file ({path}): expected an object")
 
         records = payload.get("annotations", [])
         if not isinstance(records, list):
-            raise ValueError(f"Arquivo de anotações inválido ({path}): 'annotations' não é uma lista")
+            raise ValueError(f"Invalid annotations file ({path}): 'annotations' is not a list")
 
         return [self._from_dict(record, job_id, path) for record in records]
 
@@ -393,7 +393,7 @@ class AnnotationStore:
         """
         located = self._locate(annotation_id)
         if located is None:
-            raise ValueError(f"Anotação desconhecida: {annotation_id!r}")
+            raise ValueError(f"Unknown annotation: {annotation_id!r}")
 
         job_id, annotations, index = located
         return job_id, annotations, annotations[index]
@@ -401,7 +401,7 @@ class AnnotationStore:
     def _from_dict(self, record: object, job_id: str, path: Path) -> Annotation:
         """Build an Annotation from one JSON record."""
         if not isinstance(record, dict):
-            raise ValueError(f"Arquivo de anotações inválido ({path}): registro não é objeto")
+            raise ValueError(f"Invalid annotations file ({path}): record is not an object")
 
         return Annotation(
             id=str(record.get("id") or ""),
@@ -424,20 +424,20 @@ def _annotation_markdown(annotation: Annotation) -> list[str]:
     lines = [
         f"## [{check}] {annotation.path}",
         "",
-        f"- **Autor:** {annotation.author or 'anônimo'}",
-        f"- **Criada em:** {annotation.created_at}",
-        f"- **Atualizada em:** {annotation.updated_at}",
+        f"- **Author:** {annotation.author or 'anonymous'}",
+        f"- **Created at:** {annotation.created_at}",
+        f"- **Updated at:** {annotation.updated_at}",
     ]
     if annotation.selector:
-        lines.append(f"- **Seletor:** `{annotation.selector}`")
+        lines.append(f"- **Selector:** `{annotation.selector}`")
     if annotation.tags:
         lines.append(f"- **Tags:** {', '.join(annotation.tags)}")
 
     lines += ["", annotation.text, ""]
     if annotation.replies:
-        lines += ["**Respostas:**", ""]
+        lines += ["**Replies:**", ""]
         for reply in annotation.replies:
-            author = str(reply.get("author") or "anônimo")
+            author = str(reply.get("author") or "anonymous")
             lines.append(f"- **{author}** ({reply.get('created_at', '')}): {reply.get('text', '')}")
         lines.append("")
     return lines
@@ -445,11 +445,11 @@ def _annotation_markdown(annotation: Annotation) -> list[str]:
 
 def export_markdown(annotations: list[Annotation], job_id: str = "") -> str:
     """Render ``annotations`` as a readable review document, newest first."""
-    lines = [f"# Anotações do job `{job_id}`" if job_id else "# Anotações", ""]
+    lines = [f"# Annotations for job `{job_id}`" if job_id else "# Annotations", ""]
 
     ordered = sorted(annotations, key=lambda annotation: annotation.created_at, reverse=True)
     if not ordered:
-        lines.append("_Nenhuma anotação._")
+        lines.append("_No annotations._")
     for annotation in ordered:
         lines.extend(_annotation_markdown(annotation))
 
