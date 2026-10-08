@@ -106,11 +106,11 @@ jobs:
         working-directory: dashboard
         run: npx tsc --noEmit
 
-      # The image ships the standalone output, so a build that only typechecks is
-      # not enough: this is the step that would have caught the missing
-      # `output: "standalone"` in next.config.ts.
+      # Vite bundle check — catches broken imports/chunks that `tsc --noEmit`
+      # misses (e.g. a bad dynamic import). Previous comment mentioned
+      # Next.js standalone; this project uses Vite (TanStack Router).
       - name: Build
         working-directory: dashboard
         env:
-          NEXT_PUBLIC_API_URL: http://127.0.0.1:8000
-        run: npx next build
+          VITE_API_URL: http://127.0.0.1:8000
+        run: npm run build
