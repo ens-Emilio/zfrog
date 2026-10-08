@@ -1,10 +1,10 @@
 {
   "productName": "zfrog",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "identifier": "com.zfrog.desktop",
   "build": {
-    "beforeDevCommand": "sh -c 'npm --prefix dashboard run dev -- --port 3000 --host 127.0.0.1 2>/dev/null || npm --prefix ../dashboard run dev -- --port 3000 --host 127.0.0.1'",
-    "beforeBuildCommand": "sh -c 'npm --prefix dashboard run build 2>/dev/null || npm --prefix ../dashboard run build'",
+    "beforeDevCommand": "npm --prefix dashboard run dev -- --port 3000 --host 127.0.0.1",
+    "beforeBuildCommand": "",
     "devUrl": "http://localhost:3000",
     "frontendDist": "../dashboard/dist"
   },
