@@ -41,6 +41,9 @@ from zfrog.search import SNIPPET_MAX, SearchHit, SearchIndex
 
 logger = logging.getLogger(__name__)
 
+
+def _secret(v):  # type: ignore[no-untyped-def]
+    return v.get_secret_value() if hasattr(v, "get_secret_value") else v
 #: Backend names accepted by :func:`backend_for`, in fallback order.
 BACKENDS: tuple[str, ...] = ("sqlite", "meilisearch", "elasticsearch")
 
@@ -336,7 +339,7 @@ class SqliteBackend(SearchBackend):
 
     async def aclose(self) -> None:
         """Nothing to release: ``SearchIndex`` opens and closes its connection per call."""
-        return None
+        return
 
 
 def _encode_path(path: str) -> str:
@@ -373,9 +376,8 @@ class MeilisearchBackend(_HttpBackend):
         client: httpx.AsyncClient | None = None,
     ) -> None:
         super().__init__(settings.meilisearch_url if url is None else url, client=client)
-        self.key = settings.meilisearch_key if key is None else key
+        self.key = _secret(key if key is not None else settings.meilisearch_key)
         self.index_name = index or DEFAULT_INDEX
-
     def _headers(self) -> dict[str, str]:
         """JSON content type plus the API key, when one is configured."""
         headers = {"Content-Type": "application/json"}
@@ -491,8 +493,8 @@ class ElasticsearchBackend(_HttpBackend):
     ) -> None:
         super().__init__(settings.elasticsearch_url if url is None else url, client=client)
         self.index_name = index or settings.elasticsearch_index
-        self.user = settings.elasticsearch_user if user is None else user
-        self.password = settings.elasticsearch_password if password is None else password
+        self.user = _secret(user if user is not None else settings.elasticsearch_user)
+        self.password = _secret(password if password is not None else settings.elasticsearch_password)
 
     def _auth(self) -> httpx.Auth | None:
         """Basic auth when a user is configured (ES then needs the password too)."""

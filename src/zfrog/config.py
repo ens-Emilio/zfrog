@@ -4,6 +4,8 @@ from pathlib import Path
 
 from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
 class Settings(BaseSettings):
     """Zfrog application settings.
     
@@ -184,12 +186,11 @@ class Settings(BaseSettings):
     # Search backend: "sqlite" (built in) or an HTTP service
     search_backend: str = "sqlite"
     meilisearch_url: str = "http://127.0.0.1:7700"
-    meilisearch_key: str = ""
+    meilisearch_key: SecretStr = SecretStr("")
     elasticsearch_url: str = "http://127.0.0.1:9200"
     elasticsearch_index: str = "zfrog"
-    elasticsearch_user: str = ""
-    elasticsearch_password: str = ""
-
+    elasticsearch_user: SecretStr = SecretStr("")
+    elasticsearch_password: SecretStr = SecretStr("")
     # Worker registry and region-aware dispatch
     workers_heartbeat_ttl_s: int = 60
     worker_id: str = ""
