@@ -53,7 +53,7 @@
       "open": true
     },
     "updater": {
-      "pubkey": "RWTxRWRieKCQNNlLGk/z6iJJYmHSVETKTd0DJp2gecw7IqGXAv4nyY5V",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDM0OTBBMDc4NjI2NDQ1RjEKUldUeFJXUmllS0NRTk5sTEdrL3o2aUpKWW1IU1ZFVEtUZDBESnAyZ2VjdzdJcUdYQXY0bnlZNVYK",
       "endpoints": [
         "https://github.com/ens-Emilio/zfrog/releases/latest/download/latest.json"
       ]
