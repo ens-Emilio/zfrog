@@ -1,6 +1,6 @@
 [package]
 name = "zfrog-desktop"
-version = "0.1.2"
+version = "0.1.3"
 description = "Zfrog desktop — design reference engine"
 authors = ["Zfrog Contributors"]
 edition = "2021"

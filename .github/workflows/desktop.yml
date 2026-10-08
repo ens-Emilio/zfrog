@@ -62,10 +62,17 @@ jobs:
       - name: Verify sidecar
         run: python scripts/build-sidecar.py --check
 
+      - name: Install dashboard deps
+        working-directory: dashboard
+        run: npm ci
+
+      - name: Typecheck dashboard
+        working-directory: dashboard
+        run: npx tsc --noEmit
+
       - name: Build dashboard
         working-directory: dashboard
         run: npm run build
-
 
       - name: Build Tauri bundle
         uses: tauri-apps/tauri-action@v0
