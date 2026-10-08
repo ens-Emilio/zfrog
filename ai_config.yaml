@@ -1,0 +1,3 @@
+# Configuração de IA (LiteLLM)
+model: "ollama/qwen2.5"
+embedding: "sentence-transformers/all-MiniLM-L6-v2"

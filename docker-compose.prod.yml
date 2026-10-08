@@ -10,7 +10,7 @@
 #   - valkey:  Filas Celery, streams, estado compartilhado (fork open source do Redis)
 #   - api:     FastAPI + Uvicorn (porta 8000)
 #   - worker:  Celery worker para jobs
-#   - dashboard: Next.js (porta 3000)
+#   - dashboard: Vite + Nginx (porta 3000)
 #
 # Estado: TUDO que o Zfrog guarda fica no volume `zfrog-data`, montado em /app/data
 # e apontado por ZFROG_DATA_DIR. Sem isso cada store usaria um caminho relativo ao
@@ -105,9 +105,9 @@ services:
       context: ./dashboard
       dockerfile: Dockerfile
       args:
-        # O Next embute NEXT_PUBLIC_* no bundle em build time, então o valor precisa
+        # O Vite embute VITE_* no bundle em build time, então o valor precisa
         # ser a URL que o NAVEGADOR alcança (não o nome do serviço na rede interna).
-        NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:8000}
+        VITE_API_URL: ${PUBLIC_API_URL:-http://localhost:8000}
     ports:
       - "${DASHBOARD_BIND:-127.0.0.1}:3000:3000"
     depends_on:

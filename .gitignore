@@ -41,11 +41,19 @@ __pycache__/
 *.egg-info/
 dist/
 build/
-.eggs/
+
+# Rust / Tauri (gerado)
+src-tauri/target/
+src-tauri/gen/
+src-tauri/binaries/zfrog-api-*
+!src-tauri/binaries/.gitkeep
 
 # Virtual environment
 venv/
 .venv/
+
+# Cache / lint (têm .gitignore interno, mas o root garante se ele for apagado)
+.ruff_cache/
 
 # Environment files
 .env
@@ -69,3 +77,9 @@ htmlcov/
 
 # Docker
 .dockerignore
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+!.env.example
