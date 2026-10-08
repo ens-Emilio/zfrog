@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="Design system do zfrog — tokens, tipografia, espaçamento, componentes e regras de acessibilidade, herdados da landing.">
+<meta property="og:title" content="zfrog — Design System">
+<meta property="og:description" content="Tokens, tipografia e componentes do zfrog, como fonte única.">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="pt_BR">
+<meta name="theme-color" content="#FAFAF5" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111110" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/png" href="assets/mascot.png">
+<title>zfrog — Design System</title>
+<style>
+@layer od-layout {
+  :where(.od-stack,.od-row,.od-row-top,.od-cluster,.od-grid,.od-field,.od-stat,.od-cell,.od-tile) > :where(*) { min-width: 0; }
+  .od-stack   { display: flex; flex-direction: column; gap: var(--od-gap, 8px); }
+  .od-row     { display: flex; align-items: center; gap: var(--od-gap, 8px); }
+  .od-row-top { display: flex; align-items: flex-start; gap: var(--od-gap, 8px); }
+  .od-cluster { display: flex; flex-wrap: wrap; align-items: center; gap: var(--od-gap, 8px); }
+  .od-fill    { flex: 1 1 0; min-width: 0; }
+  .od-fixed   { flex: none; }
+  .od-grid    { display: grid; gap: var(--od-gap, 12px); grid-template-columns: repeat(var(--od-cols, 3), minmax(0, 1fr)); }
+  .od-stat, .od-field, .od-cell { display: grid; gap: var(--od-gap, 2px); }
+  :where(.od-stat,.od-field,.od-cell) > :where(*) { display: block; }
+  .od-tile { display: grid; grid-template-rows: auto 1fr; }
+  :where(.od-tile) > :where(*) { display: block; }
+  .od-media { display: block; width: 100%; height: auto; aspect-ratio: var(--od-ratio, auto); }
+  .od-media-cover { object-fit: cover; }
+  .od-truncate { display: block; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .od-nowrap  { white-space: nowrap; }
+  .od-keep    { word-break: keep-all; overflow-wrap: anywhere; }
+  .od-screen { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; height: 100%; }
+  .od-scroll { overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
+  .od-spacer { flex: none; visibility: hidden; pointer-events: none; }
+  .od-touch  { min-width: 44px; min-height: 44px; }
+}
+/* /OD-LAYOUT-PRIMITIVES v1 */
+
+@font-face{
+  font-family:'JetBrains Mono';
+  src:url('assets/fonts/jetbrains-mono-latin.woff2') format('woff2');
+  font-weight:100 800;font-style:normal;font-display:swap;
+}
+@font-face{
+  font-family:'JetBrains Mono';
+  src:url('assets/fonts/jetbrains-mono-italic-latin.woff2') format('woff2');
+  font-weight:400;font-style:italic;font-display:swap;
+}
+
+:root{
+  --papel:#FAFAF5;
+  --tinta:#111110;
+  --muted:#55554F;
+  --hairline:rgba(17,17,16,.28);
+  --hairline-soft:rgba(17,17,16,.14);
+  --acento:#3F6212;
+  --acento-soft:rgba(63,98,18,.10);
+  --raio:2px;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --pad:clamp(20px,6vw,96px);
+  --maxw:1120px;
+  --hover:100ms;
+  --secao-py:clamp(56px,9vw,128px);
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --papel:#111110;
+    --tinta:#EDEDE6;
+    --muted:#A8A89E;
+    --hairline:rgba(237,237,230,.24);
+    --hairline-soft:rgba(237,237,230,.12);
+    --acento:#A3C24C;
+    --acento-soft:rgba(163,194,76,.14);
+  }
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;
+  background:var(--papel);
+  color:var(--tinta);
+  font-family:var(--mono);
+  font-size:16px;
+  line-height:1.65;
+}
+a{color:inherit}
+button,input{font:inherit}
+code{font-family:var(--mono)}
+:focus-visible{outline:2px solid var(--acento);outline-offset:2px}
+
+.skip{
+  position:absolute;left:-9999px;top:0;
+  background:var(--tinta);color:var(--papel);
+  padding:10px 16px;z-index:10;
+}
+.skip:focus{left:0}
+
+.top{
+  display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap;
+  max-width:calc(var(--maxw) + 2*var(--pad));
+  margin-inline:auto;
+  padding:24px var(--pad);
+}
+.brand{
+  display:inline-flex;align-items:center;gap:10px;
+  font-weight:700;font-size:17px;text-decoration:none;
+}
+.brand img{width:28px;height:28px;flex:none;border-radius:2px}
+.brand:hover{color:var(--acento)}
+.top nav{display:flex;gap:20px;flex-wrap:wrap}
+.top nav a{
+  font-size:13px;text-decoration:none;color:var(--muted);
+  transition:color var(--hover) ease-out;
+}
+.top nav a:hover{color:var(--acento);text-decoration:underline;text-underline-offset:4px}
+.top nav a[aria-current="page"]{color:var(--tinta)}
+
+section{
+  border-top:1px solid var(--hairline);
+  padding:var(--secao-py) var(--pad);
+  display:grid;
+  grid-template-columns:200px minmax(0,1fr);
+  gap:40px;
+  max-width:calc(var(--maxw) + 2*var(--pad));
+  margin-inline:auto;
+}
+section > .label h2{
+  margin:0;font-size:13px;font-weight:400;
+  letter-spacing:.08em;color:var(--muted);
+}
+section > .content{min-width:0}
+section > .content > p:first-child{margin-top:0}
+section > .content > p:last-child{margin-bottom:0}
+
+.hero{border-top:none;padding-top:clamp(48px,8vw,110px)}
+.kicker{
+  margin:0 0 20px;font-size:13px;color:var(--muted);letter-spacing:.08em;
+}
+.hero h1{
+  margin:0;
+  font-size:clamp(32px,4.4vw,56px);
+  line-height:1.1;
+  letter-spacing:-.03em;
+  font-weight:700;
+  max-width:20ch;
+}
+.hero p{
+  margin:24px 0 0;font-size:clamp(16px,1.4vw,19px);
+  max-width:56ch;
+}
+
+.lead{font-size:clamp(16px,1.3vw,18px);max-width:64ch}
+.note{font-size:13px;color:var(--muted);margin:16px 0 0}
+
+/* Grading sizes for specimens */
+.block{margin-top:40px}
+.block:first-child{margin-top:0}
+.block > h3{
+  margin:0 0 4px;font-size:15px;
+  display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;
+}
+.block > h3 code{font-size:12px;color:var(--muted);font-weight:400}
+.block > p{margin:0 0 16px;font-size:14px;color:var(--muted);max-width:68ch}
+
+/* color */
+.swatches{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;border:1px solid var(--hairline);border-radius:var(--raio);overflow:hidden;background:var(--hairline)}
+@media (max-width:640px){.swatches{grid-template-columns:1fr}}
+.swatch-card{background:var(--papel);padding:0}
+.swatch-card .chip{height:64px;border-bottom:1px solid var(--hairline-soft)}
+.swatch-card .meta{padding:12px 14px}
+.swatch-card .nome{font-weight:700;font-size:14px}
+.swatch-card .hex{font-size:13px;color:var(--muted);margin-top:2px}
+.swatch-card .var{font-size:12px;color:var(--muted);margin-top:6px;overflow-wrap:anywhere}
+.swatch-card .uso{font-size:12px;color:var(--muted);margin-top:6px}
+
+/* type scale */
+.scale{border-top:1px solid var(--hairline-soft)}
+.scale-row{
+  display:grid;grid-template-columns:150px minmax(0,1fr);
+  gap:20px;align-items:baseline;
+  padding:16px 0;border-bottom:1px solid var(--hairline-soft);
+}
+.scale-row .spec{font-size:12px;color:var(--muted)}
+.scale-row .spec b{display:block;color:var(--tinta);font-size:13px}
+.scale-row .demo{min-width:0;overflow-wrap:anywhere}
+@media (max-width:640px){.scale-row{grid-template-columns:1fr;gap:6px}}
+.t-display{font-size:clamp(32px,4.4vw,56px);line-height:1.08;letter-spacing:-.03em;font-weight:700}
+.t-h2{font-size:clamp(22px,2.6vw,30px);line-height:1.2;letter-spacing:-.02em;font-weight:700}
+.t-h3{font-size:18px;line-height:1.3;font-weight:700}
+.t-body{font-size:16px;line-height:1.65}
+.t-small{font-size:14px;line-height:1.6;color:var(--muted)}
+.t-label{font-size:13px;line-height:1.5;letter-spacing:.08em;color:var(--muted)}
+.t-code{font-size:13px;line-height:1.5}
+
+/* spacing */
+.space-list{list-style:none;margin:0;padding:0;border-top:1px solid var(--hairline-soft)}
+.space-list li{
+  display:grid;grid-template-columns:120px minmax(0,1fr);gap:20px;
+  align-items:center;padding:12px 0;border-bottom:1px solid var(--hairline-soft);
+}
+.space-list .tok{font-size:13px}
+.space-list .bar{height:12px;background:var(--acento);opacity:.85;min-width:2px}
+@media (max-width:640px){.space-list li{grid-template-columns:90px minmax(0,1fr)}}
+
+/* tokens */
+.token-table{width:100%;border-collapse:collapse;font-size:13px}
+.token-table th,.token-table td{
+  text-align:left;padding:10px 12px;border-bottom:1px solid var(--hairline-soft);
+  vertical-align:top;
+}
+.token-table th{color:var(--muted);font-weight:400;font-size:12px;letter-spacing:.06em}
+.token-table td:first-child{white-space:nowrap}
+.token-scroll{overflow-x:auto;border:1px solid var(--hairline);border-radius:var(--raio)}
+.token-scroll table td,.token-scroll table th{border-bottom:1px solid var(--hairline-soft)}
+.token-scroll table tr:last-child td{border-bottom:none}
+
+/* component specimens */
+.specimen{
+  border:1px solid var(--hairline);border-radius:var(--raio);
+  margin:0 0 24px;overflow:hidden;
+}
+.specimen .cap{
+  display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;
+  padding:10px 14px;border-bottom:1px solid var(--hairline);
+  font-size:12px;color:var(--muted);
+}
+.specimen .cap b{color:var(--tinta);font-weight:700;font-size:13px}
+.specimen .stage{padding:24px 14px;display:flex;flex-wrap:wrap;gap:16px;align-items:center}
+.specimen .stage.stack{flex-direction:column;align-items:stretch}
+.stage-caption{font-size:12px;color:var(--muted);width:100%;margin:0}
+
+/* buttons */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-height:48px;padding:12px 24px;
+  border-radius:var(--raio);
+  text-decoration:none;font-size:15px;font-weight:700;
+  transition:background-color var(--hover) ease-out,color var(--hover) ease-out,border-color var(--hover) ease-out;
+}
+.btn-primary{background:var(--tinta);color:var(--papel);border:1px solid var(--tinta)}
+.btn-primary:hover{background:var(--acento);border-color:var(--acento);color:#FAFAF5}
+.btn-ghost{border:1px solid var(--hairline);color:var(--tinta);background:transparent}
+.btn-ghost:hover{border-color:var(--acento);color:var(--acento)}
+@media (prefers-color-scheme: dark){
+  .btn-primary:hover{color:#111110}
+}
+.btn[aria-disabled="true"]{opacity:.4;cursor:not-allowed}
+.btn.is-hover{background:var(--acento);border-color:var(--acento);color:#FAFAF5}
+.btn-ghost.is-hover{border-color:var(--acento);color:var(--acento);background:transparent}
+.btn.is-focus{outline:2px solid var(--acento);outline-offset:2px}
+.btn.is-primary-focus{outline:2px solid var(--acento);outline-offset:2px}
+.btn-ghost.is-focus{outline:2px solid var(--acento);outline-offset:2px}
+
+/* tabs */
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--hairline);align-items:center}
+.tab{
+  border:none;background:transparent;color:var(--muted);
+  padding:10px 12px;font-size:13px;cursor:pointer;
+  border-bottom:2px solid transparent;
+  transition:color var(--hover) ease-out;
+}
+.tab:hover{color:var(--acento)}
+.tab[aria-selected="true"]{color:var(--tinta);border-bottom-color:var(--acento)}
+
+/* copy */
+.copy{
+  border:1px solid var(--hairline);border-radius:var(--raio);
+  background:transparent;color:var(--muted);
+  padding:6px 10px;font-size:12px;min-width:5.6em;cursor:pointer;
+  transition:color var(--hover) ease-out,border-color var(--hover) ease-out;
+}
+.copy:hover{color:var(--acento);border-color:var(--acento)}
+.copy.ok{color:var(--acento);border-color:var(--acento)}
+
+/* panel */
+.panel{border:1px solid var(--hairline);border-radius:var(--raio);min-width:0}
+.panel-h{
+  display:flex;justify-content:space-between;align-items:center;gap:8px;
+  padding:10px 14px;border-bottom:1px solid var(--hairline);
+  font-size:12px;color:var(--muted);
+}
+.panel-b{padding:14px}
+.panel pre{margin:0;font-size:12.5px;line-height:1.5;overflow-x:auto;padding:14px}
+
+/* data rows */
+.rows{margin:0;padding:0;list-style:none;border-top:1px solid var(--hairline-soft)}
+.rows li{
+  display:flex;gap:16px;flex-wrap:wrap;align-items:baseline;
+  padding:12px 0;border-bottom:1px solid var(--hairline-soft);
+}
+.rows .campo{font-weight:700;min-width:14ch}
+.rows .valor{color:var(--muted);flex:1 1 24ch;min-width:0}
+@media (max-width:520px){.rows .campo{min-width:0}}
+
+/* terminal */
+.term{border:1px solid var(--hairline);border-radius:var(--raio);overflow:hidden}
+.term-h{display:flex;align-items:center;gap:4px;padding:8px 12px;border-bottom:1px solid var(--hairline)}
+.term-h .copy{margin-left:auto}
+.term pre{margin:0;padding:16px;font-size:13.5px;line-height:1.8;overflow-x:auto}
+.term pre .p{color:var(--muted);user-select:none}
+
+/* badge */
+.badge{
+  display:inline-flex;align-items:center;gap:8px;
+  border:1px solid var(--hairline);border-radius:var(--raio);
+  padding:6px 10px;font-size:12px;color:var(--muted);
+}
+.badge i{width:8px;height:8px;background:var(--acento);flex:none;border-radius:50%}
+
+/* swatch inline */
+.inline-swatch{width:16px;height:16px;flex:none;border:1px solid var(--hairline);border-radius:var(--raio);display:inline-block;vertical-align:-3px}
+
+/* do / don't */
+.rules{margin:0;padding:0;list-style:none;border-top:1px solid var(--hairline-soft)}
+.rules li{padding:14px 0 14px 30px;border-bottom:1px solid var(--hairline-soft);position:relative;font-size:14px}
+.rules li::before{position:absolute;left:0;top:15px;font-weight:700;font-size:13px}
+.rules li.do::before{content:"✓";color:var(--acento)}
+.rules li.dont::before{content:"✕";color:var(--muted)}
+.rules li b{font-weight:700}
+
+footer{
+  border-top:1px solid var(--hairline);
+  max-width:calc(var(--maxw) + 2*var(--pad));
+  margin-inline:auto;
+  padding:40px var(--pad) 64px;
+  display:flex;gap:16px;flex-wrap:wrap;align-items:baseline;
+  font-size:13px;color:var(--muted);
+}
+footer a{color:var(--muted);text-decoration:none;transition:color var(--hover) ease-out}
+footer a:hover{color:var(--acento);text-decoration:underline;text-underline-offset:4px}
+
+@media (max-width:767px){
+  section{grid-template-columns:1fr;gap:20px}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#conteudo">pular para o conteúdo</a>
+
+<header class="top">
+  <a class="brand" href="index.html" aria-label="zfrog — início">
+    <img src="assets/mascot.png" width="28" height="28" alt="Mascote zfrog: um sapinho verde segurando uma lupa e uma folha em branco">
+    zfrog
+  </a>
+  <nav aria-label="Documentos">
+    <a href="index.html">landing</a>
+    <a href="design-system.html" aria-current="page">design system</a>
+    <a href="system-design.html">system design</a>
+    <a href="https://github.com/ens-Emilio/zfrog">github</a>
+  </nav>
+</header>
+
+<main id="conteudo">
+
+<section class="hero">
+  <div class="label"><h2>Design System</h2></div>
+  <div class="content">
+    <h1>Os tokens e as peças que a landing já usa.</h1>
+    <p class="lead">Fonte única para construir telas do zfrog sem sair do sistema: papel e tinta neutros, um acento raro verde de pântano, mono self-hosted, raio de 2px, sem sombra e sem gradiente. Tudo aqui é a mesma linguagem de <code>index.html</code> — este documento não inventa uma segunda identidade.</p>
+    <p class="note">Todos os valores abaixo estão declarados em <code>:root</code> e têm tema escuro derivado por <code>prefers-color-scheme</code>. Troque um token, não a instância.</p>
+  </div>
+</section>
+
+<section id="cores">
+  <div class="label"><h2>Cor</h2></div>
+  <div class="content">
+    <p class="lead">Cinco valores. Nenhum gradiente, nenhuma cor decorativa. O acento é raro por decisão: aparece em ação, foco e um ou dois pontos de ênfase por tela.</p>
+
+    <div class="swatches">
+      <div class="swatch-card">
+        <div class="chip" style="background:#FAFAF5"></div>
+        <div class="meta">
+          <div class="nome">papel</div>
+          <div class="hex">#FAFAF5 · escuro #111110</div>
+          <div class="var">--papel</div>
+          <div class="uso">fundo da página e de superfícies</div>
+        </div>
+      </div>
+      <div class="swatch-card">
+        <div class="chip" style="background:#111110"></div>
+        <div class="meta">
+          <div class="nome">tinta</div>
+          <div class="hex">#111110 · escuro #EDEDE6</div>
+          <div class="var">--tinta</div>
+          <div class="uso">texto principal, bordas fortes, ação primária</div>
+        </div>
+      </div>
+      <div class="swatch-card">
+        <div class="chip" style="background:#55554F"></div>
+        <div class="meta">
+          <div class="nome">suave</div>
+          <div class="hex">#55554F · escuro #A8A89E</div>
+          <div class="var">--muted</div>
+          <div class="uso">rótulos, legendas, metadados</div>
+        </div>
+      </div>
+      <div class="swatch-card">
+        <div class="chip" style="background:repeating-linear-gradient(45deg,var(--hairline-soft) 0 6px,transparent 6px 12px);"></div>
+        <div class="meta">
+          <div class="nome">hairline</div>
+          <div class="hex">rgba(17,17,16,.28)</div>
+          <div class="var">--hairline / --hairline-soft</div>
+          <div class="uso">divisórias de seção e de linha de dado</div>
+        </div>
+      </div>
+      <div class="swatch-card">
+        <div class="chip" style="background:#3F6212"></div>
+        <div class="meta">
+          <div class="nome">acento</div>
+          <div class="hex">#3F6212 · escuro #A3C24C</div>
+          <div class="var">--acento / --acento-soft</div>
+          <div class="uso">ação, foco, confirmação — nunca fundo de bloco</div>
+        </div>
+      </div>
+    </div>
+
+    <p class="note">Contraste verificado: tinta sobre papel passa de 4.5:1 para corpo de texto; <code>--muted</code> cumpre o mesmo mínimo nos dois temas. O acento em texto é reservado a rótulos curtos e ao estado de foco.</p>
+  </div>
+</section>
+
+<section id="tipografia">
+  <div class="label"><h2>Tipografia</h2></div>
+  <div class="content">
+    <p class="lead">Uma família só: JetBrains Mono, self-hosted em dois arquivos (variável e itálica, subset latin). Os display usam <code>clamp()</code> para acompanhar a largura da janela; o corpo nunca desce de 16px.</p>
+
+    <div class="scale">
+      <div class="scale-row">
+        <div class="spec"><b>display</b>clamp(32–56px)<br>lh 1.08 · ls -.03em</div>
+        <div class="demo t-display">Salve a referência</div>
+      </div>
+      <div class="scale-row">
+        <div class="spec"><b>título</b>clamp(22–30px)<br>lh 1.2</div>
+        <div class="demo t-h2">O que sai</div>
+      </div>
+      <div class="scale-row">
+        <div class="spec"><b>subtítulo</b>18px<br>lh 1.3</div>
+        <div class="demo t-h3">Pipeline de captura offline</div>
+      </div>
+      <div class="scale-row">
+        <div class="spec"><b>corpo</b>16px<br>lh 1.65</div>
+        <div class="demo t-body">Cada saída vem de um comando rodado de verdade — screenshot full-page, paleta e tokens.</div>
+      </div>
+      <div class="scale-row">
+        <div class="spec"><b>apoio</b>14px<br>lh 1.6</div>
+        <div class="demo t-small">Requisitos: Python 3.12+, Chromium ~3 GB e Redis.</div>
+      </div>
+      <div class="scale-row">
+        <div class="spec"><b>rótulo</b>13px<br>ls .08em</div>
+        <div class="demo t-label">DESIGN REFERENCE ENGINE</div>
+      </div>
+      <div class="scale-row">
+        <div class="spec"><b>código</b>13px<br>lh 1.5</div>
+        <div class="demo t-code">zfrog jump https://exemplo.com</div>
+      </div>
+    </div>
+    <p class="note">Comprimento de linha-alvo: 65–75 caracteres no desktop, 35–60 no mobile. Aumente a margem, não o corpo.</p>
+  </div>
+</section>
+
+<section id="espaco">
+  <div class="label"><h2>Espaço e forma</h2></div>
+  <div class="content">
+    <p class="lead">A escala é múltipla de 4. O raio máximo é 2px e não existe sombra — hierarquia se faz com tipografia, espaço e hairline.</p>
+
+    <ul class="space-list">
+      <li><span class="tok">4px</span><span class="bar" style="width:4px"></span></li>
+      <li><span class="tok">8px</span><span class="bar" style="width:8px"></span></li>
+      <li><span class="tok">12px</span><span class="bar" style="width:12px"></span></li>
+      <li><span class="tok">16px</span><span class="bar" style="width:16px"></span></li>
+      <li><span class="tok">24px</span><span class="bar" style="width:24px"></span></li>
+      <li><span class="tok">32px</span><span class="bar" style="width:32px"></span></li>
+      <li><span class="tok">48px</span><span class="bar" style="width:48px"></span></li>
+      <li><span class="tok">64px</span><span class="bar" style="width:64px"></span></li>
+    </ul>
+
+    <div class="token-scroll" style="margin-top:24px">
+      <table class="token-table">
+        <thead>
+          <tr><th>Token</th><th>Valor</th><th>Onde usar</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>--raio</code></td><td>2px</td><td>bordas de botão, painel, campo e aba</td></tr>
+          <tr><td><code>--pad</code></td><td>clamp(20px, 6vw, 96px)</td><td>respiro lateral da página</td></tr>
+          <tr><td><code>--maxw</code></td><td>1120px</td><td>largura de leitura do conteúdo</td></tr>
+          <tr><td><code>--secao-py</code></td><td>clamp(56px, 9vw, 128px)</td><td>ritmo vertical entre seções</td></tr>
+          <tr><td><code>--hover</code></td><td>100ms</td><td>transições de hover e foco</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section id="componentes">
+  <div class="label"><h2>Componentes</h2></div>
+  <div class="content">
+    <p class="lead">As peças que constroem as telas. Cada uma é mostrada renderizada de verdade, na mesma faixa de estados que ela precisa tratar.</p>
+
+    <div class="specimen">
+      <div class="cap"><b>Botões</b><span>.btn · .btn-primary · .btn-ghost</span></div>
+      <div class="stage">
+        <a class="btn btn-primary" href="#componentes">Instalar localmente</a>
+        <a class="btn btn-ghost" href="#componentes">Ver código</a>
+        <a class="btn btn-primary is-hover" href="#componentes">primário · hover</a>
+        <a class="btn btn-ghost is-hover" href="#componentes">ghost · hover</a>
+        <a class="btn btn-primary is-focus" href="#componentes">foco</a>
+        <a class="btn btn-primary" href="#componentes" aria-disabled="true" tabindex="-1">desabilitado</a>
+      </div>
+      <p class="stage-caption" style="padding:0 14px 14px">Primário = tinta sólida; hover desloca para o acento. Ghost = hairline; hover vira acento no texto. Foco sempre com contorno de 2px. Alvo mínimo de 48px de altura.</p>
+    </div>
+
+    <div class="specimen">
+      <div class="cap"><b>Abas</b><span>role="tablist" · aria-selected</span></div>
+      <div class="stage stack">
+        <div class="tabs" role="tablist" aria-label="Exemplo de abas">
+          <button class="tab" role="tab" aria-selected="true">pip</button>
+          <button class="tab" role="tab" aria-selected="false">Docker</button>
+        </div>
+      </div>
+      <p class="stage-caption" style="padding:0 14px 14px">Aba ativa usa a tinta e o sublinhado de acento. Navegável por teclado; a seleção vem de <code>aria-selected</code>, não só de cor.</p>
+    </div>
+
+    <div class="specimen">
+      <div class="cap"><b>Botão copiar</b><span>.copy · estados :hover e .ok</span></div>
+      <div class="stage">
+        <button class="copy" type="button">copiar</button>
+        <button class="copy ok" type="button">copiado</button>
+      </div>
+      <p class="stage-caption" style="padding:0 14px 14px">O feedback é textual ("copiado"), não apenas cromático, e volta ao estado inicial sozinho.</p>
+    </div>
+
+    <div class="specimen">
+      <div class="cap"><b>Painel</b><span>.panel · .panel-h · .panel-b</span></div>
+      <div class="stage stack">
+        <div class="panel">
+          <div class="panel-h"><span>paleta</span><span>677 elementos</span></div>
+          <div class="panel-b">
+            <ul class="rows">
+              <li><span class="campo"><i class="inline-swatch" style="background:#000000"></i> #000000</span><span class="valor">primary · ×1849</span></li>
+              <li><span class="campo"><i class="inline-swatch" style="background:#0000EE"></i> #0000EE</span><span class="valor">accent · ×180</span></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <p class="stage-caption" style="padding:0 14px 14px">Cabeçalho com hairline separa rótulo e metadado. O corpo é livre; a hairlinie estrutura, o cartão não decora.</p>
+    </div>
+
+    <div class="specimen">
+      <div class="cap"><b>Terminal</b><span>.term · .term-h · .p</span></div>
+      <div class="stage stack">
+        <div class="term">
+          <div class="term-h">
+            <span style="font-size:12px;color:var(--muted)">pip</span>
+            <button class="copy" type="button">copiar</button>
+          </div>
+          <pre><span class="p">$</span> git clone https://github.com/ens-Emilio/zfrog
+<span class="p">$</span> cd zfrog
+<span class="p">$</span> pip install -e ".[dev]"</pre>
+        </div>
+      </div>
+      <p class="stage-caption" style="padding:0 14px 14px">Bloco de código com rolagem horizontal própria. O caractere de prompt fica em <code>--muted</code> e não é selecionável.</p>
+    </div>
+
+    <div class="specimen">
+      <div class="cap"><b>Linhas de dado</b><span>.rows</span></div>
+      <div class="stage stack">
+        <ul class="rows">
+          <li><span class="campo">playwright</span><span class="valor">captura visual — screenshot full-page nos breakpoints</span></li>
+          <li><span class="campo">scrapy</span><span class="valor">descoberta — segue o site e mapeia as páginas</span></li>
+          <li><span class="campo">staticfile + wget</span><span class="valor">espelha sites estáticos</span></li>
+        </ul>
+      </div>
+      <p class="stage-caption" style="padding:0 14px 14px">O nome é o dado e fica em peso 700; a descrição é o valor e fica suave. Hairlines em vez de cards.</p>
+    </div>
+
+    <div class="specimen">
+      <div class="cap"><b>Tarja e swatch</b><span>.badge · .inline-swatch</span></div>
+      <div class="stage">
+        <span class="badge"><i aria-hidden="true"></i>não há versão hospedada — por design</span>
+        <span style="font-size:13px"><i class="inline-swatch" style="background:#FAFAF5"></i> papel #FAFAF5</span>
+        <span style="font-size:13px"><i class="inline-swatch" style="background:#3F6212"></i> acento #3F6212</span>
+      </div>
+      <p class="stage-caption" style="padding:0 14px 14px">O swatch é sempre acompanhado do nome e do hex — a cor nunca é a única informação.</p>
+    </div>
+  </div>
+</section>
+
+<section id="movimento">
+  <div class="label"><h2>Movimento</h2></div>
+  <div class="content">
+    <p class="lead">Movimento explica mudança de estado, hierarquia ou consequência. Nunca decora.</p>
+    <ul class="rules">
+      <li class="do"><b>Hover e foco:</b> <code>100ms</code>, <code>ease-out</code>, apenas cor e borda.</li>
+      <li class="do"><b>Entrada de conteúdo:</b> 150–250ms com opacidade e <code>transform: translateY</code>, no máximo.</li>
+      <li class="do"><b>reduced-motion:</b> com <code>prefers-reduced-motion: reduce</code>, mostrar o estado final estático.</li>
+      <li class="dont"><b>Proibido:</b> parallax, scroll-jacking, gradiente animado, partículas, cursor customizado, números que contam.</li>
+      <li class="dont"><b>Proibido:</b> animar <code>width</code>, <code>height</code>, <code>top</code> ou <code>left</code>.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="acessibilidade">
+  <div class="label"><h2>Acessibilidade</h2></div>
+  <div class="content">
+    <p class="lead">Requisitos que valem para toda tela construída com este sistema.</p>
+    <ul class="rules">
+      <li class="do">Corpo de texto com contraste <b>≥ 4.5:1</b>; texto grande, ícones e gráficos essenciais com <b>≥ 3:1</b> — auditando o tema escuro separadamente.</li>
+      <li class="do">Foco visível (<code>outline: 2px solid var(--acento)</code>) e alcançável por teclado em toda ação primária; ordem de foco previsível.</li>
+      <li class="do">Todo elemento interativo tem nome acessível; imagens com significado têm <code>alt</code> real.</li>
+      <li class="do">Estado nunca depende só de cor: sempre acompanhado de texto, ícone ou forma.</li>
+      <li class="do"><code>lang="pt-BR"</code> correto; alvos de toque ≥ 44px no mobile, com ≥ 8px de separação.</li>
+    </ul>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <span>zfrog · design system</span>
+  <span>© 2026 Emilio N. Silva</span>
+  <span>Apache 2.0</span>
+  <a href="index.html">landing</a>
+  <a href="system-design.html">system design</a>
+  <a href="https://github.com/ens-Emilio/zfrog">repositório</a>
+  <a href="mailto:miliocontact.net@gmail.com">contato</a>
+</footer>
+
+</body>
+</html>

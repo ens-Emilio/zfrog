@@ -1,6 +1,7 @@
 import { authHeaders } from "@/lib/auth"
+import { desktopHeaders, effectiveApiUrl } from "@/lib/desktop"
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
 
 export type JobStatus =
   | "pending"
@@ -68,13 +69,15 @@ export interface AppConfig {
 }
 
 async function fetcher<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, {
+  const base = effectiveApiUrl(API_URL)
+  const res = await fetch(`${base}${path}`, {
     ...init,
     // The session cookie is the primary credential, and the browser only sends it
     // cross-origin when this is set.
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
+      ...desktopHeaders(),
       ...authHeaders(),
       ...(init?.headers || {}),
     },
@@ -524,7 +527,7 @@ export interface PriceChange {
   significant: boolean
 }
 
-// ── catálogo de referências ──
+// -- reference catalog --
 
 /** One colour in a card's palette, with how often the page used it. */
 export interface CatalogColor {
@@ -581,6 +584,156 @@ export interface CatalogCard {
   tokens: CatalogTokens
 }
 
+export interface ChatConversationSummary {
+  id: string
+  sites: string[]
+  turns: number
+  created_at: string
+}
+
+export interface ChatSource {
+  path: string
+  score?: number
+  snippet?: string
+}
+
+export interface ChatTurn {
+  question: string
+  answer: string
+  sources: (string | ChatSource)[]
+  asked_at?: string
+  tokens?: number
+}
+
+export interface ChatConversationDetail {
+  id: string
+  sites: string[]
+  turns: ChatTurn[]
+  created_at: string
+}
+
+export interface ChatAskResult {
+  answer: string
+  sources: (string | ChatSource)[]
+  conversation: string
+  model?: string
+  tokens?: number
+}
+
+export interface CompetitiveComparison {
+  sites: Record<string, {
+    pages_count?: number
+    technologies?: string[]
+    sentiment?: { score: number; label: string }
+    dominant_colors?: string[]
+    fonts?: string[]
+    summary?: string
+  }>
+  matrix?: Record<string, Record<string, string | number>>
+  summary?: string
+}
+
+export interface TrendItem {
+  term: string
+  counts: { date: string; count: number }[]
+  trend: "crescendo" | "estavel" | "caindo" | string
+}
+
+export interface TrendsResponse {
+  url: string
+  trends: TrendItem[]
+  summary: string
+}
+
+export interface DatasetStats {
+  added: number
+  total_pairs?: number
+  formats?: string[]
+  tokens_estimate?: number
+}
+
+export interface DatasetExportResponse {
+  path: string
+  summary: { pairs: number; format: string; size_bytes?: number }
+  added?: number
+}
+
+export interface GraphNode {
+  id: string
+  label: string
+  type: "page" | "entity" | "asset" | "external"
+  degree?: number
+  properties?: Record<string, unknown>
+}
+
+export interface GraphEdge {
+  source: string
+  target: string
+  type: string
+  weight?: number
+}
+
+export interface GraphResponse {
+  nodes: GraphNode[]
+  edges: GraphEdge[]
+  stats?: { nodes: number; edges: number; density?: number }
+}
+
+export interface PriceRecord {
+  url: string
+  selector?: string
+  price: number
+  currency?: string
+  detected_at: string
+  raw_text?: string
+}
+
+export interface TotpAccount {
+  name: string
+  issuer?: string
+  created_at?: string
+}
+
+export interface TotpCodeResult {
+  code: string
+  seconds_remaining: number
+}
+
+export interface ArweaveStatusResult {
+  enabled: boolean
+  gateway: string
+  wallet: boolean
+}
+
+export interface ArweavePublishResult {
+  tx_id: string
+  gateway_url: string
+  size_bytes?: number
+  status?: string
+}
+
+export interface GraphQLResult<T = unknown> {
+  data?: T
+  errors?: { message: string; locations?: unknown[] }[]
+}
+
+export interface GraphQLSchemaResult {
+  sdl: string
+}
+
+export interface DispatchPlanItem {
+  url: string
+  mode: string
+  worker?: string
+  region?: string
+  reason?: string
+}
+
+export interface DispatchResponse {
+  results: { url: string; worker: string; region: string; job_id?: string }[]
+  summary?: string
+}
+
 export const api = {
   getJobs: () => fetcher<Job[]>("/jobs"),
   getJob: (id: string) => fetcher<Job>(`/jobs/${id}`),
@@ -603,12 +756,12 @@ export const api = {
   }) => fetcher<Job>("/jobs", { method: "POST", body: JSON.stringify(data) }),
   cancelJob: (id: string) => fetcher<{ message: string }>(`/jobs/${id}/cancel`, { method: "POST" }),
   clearJobs: () => fetcher<{ removed: number }>("/jobs", { method: "DELETE" }),
-  downloadUrl: (id: string) => `${API_URL}/jobs/${id}/download`,
-  pdfUrl: (id: string) => `${API_URL}/jobs/${id}/pdf`,
+  downloadUrl: (id: string) => `${effectiveApiUrl(API_URL)}/jobs/${id}/download`,
+  pdfUrl: (id: string) => `${effectiveApiUrl(API_URL)}/jobs/${id}/pdf`,
   getSnapshots: (url?: string) =>
     fetcher<SnapshotEntry[]>(`/snapshots${url ? `?url=${encodeURIComponent(url)}` : ""}`),
   snapshotUrl: (slug: string, file: string) =>
-    `${API_URL}/snapshots/${encodeURIComponent(slug)}/${encodeURIComponent(file)}`,
+    `${effectiveApiUrl(API_URL)}/snapshots/${encodeURIComponent(slug)}/${encodeURIComponent(file)}`,
   diffSnapshots: (a: string, b: string) =>
     fetcher<DiffReport>("/diff", { method: "POST", body: JSON.stringify({ a, b }) }),
   getVersions: (url: string, branch?: string) =>
@@ -788,7 +941,7 @@ export const api = {
       `/timeline/page?url=${encodeURIComponent(url)}&ref=${encodeURIComponent(ref)}&path=${encodeURIComponent(path)}`
     ),
   timelinePageUrl: (url: string, ref: string, path: string) =>
-    `${API_URL}/timeline/content?url=${encodeURIComponent(url)}&ref=${encodeURIComponent(ref)}&path=${encodeURIComponent(path)}`,
+    `${effectiveApiUrl(API_URL)}/timeline/content?url=${encodeURIComponent(url)}&ref=${encodeURIComponent(ref)}&path=${encodeURIComponent(path)}`,
   getRoi: () => fetcher<RoiResult>("/roi"),
   getPriceChanges: (url: string) =>
     fetcher<PriceChange[]>(`/prices/changes?url=${encodeURIComponent(url)}`),
@@ -801,7 +954,7 @@ export const api = {
       body: JSON.stringify({ requests_per_second: rps }),
     }),
 
-  // ── catálogo de referências ──
+  // -- reference catalog --
   getCatalog: (filters?: {
     tag?: string
     color?: string
@@ -843,5 +996,84 @@ export const api = {
     fetcher<{ id: string; deleted: boolean }>(`/catalog/${encodeURIComponent(id)}`, {
       method: "DELETE",
     }),
-  catalogScreenshotUrl: (id: string) => `${API_URL}/catalog/${encodeURIComponent(id)}/screenshot`,
+  catalogScreenshotUrl: (id: string) => `${effectiveApiUrl(API_URL)}/catalog/${encodeURIComponent(id)}/screenshot`,
+
+  // ── chat conversacional (RAG) ──
+  getChatConversations: () => fetcher<ChatConversationSummary[]>("/chat"),
+  getChatConversation: (id: string) => fetcher<ChatConversationDetail>(`/chat/${encodeURIComponent(id)}`),
+  askChat: (data: { question: string; sites: string[]; conversation?: string }) =>
+    fetcher<ChatAskResult>("/chat", { method: "POST", body: JSON.stringify(data) }),
+
+  // -- competitive intel & trends --
+  compareSites: (sites: Record<string, string>, aspects?: string[]) =>
+    fetcher<CompetitiveComparison>("/analysis/competitive", {
+      method: "POST",
+      body: JSON.stringify({ sites, aspects: aspects ?? ["technologies", "content", "sentiment", "design"] }),
+    }),
+  getTrends: (url: string, terms: string[]) =>
+    fetcher<TrendsResponse>("/analysis/trends", {
+      method: "POST",
+      body: JSON.stringify({ url, terms }),
+    }),
+
+  // ── fine-tuning datasets ──
+  buildDataset: (pages: string[], kind = "qa") =>
+    fetcher<DatasetStats>("/datasets", {
+      method: "POST",
+      body: JSON.stringify({ pages, kind }),
+    }),
+  exportDataset: (fmt = "chat") =>
+    fetcher<DatasetExportResponse>(`/datasets/export?fmt=${encodeURIComponent(fmt)}`, {
+      method: "POST",
+    }),
+
+  // ── grafo de conhecimento ──
+  getKnowledgeGraph: (dir: string, maxDepth = 2, extractEntities = true) =>
+    fetcher<GraphResponse>("/graph", {
+      method: "POST",
+      body: JSON.stringify({ dir, max_depth: maxDepth, extract_entities: extractEntities }),
+    }),
+
+  // -- price monitoring --
+  getPrices: (url: string) =>
+    fetcher<PriceRecord[]>(`/prices?url=${encodeURIComponent(url)}`),
+  watchPrice: (url: string, selector?: string) =>
+    fetcher<{ watched: boolean; url: string }>("/prices/watch", {
+      method: "POST",
+      body: JSON.stringify({ url, selector }),
+    }),
+
+  // ── cofre totp / 2fa ──
+  getTotpAccounts: () => fetcher<TotpAccount[]>("/totp"),
+  addTotpAccount: (data: { name: string; secret: string; issuer?: string }) =>
+    fetcher<TotpAccount>("/totp", { method: "POST", body: JSON.stringify(data) }),
+  getTotpCode: (name: string) =>
+    fetcher<TotpCodeResult>(`/totp/${encodeURIComponent(name)}/code`),
+  deleteTotpAccount: (name: string) =>
+    fetcher<{ removed: string }>(`/totp/${encodeURIComponent(name)}`, { method: "DELETE" }),
+
+  // ── armazenamento permanente web3 (arweave) ──
+  getArweaveStatus: () => fetcher<ArweaveStatusResult>("/arweave/status"),
+  publishArweave: (dir: string, tags?: Record<string, string>) =>
+    fetcher<ArweavePublishResult>("/arweave/publish", {
+      method: "POST",
+      body: JSON.stringify({ dir, tags }),
+    }),
+
+  // ── graphql ──
+  executeGraphQL: <T = unknown>(query: string, variables?: Record<string, unknown>) =>
+    fetcher<GraphQLResult<T>>("/graphql", {
+      method: "POST",
+      body: JSON.stringify({ query, variables }),
+    }),
+  getGraphQLSchema: () => fetcher<GraphQLSchemaResult>("/graphql/schema"),
+
+  // ── multi-region dispatch ──
+  getDispatchPlan: (url: string, mode = "auto") =>
+    fetcher<DispatchPlanItem[]>(`/dispatch/plan?url=${encodeURIComponent(url)}&mode=${encodeURIComponent(mode)}`),
+  dispatchJobs: (urls: string[], regions?: string[]) =>
+    fetcher<DispatchResponse>("/dispatch", {
+      method: "POST",
+      body: JSON.stringify({ urls, regions }),
+    }),
 }

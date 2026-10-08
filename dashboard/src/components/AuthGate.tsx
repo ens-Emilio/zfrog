@@ -1,40 +1,21 @@
-"use client"
 
 import { useCallback, useEffect, useState } from "react"
-
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { API_URL, api } from "@/lib/api"
 import { clearApiKey, getApiKey, setApiKey } from "@/lib/auth"
+import { useT } from "@/lib/i18n"
 
 type Gate = "checking" | "open" | "locked" | "ready"
 
 /**
  * Asks for a login when the server requires one, and gets out of the way when it
  * does not.
- *
- * Two ways in, because two kinds of deployment exist:
- *
- * - **SSO**, when configured. The button goes to `/auth/login`; the identity
- *   provider sends the browser back to `/auth/callback`, which sets the signed
- *   `zfrog_session` cookie. The credential never touches JavaScript.
- * - **An API key**, pasted here and kept in localStorage, for an installation
- *   with no identity provider.
- *
- * Either way the check is the same: ask the API for something that needs
- * `read:jobs`. A 200 means whatever credential is in play is accepted — so the
- * gate cannot claim success on a cookie the server would reject.
- *
- * Local use (auth off) is unchanged: the gate opens without asking for anything.
  */
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const [gate, setGate] = useState<Gate>("checking")
   const [draft, setDraft] = useState("")
+  const t = useT()
   const [error, setError] = useState("")
   const [sso, setSso] = useState(false)
-  // Read through state rather than during render: localStorage does not exist on
-  // the server, and a value read inline would not update when the key changes.
   const [hasStoredKey, setHasStoredKey] = useState(false)
 
   const check = useCallback(async () => {
@@ -42,7 +23,6 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     try {
       config = await api.getAuthConfig()
     } catch {
-      // The API is unreachable; let the pages report that themselves.
       setGate("open")
       return
     }
@@ -59,8 +39,6 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       await api.verifyCredential()
       setGate("ready")
     } catch {
-      // No usable session cookie and no usable key. Not an error to display: the
-      // form below is the answer.
       setGate("locked")
     }
   }, [])
@@ -82,12 +60,16 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     } catch (e) {
       clearApiKey()
       setHasStoredKey(false)
-      setError(e instanceof Error ? e.message : "Chave recusada")
+      setError(e instanceof Error ? e.message : t("auth.rejected"))
     }
   }
 
   if (gate === "checking") {
-    return <p className="text-[13px] text-muted-foreground">Verificando acesso…</p>
+    return (
+      <div className="tui-col" style={{ padding: "2lh 0", color: "var(--fg-dim)" }}>
+        {t("auth.checking")}
+      </div>
+    )
   }
 
   if (gate === "ready" || gate === "open") {
@@ -95,62 +77,78 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="max-w-[520px] mx-auto mt-8">
-      <Card>
-        <CardHeader>
-          <CardTitle>Entrar</CardTitle>
-          <CardDescription>
-            {sso
-              ? "Entre com a sua conta da empresa. Se preferir, use uma chave de API."
-              : "Esta instalação exige uma chave de API. Crie uma com zfrog key create painel -r operator e cole aqui — ela fica guardada só neste navegador."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {sso ? (
-            <Button
-              className="w-full"
+    <div className="tui-col" style={{ maxWidth: "60ch", margin: "2lh auto" }}>
+      <div className="tui-panel">
+        <h2 style={{ fontSize: "14px", fontWeight: 500, marginBottom: "0.5lh" }}>{t("auth.title")}</h2>
+        <p style={{ color: "var(--fg-muted)", fontSize: "12px", marginBottom: "1lh", lineHeight: 1.5 }}>
+          {sso
+            ? t("auth.ssoBody")
+            : <>{t("auth.keyBody")} <code>zfrog key create painel -r operator</code> {t("auth.keyBodyAfter")}</>}
+        </p>
+
+        {sso && (
+          <div style={{ marginBottom: "1lh" }}>
+            <button
+              type="button"
+              className="tui-btn"
+              style={{ width: "100%", textAlign: "center" }}
               onClick={() => {
-                // Full navigation: the provider redirects back to the API, which
-                // sets the cookie and forwards to the dashboard.
                 window.location.href = `${API_URL}/auth/login`
               }}
             >
-              Entrar com a conta da empresa
-            </Button>
-          ) : null}
+              {t("auth.ssoButton")}
+            </button>
+          </div>
+        )}
 
-          <form onSubmit={submit} className="flex flex-col gap-4">
-            <Input
-              label={sso ? "Ou use uma chave de API" : "Chave"}
+        <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: "0.75lh" }}>
+          <div>
+            <label style={{ display: "block", color: "var(--fg-muted)", fontSize: "12px", marginBottom: "0.25lh" }}>
+              {sso ? t("auth.orKey") : t("auth.keyLabel")}
+            </label>
+            <input
               type="password"
               autoFocus={!sso}
               placeholder="zk_…"
               value={draft}
-              error={error}
+              className="tui-input"
+              style={{ width: "100%" }}
               onChange={(event) => setDraft(event.target.value)}
             />
-            <div className="flex items-center gap-2">
-              <Button type="submit" variant={sso ? "outline" : "primary"} disabled={!draft.trim()}>
-                Entrar com a chave
-              </Button>
-              {hasStoredKey ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => {
-                    clearApiKey()
-                    setHasStoredKey(false)
-                    setDraft("")
-                    setError("")
-                  }}
-                >
-                  Limpar chave guardada
-                </Button>
-              ) : null}
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+            {error && (
+              <p style={{ color: "var(--error)", fontSize: "12px", marginTop: "0.25lh" }}>
+                {error}
+              </p>
+            )}
+          </div>
+
+          <div style={{ display: "flex", gap: "1ch", alignItems: "baseline" }}>
+            <button
+              type="submit"
+              className="tui-btn"
+              disabled={!draft.trim()}
+              style={{ opacity: draft.trim() ? 1 : 0.5 }}
+            >
+              {t("auth.keyButton")}
+            </button>
+            {hasStoredKey && (
+              <button
+                type="button"
+                className="tui-btn"
+                style={{ color: "var(--fg-dim)" }}
+                onClick={() => {
+                  clearApiKey()
+                  setHasStoredKey(false)
+                  setDraft("")
+                  setError("")
+                }}
+              >
+                {t("auth.clearKey")}
+              </button>
+            )}
+          </div>
+        </form>
+      </div>
     </div>
   )
 }

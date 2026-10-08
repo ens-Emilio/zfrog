@@ -1,7 +1,5 @@
-"use client"
 
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react"
-import { CheckCircle2, X, XCircle } from "lucide-react"
 
 export interface Toast {
   id: number
@@ -15,7 +13,7 @@ interface ToastContextValue {
 
 const ToastContext = createContext<ToastContextValue>({ toast: () => {} })
 
-/** Toast queue, matching `.toast-region` / `.toast` from the design system. */
+/** Toast queue, matching .tui-toast-region / .tui-toast */
 export function ToastRegion({ children }: { children?: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([])
 
@@ -31,7 +29,7 @@ export function ToastRegion({ children }: { children?: ReactNode }) {
   return (
     <ToastContext.Provider value={{ toast }}>
       {children}
-      <div className="toast-region" aria-live="polite" aria-atomic="false">
+      <div className="tui-toast-region" aria-live="polite" aria-atomic="false">
         {toasts.map((item) => (
           <ToastItem key={item.id} toast={item} onDismiss={dismiss} />
         ))}
@@ -47,16 +45,16 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: number)
   }, [toast.id, onDismiss])
 
   return (
-    <div className={`toast ${toast.kind}`} role="status">
-      {toast.kind === "err" ? <XCircle className="ic" aria-hidden="true" /> : <CheckCircle2 className="ic" aria-hidden="true" />}
-      <span className="msg">{toast.message}</span>
+    <div className={`tui-toast ${toast.kind}`} role="status">
+      <span className="tui-toast-sym">{toast.kind === "err" ? "✗" : "✓"}</span>
+      <span className="tui-toast-msg">{toast.message}</span>
       <button
         type="button"
-        className="btn btn-ghost btn-sm icon-btn close"
+        className="tui-toast-close"
         aria-label="Fechar aviso"
         onClick={() => onDismiss(toast.id)}
       >
-        <X className="ic ic-sm" aria-hidden="true" />
+        [×]
       </button>
     </div>
   )

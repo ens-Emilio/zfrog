@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="zfrog captura referências de design da web como dados — screenshot, paleta e tokens — e roda inteiro na sua máquina. Sem versão hospedada, por design." data-i18n-meta="meta.desc">
+<meta property="og:title" content="zfrog — Design Reference Engine">
+<meta property="og:description" content="Capture, organize e adapte referências de design da web — offline, na sua máquina." data-i18n-meta="hero.tagline">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="pt_BR">
+<link rel="alternate" hreflang="pt" href="?lang=pt">
+<link rel="alternate" hreflang="en" href="?lang=en">
+<link rel="alternate" hreflang="es" href="?lang=es">
+<link rel="alternate" hreflang="x-default" href="?lang=pt">
+<meta name="theme-color" content="#FAFAF5" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111110" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/png" href="assets/mascot.png">
+<title>zfrog — Design Reference Engine</title>
+<style>
+@font-face{
+  font-family:'JetBrains Mono';
+  src:url('assets/fonts/jetbrains-mono-latin.woff2') format('woff2');
+  font-weight:100 800;font-style:normal;font-display:swap;
+}
+@font-face{
+  font-family:'JetBrains Mono';
+  src:url('assets/fonts/jetbrains-mono-italic-latin.woff2') format('woff2');
+  font-weight:400;font-style:italic;font-display:swap;
+}
+
+:root{
+  --papel:#FAFAF5;
+  --tinta:#111110;
+  --muted:#55554F;
+  --hairline:rgba(17,17,16,.28);
+  --acento:#3F6212;
+  --raio:2px;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --pad:clamp(20px,6vw,96px);
+  --maxw:1120px;
+  --hover:100ms;
+  --secao-py:clamp(56px,9vw,128px);
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --papel:#111110;
+    --tinta:#EDEDE6;
+    --muted:#A8A89E;
+    --hairline:rgba(237,237,230,.24);
+    --acento:#A3C24C;
+  }
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+@media (prefers-reduced-motion: no-preference){
+  html{scroll-behavior:smooth}
+}
+body{
+  margin:0;
+  background:var(--papel);
+  color:var(--tinta);
+  font-family:var(--mono);
+  font-size:16px;
+  line-height:1.65;
+}
+a{color:inherit}
+img{display:block;max-width:100%}
+button,input{font:inherit}
+code{font-family:var(--mono)}
+:focus-visible{outline:2px solid var(--acento);outline-offset:2px}
+
+.skip{
+  position:absolute;left:-9999px;top:0;
+  background:var(--tinta);color:var(--papel);
+  padding:10px 16px;z-index:10;
+}
+.skip:focus{left:0}
+
+.top{
+  display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap;
+  max-width:calc(var(--maxw) + 2*var(--pad));
+  margin-inline:auto;
+  padding:24px var(--pad);
+}
+.brand{
+  display:inline-flex;align-items:center;gap:10px;
+  font-weight:700;font-size:17px;text-decoration:none;
+}
+.brand img{width:28px;height:28px;flex:none;border-radius:2px}
+.brand:hover{color:var(--acento)}
+.top nav{display:flex;gap:20px;flex-wrap:wrap}
+.top nav a{
+  font-size:13px;text-decoration:none;color:var(--muted);
+  transition:color var(--hover) ease-out;
+}
+.top nav a:hover{color:var(--acento);text-decoration:underline;text-underline-offset:4px}
+.top nav .lang{display:inline-flex;gap:8px;margin-left:4px}
+.top nav .lang button{
+  font-size:13px;color:var(--muted);background:none;border:none;padding:0;cursor:pointer;
+  transition:color var(--hover) ease-out;
+}
+.top nav .lang button:hover{color:var(--acento)}
+.top nav .lang button[aria-pressed="true"]{color:var(--tinta);text-decoration:underline;text-underline-offset:4px}
+
+section{
+  border-top:1px solid var(--hairline);
+  padding:var(--secao-py) var(--pad);
+  display:grid;
+  grid-template-columns:180px minmax(0,1fr);
+  gap:40px;
+  max-width:calc(var(--maxw) + 2*var(--pad));
+  margin-inline:auto;
+}
+section > .label h2{
+  margin:0;font-size:13px;font-weight:400;
+  letter-spacing:.08em;color:var(--muted);
+}
+section > .content{min-width:0}
+section > .content > p:first-child{margin-top:0}
+section > .content > p:last-child{margin-bottom:0}
+
+.hero{border-top:none;padding-top:clamp(48px,8vw,110px)}
+.kicker{
+  margin:0 0 20px;font-size:13px;color:var(--muted);letter-spacing:.08em;
+}
+.hero h1{
+  margin:0;
+  font-size:clamp(34px,5.2vw,68px);
+  line-height:1.08;
+  letter-spacing:-.03em;
+  font-weight:700;
+  max-width:22ch;
+}
+.tagline{
+  margin:24px 0 0;
+  font-size:clamp(16px,1.4vw,19px);
+  max-width:52ch;
+  color:var(--tinta);
+}
+.run{
+  margin-top:40px;
+  display:inline-flex;align-items:center;gap:12px;flex-wrap:wrap;
+  border:1px solid var(--hairline);
+  border-radius:var(--raio);
+  padding:12px 16px;
+  max-width:100%;
+}
+.run .dollar{color:var(--muted);user-select:none}
+.run code{font-size:15px;overflow-wrap:anywhere}
+.caret{
+  display:inline-block;width:9px;height:1.1em;
+  background:var(--acento);vertical-align:text-bottom;margin-left:2px;
+}
+@media (prefers-reduced-motion: no-preference){
+  .caret{animation:pisca 1.1s steps(1) infinite}
+  @keyframes pisca{50%{opacity:0}}
+}
+.hero-output{
+  margin-top:16px;
+  opacity:0;transform:translateY(4px);
+}
+.hero-output.on{
+  opacity:1;transform:none;
+  transition:opacity 180ms ease-out,transform 180ms ease-out;
+}
+@media (prefers-reduced-motion: reduce){
+  .hero-output{opacity:1;transform:none}
+}
+.saida-label{font-size:13px;color:var(--muted);margin:0 0 10px}
+.swatch-row{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin:0 0 10px}
+.swatch{display:inline-flex;align-items:center;gap:8px;font-size:13px}
+.swatch i{
+  width:16px;height:16px;flex:none;
+  border:1px solid var(--hairline);border-radius:var(--raio);
+}
+.tokline-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.tokline-row code{
+  font-size:13px;color:var(--muted);overflow-wrap:anywhere;
+}
+.nohost{margin:32px 0 0;font-size:13px;color:var(--muted)}
+.ctas{margin-top:28px;display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-height:48px;padding:12px 24px;
+  border-radius:var(--raio);
+  text-decoration:none;font-size:15px;font-weight:700;
+  transition:background-color var(--hover) ease-out,color var(--hover) ease-out;
+}
+.btn-primary{background:var(--tinta);color:var(--papel);border:1px solid var(--tinta)}
+.btn-primary:hover{background:var(--acento);border-color:var(--acento);color:#FAFAF5}
+@media (prefers-color-scheme: dark){
+  .btn-primary:hover{color:#111110}
+}
+.btn-ghost{border:1px solid var(--hairline);color:var(--tinta)}
+.btn-ghost:hover{border-color:var(--acento);color:var(--acento)}
+
+.engines{margin:24px 0 0;padding:0;list-style:none}
+.engines li{
+  padding:14px 0;border-top:1px solid var(--hairline);
+  display:flex;gap:16px;flex-wrap:wrap;align-items:baseline;
+}
+.engines li:first-child{border-top:none;padding-top:0}
+.engines .e-nome{font-weight:700;min-width:16ch}
+.engines .e-desc{color:var(--muted);min-width:0;flex:1 1 24ch}
+.pipeline{margin:16px 0 0;font-size:14px;color:var(--muted)}
+
+.outputs{
+  margin-top:40px;
+  display:grid;gap:20px;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+}
+@media (max-width:1023px){.outputs{grid-template-columns:1fr}}
+.panel{border:1px solid var(--hairline);border-radius:var(--raio);min-width:0}
+.panel-h{
+  display:flex;justify-content:space-between;align-items:center;gap:8px;
+  padding:10px 14px;border-bottom:1px solid var(--hairline);
+  font-size:12px;color:var(--muted);
+}
+.panel-b{padding:14px}
+.pal-linha{
+  display:flex;align-items:center;gap:10px;
+  padding:8px 0;font-size:13px;
+  border-top:1px solid var(--hairline);
+}
+.pal-linha:first-child{border-top:none;padding-top:0}
+.pal-linha:last-child{padding-bottom:0}
+.pal-linha i{
+  width:16px;height:16px;flex:none;
+  border:1px solid var(--hairline);border-radius:var(--raio);
+}
+.pal-hex{font-weight:700}
+.pal-role{color:var(--muted);flex:1}
+.pal-count{color:var(--muted);margin-left:auto}
+.tipo-item{margin:0 0 12px;font-size:13px}
+.tipo-item:last-child{margin-bottom:0}
+.tipo-item b{display:block;font-size:14px}
+.tipo-item span{color:var(--muted)}
+.panel pre{
+  margin:0;font-size:12.5px;line-height:1.5;
+  overflow-x:auto;padding:14px;
+}
+.fonte{margin:20px 0 0;font-size:13px;color:var(--muted)}
+
+.cmd{padding:24px 0;border-top:1px solid var(--hairline)}
+.cmd:first-of-type{border-top:none;padding-top:0}
+.cmd-nome{margin:0;font-size:16px}
+.cmd-nome code{font-weight:700;font-size:16px}
+.cmd-nome span{color:var(--muted);font-size:14px;margin-left:12px}
+.cmd-ex{
+  margin:12px 0 0;padding:12px 14px;
+  border:1px solid var(--hairline);border-radius:var(--raio);
+  font-size:13px;overflow-x:auto;color:var(--muted);
+}
+.cmd-ex b{color:var(--tinta);font-weight:400}
+
+.copy{
+  border:1px solid var(--hairline);border-radius:var(--raio);
+  background:transparent;color:var(--muted);
+  padding:6px 10px;font-size:12px;min-width:5.6em;cursor:pointer;
+  transition:color var(--hover) ease-out,border-color var(--hover) ease-out;
+}
+.copy:hover{color:var(--acento);border-color:var(--acento)}
+.copy.ok{color:var(--acento);border-color:var(--acento)}
+
+.term{border:1px solid var(--hairline);border-radius:var(--raio);margin-top:8px}
+.term-h{
+  display:flex;align-items:center;gap:4px;
+  padding:8px 12px;border-bottom:1px solid var(--hairline);
+}
+.tab{
+  border:none;background:transparent;color:var(--muted);
+  padding:8px 12px;font-size:13px;cursor:pointer;
+  border-bottom:2px solid transparent;
+  transition:color var(--hover) ease-out;
+}
+.tab:hover{color:var(--acento)}
+.tab[aria-selected="true"]{color:var(--tinta);border-bottom-color:var(--acento)}
+.term-h .copy{margin-left:auto}
+.term pre{
+  margin:0;padding:16px;font-size:13.5px;line-height:1.8;
+  overflow-x:auto;
+}
+.term pre .p{color:var(--muted);user-select:none}
+.panel-oculto{display:none}
+.requisitos{margin:24px 0 0;font-size:14px;color:var(--muted)}
+.requisitos code{color:var(--tinta)}
+
+#por-que .content{max-width:62ch}
+#por-que p{margin:0 0 20px}
+#por-que p:last-child{margin-bottom:0}
+
+.frame{
+  max-height:72vh;overflow:auto;
+  border:1px solid var(--hairline);border-radius:var(--raio);
+}
+.frame img{width:100%;height:auto}
+.prova-caption{margin:14px 0 0;font-size:13px;color:var(--muted);max-width:64ch}
+
+footer{
+  border-top:1px solid var(--hairline);
+  max-width:calc(var(--maxw) + 2*var(--pad));
+  margin-inline:auto;
+  padding:40px var(--pad) 64px;
+  display:flex;gap:16px;flex-wrap:wrap;align-items:baseline;
+  font-size:13px;color:var(--muted);
+}
+footer a{
+  color:var(--muted);text-decoration:none;
+  transition:color var(--hover) ease-out;
+}
+footer a:hover{color:var(--acento);text-decoration:underline;text-underline-offset:4px}
+
+@media (max-width:767px){
+  section{grid-template-columns:1fr;gap:20px}
+  .engines .e-nome{min-width:0}
+  .frame{max-height:56vh}
+  .outputs{gap:16px}
+}
+@media (max-width:374px){
+  .run{padding:10px 12px}
+  .run code{font-size:13px}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#conteudo" data-i18n="a11y.skip">pular para o conteúdo</a>
+
+<header class="top">
+  <a class="brand" href="#conteudo" aria-label="zfrog — início" data-i18n-aria="brand.home">
+    <img src="assets/mascot.png" width="28" height="28" alt="Mascote zfrog: um sapinho verde segurando uma lupa e uma folha em branco" data-i18n-alt="brand.mascot">
+    zfrog
+  </a>
+  <nav data-i18n-aria="a11y.sections">
+    <a href="#instalar" data-i18n="nav.install">instalar</a>
+    <a href="#comandos" data-i18n="nav.commands">comandos</a>
+    <a href="#por-que" data-i18n="nav.why">por quê</a>
+    <a href="https://github.com/ens-Emilio/zfrog">github</a>
+    <span class="lang" role="group" aria-label="language / idioma">
+      <button type="button" data-lang="pt" aria-pressed="true">PT</button><button type="button" data-lang="en" aria-pressed="false">EN</button><button type="button" data-lang="es" aria-pressed="false">ES</button>
+    </span>
+  </nav>
+</header>
+
+<main id="conteudo">
+
+<section class="hero">
+  <div class="label"><h2>Design Reference Engine</h2></div>
+  <div class="content">
+    <h1 data-i18n="hero.title">Salve a referência com as cores, a tipografia e o CSS que a fizeram.</h1>
+    <p class="tagline" data-i18n="hero.tagline">Capture, organize e adapte referências de design da web — offline, na sua máquina.</p>
+
+    <div class="run">
+      <span class="dollar" aria-hidden="true">$</span>
+      <code id="typed">zfrog jump http://localhost:3000</code>
+      <span class="caret" aria-hidden="true"></span>
+      <button class="copy" type="button" data-copy-text="zfrog jump http://localhost:3000" data-i18n="common.copy">copiar</button>
+    </div>
+
+    <div class="hero-output" id="hero-out">
+      <p class="saida-label" data-i18n="hero.outputLabel">saída — os tokens desta página, extraídos por ela mesma:</p>
+      <div class="swatch-row">
+        <span class="swatch"><i style="background:#FAFAF5"></i>papel #FAFAF5</span>
+        <span class="swatch"><i style="background:#111110"></i>tinta #111110</span>
+        <span class="swatch"><i style="background:#3F6212"></i>acento #3F6212</span>
+      </div>
+      <div class="tokline-row">
+        <code>--papel:#FAFAF5; --tinta:#111110; --acento:#3F6212; --raio:2px; --sombra:none;</code>
+        <button class="copy" type="button" data-copy-text="--papel:#FAFAF5; --tinta:#111110; --acento:#3F6212; --raio:2px; --sombra:none;" data-i18n="common.copy">copiar</button>
+      </div>
+    </div>
+
+    <p class="nohost" data-i18n="hero.nohost">não há versão hospedada — por design.</p>
+
+    <div class="ctas">
+      <a class="btn btn-primary" href="#instalar" data-i18n="hero.install">Instalar localmente</a>
+      <a class="btn btn-ghost" href="https://github.com/ens-Emilio/zfrog" data-i18n="hero.code">Ver código</a>
+    </div>
+  </div>
+</section>
+
+<section id="o-que-sai">
+  <div class="label"><h2 data-i18n="output.title">O que sai</h2></div>
+  <div class="content">
+    <p data-i18n="output.lead">Cada saída abaixo veio de um comando rodado de verdade. Nada aqui é ilustração.</p>
+    <ul class="engines">
+      <li><span class="e-nome">playwright</span><span class="e-desc" data-i18n="output.playwright">captura visual — screenshot full-page nos breakpoints que você definir</span></li>
+      <li><span class="e-nome">scrapy</span><span class="e-desc" data-i18n="output.scrapy">descoberta — segue o site e mapeia as páginas</span></li>
+      <li><span class="e-nome">staticfile + wget</span><span class="e-desc" data-i18n="output.static">espelha sites estáticos</span></li>
+    </ul>
+    <p class="pipeline" data-i18n="output.pipeline">A auto-detecção escolhe o motor. O pipeline roda offline: screenshot full-page → ZIP → limpeza de trackers.</p>
+
+    <div class="outputs">
+      <div class="panel">
+        <div class="panel-h"><span data-i18n="output.palette">paleta</span><span>165 elementos</span></div>
+        <div class="panel-b">
+          <div class="pal-linha"><i style="background:#111110"></i><span class="pal-hex">#111110</span><span class="pal-role">primary</span><span class="pal-count">×312</span></div>
+          <div class="pal-linha"><i style="background:#55554F"></i><span class="pal-hex">#55554F</span><span class="pal-role">—</span><span class="pal-count">×180</span></div>
+          <div class="pal-linha"><i style="background:#3F6212"></i><span class="pal-hex">#3F6212</span><span class="pal-role">acento</span><span class="pal-count">×1</span></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-h"><span data-i18n="output.typo">tipografia</span><span>1 família</span></div>
+        <div class="panel-b">
+          <p class="tipo-item"><b>JetBrains Mono</b><span>16px ×68 · 13px ×52 · 12–19px UI · 68px hero</span></p>
+          <p class="tipo-item"><b>medidas</b><span>raios 0px e 2px · sombras —</span></p>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-h"><span data-i18n="output.tokens">tokens</span><span>json</span></div>
+        <pre id="tokens-json">{
+  "url": "http://localhost:3000",
+  "element_count": 165,
+  "palette": [
+    {"hex": "#111110", "count": 312, "role": "primary"},
+    {"hex": "#55554F", "count": 180, "role": null},
+    {"hex": "#3F6212", "count": 1,   "role": "accent"}
+  ],
+  "fonts": [
+    {"family": "JetBrains Mono",
+     "sizes": {"16px": 68, "13px": 52, "68px": 1}}
+  ],
+  "radii":   [["0px", 147], ["2px", 22]],
+  "shadows": []
+}</pre>
+        <div class="panel-h" style="border-bottom:none;border-top:1px solid var(--hairline)"><span>design-tokens.json</span><button class="copy" type="button" data-copy-target="#tokens-json" data-i18n="common.copy">copiar</button></div>
+      </div>
+    </div>
+
+    <p class="fonte"><span data-i18n="output.sourceA">Fonte: esta própria página, capturada com</span> <code>zfrog jump</code> <span data-i18n="output.sourceB">— os tokens acima são dela mesma.</span></p>
+  </div>
+</section>
+
+<section id="comandos">
+  <div class="label"><h2 data-i18n="cmd.title">Comandos</h2></div>
+  <div class="content">
+    <div class="cmd">
+      <p class="cmd-nome"><code>jump</code><span data-i18n="cmd.jump">captura a URL e guarda a referência: screenshot full-page, ZIP limpo, tokens</span></p>
+      <pre class="cmd-ex">$ zfrog jump http://localhost:3000
+<b>referência salva · 165 elementos · 7 cores · 1 família</b></pre>
+    </div>
+    <div class="cmd">
+      <p class="cmd-nome"><code>tongue</code><span data-i18n="cmd.tongue">lê os tokens de uma referência salva: paleta, tipografia, medidas</span></p>
+      <pre class="cmd-ex">$ zfrog tongue localhost
+<b>primary #111110 · acento #3F6212 · JetBrains Mono 16px · raio 2px</b></pre>
+    </div>
+    <div class="cmd">
+      <p class="cmd-nome"><code>pond</code><span data-i18n="cmd.pond">lista e busca as referências salvas na sua máquina</span></p>
+      <pre class="cmd-ex">$ zfrog pond
+<b>localhost · 1 referência · 0,4 MB</b></pre>
+    </div>
+    <div class="cmd">
+      <p class="cmd-nome"><code>export</code><span data-i18n="cmd.export">escreve os tokens como CSS ou JSON para usar no seu projeto</span></p>
+      <pre class="cmd-ex">$ zfrog export --css localhost
+<b>tokens.css</b></pre>
+    </div>
+  </div>
+</section>
+
+<section id="instalar">
+  <div class="label"><h2 data-i18n="install.title">Instalar</h2></div>
+  <div class="content">
+    <p data-i18n="install.lead">Roda inteiro na sua máquina. Copie, cole e espere o Chromium baixar.</p>
+    <div class="term">
+      <div class="term-h" role="tablist" data-i18n-aria="install.tabs">
+        <button class="tab" id="tab-pip" role="tab" aria-selected="true" aria-controls="pane-pip">pip</button>
+        <button class="tab" id="tab-docker" role="tab" aria-selected="false" aria-controls="pane-docker">Docker</button>
+        <button class="copy" type="button" data-copy-target=".term pre:not(.panel-oculto) > code" data-i18n="common.copy">copiar</button>
+      </div>
+      <div id="pane-pip" role="tabpanel" aria-labelledby="tab-pip">
+<pre><code id="cmd-pip">git clone https://github.com/ens-Emilio/zfrog
+cd zfrog
+pip install -e ".[dev]"
+playwright install chromium
+./zfrog dev</code></pre>
+      </div>
+      <div id="pane-docker" role="tabpanel" aria-labelledby="tab-docker" class="panel-oculto">
+<pre><code id="cmd-docker">git clone https://github.com/ens-Emilio/zfrog
+cd zfrog
+docker compose up</code></pre>
+      </div>
+    </div>
+    <p class="requisitos"><span data-i18n="install.reqA">Requisitos:</span> <code>Python 3.12+</code>, <code>Playwright + Chromium</code> (~3 GB) e <code>Redis</code> <span data-i18n="install.reqB">para a fila. Nada sai da sua rede.</span></p>
+  </div>
+</section>
+
+<section id="por-que">
+  <div class="label"><h2 data-i18n="why.title">Por que não hospedamos</h2></div>
+  <div class="content">
+    <p data-i18n="why.p1">Capturar páginas consome banda e roda browsers pesados. Colocar isso atrás de um servidor significaria pagar por isso de um lado — e limitar a captura do outro.</p>
+    <p data-i18n="why.p2">Rodando local, seus dados ficam na sua rede, não existe custo de infraestrutura e não existe uma superfície de ataque exposta.</p>
+    <p data-i18n="why.p3">Esta página é o outro lado disso: um arquivo HTML estático, sem API, sem cookies, sem telemetria. Não há o que carrear para produção — não há aplicação atrás dela.</p>
+  </div>
+</section>
+
+<section id="prova">
+  <div class="label"><h2 data-i18n="proof.title">Prova</h2></div>
+  <div class="content">
+    <div class="frame">
+      <img src="assets/captura-zfrog-fullpage.png" width="1440" height="5039" loading="lazy" alt="Captura full-page desta própria landing, de 1440 por 5039 pixels, gerada pelo zfrog" data-i18n-alt="proof.img">
+    </div>
+    <p class="prova-caption"><span data-i18n="proof.capA">Captura full-page desta página — 1440×5039 px, um PNG dentro do ZIP da referência. A paleta e os tokens acima vieram do mesmo</span> <code>jump</code>. <span data-i18n="proof.capB">Capturas de sites de terceiros ficam na sua máquina; a página oficial só expõe o que é nosso.</span></p>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <span>zfrog</span>
+  <span>© 2026 Emilio N. Silva</span>
+  <span>Apache 2.0</span>
+  <a href="https://github.com/ens-Emilio/zfrog/blob/main/LICENSE" data-i18n="foot.license">LICENSE</a>
+  <a href="https://github.com/ens-Emilio/zfrog" data-i18n="foot.repo">repositório</a>
+  <a href="https://github.com/ens-Emilio/zfrog/releases" data-i18n="foot.changelog">changelog</a>
+  <a href="mailto:miliocontact.net@gmail.com" data-i18n="foot.contact">contato</a>
+</footer>
+
+<script>
+(function(){
+  /* --- i18n --- */
+  var I18N = {
+    pt: {
+      "meta.desc": "zfrog captura referências de design da web como dados — screenshot, paleta e tokens — e roda inteiro na sua máquina. Sem versão hospedada, por design.",
+      "a11y.skip": "pular para o conteúdo",
+      "a11y.sections": "Seções",
+      "brand.home": "zfrog — início",
+      "brand.mascot": "Mascote zfrog: um sapinho verde segurando uma lupa e uma folha em branco",
+      "nav.install": "instalar",
+      "nav.commands": "comandos",
+      "nav.why": "por quê",
+      "hero.title": "Salve a referência com as cores, a tipografia e o CSS que a fizeram.",
+      "hero.tagline": "Capture, organize e adapte referências de design da web — offline, na sua máquina.",
+      "hero.outputLabel": "saída — os tokens desta página, extraídos por ela mesma:",
+      "hero.nohost": "não há versão hospedada — por design.",
+      "hero.install": "Instalar localmente",
+      "hero.code": "Ver código",
+      "common.copy": "copiar",
+      "common.copied": "copiado",
+      "output.title": "O que sai",
+      "output.lead": "Cada saída abaixo veio de um comando rodado de verdade. Nada aqui é ilustração.",
+      "output.playwright": "captura visual — screenshot full-page nos breakpoints que você definir",
+      "output.scrapy": "descoberta — segue o site e mapeia as páginas",
+      "output.static": "espelha sites estáticos",
+      "output.pipeline": "A auto-detecção escolhe o motor. O pipeline roda offline: screenshot full-page → ZIP → limpeza de trackers.",
+      "output.palette": "paleta",
+      "output.typo": "tipografia",
+      "output.tokens": "tokens",
+      "output.sourceA": "Fonte: esta própria página, capturada com",
+      "output.sourceB": "— os tokens acima são dela mesma.",
+      "cmd.title": "Comandos",
+      "cmd.jump": "captura a URL e guarda a referência: screenshot full-page, ZIP limpo, tokens",
+      "cmd.tongue": "lê os tokens de uma referência salva: paleta, tipografia, medidas",
+      "cmd.pond": "lista e busca as referências salvas na sua máquina",
+      "cmd.export": "escreve os tokens como CSS ou JSON para usar no seu projeto",
+      "install.title": "Instalar",
+      "install.lead": "Roda inteiro na sua máquina. Copie, cole e espere o Chromium baixar.",
+      "install.tabs": "Método de instalação",
+      "install.reqA": "Requisitos:",
+      "install.reqB": "para a fila. Nada sai da sua rede.",
+      "why.title": "Por que não hospedamos",
+      "why.p1": "Capturar páginas consome banda e roda browsers pesados. Colocar isso atrás de um servidor significaria pagar por isso de um lado — e limitar a captura do outro.",
+      "why.p2": "Rodando local, seus dados ficam na sua rede, não existe custo de infraestrutura e não existe uma superfície de ataque exposta.",
+      "why.p3": "Esta página é o outro lado disso: um arquivo HTML estático, sem API, sem cookies, sem telemetria. Não há o que carrear para produção — não há aplicação atrás dela.",
+      "proof.title": "Prova",
+      "proof.img": "Captura full-page desta própria landing, de 1440 por 5039 pixels, gerada pelo zfrog",
+      "proof.capA": "Captura full-page desta página — 1440×5039 px, um PNG dentro do ZIP da referência. A paleta e os tokens acima vieram do mesmo",
+      "proof.capB": "Capturas de sites de terceiros ficam na sua máquina; a página oficial só expõe o que é nosso.",
+      "foot.license": "LICENSE",
+      "foot.repo": "repositório",
+      "foot.changelog": "changelog",
+      "foot.contact": "contato"
+    },
+    en: {
+      "meta.desc": "zfrog captures web design references as data — screenshot, palette and tokens — and runs entirely on your machine. No hosted version, by design.",
+      "a11y.skip": "skip to content",
+      "a11y.sections": "Sections",
+      "brand.home": "zfrog — home",
+      "brand.mascot": "zfrog mascot: a green froglet holding a magnifying glass and a blank sheet",
+      "nav.install": "install",
+      "nav.commands": "commands",
+      "nav.why": "why",
+      "hero.title": "Save the reference with the colors, the typography and the CSS that made it.",
+      "hero.tagline": "Capture, organize and adapt web design references — offline, on your machine.",
+      "hero.outputLabel": "output — this page's tokens, extracted by itself:",
+      "hero.nohost": "no hosted version — by design.",
+      "hero.install": "Install locally",
+      "hero.code": "View code",
+      "common.copy": "copy",
+      "common.copied": "copied",
+      "output.title": "What comes out",
+      "output.lead": "Every output below came from a command actually run. Nothing here is an illustration.",
+      "output.playwright": "visual capture — full-page screenshot at the breakpoints you set",
+      "output.scrapy": "discovery — follows the site and maps its pages",
+      "output.static": "mirrors static sites",
+      "output.pipeline": "Auto-detection picks the engine. The pipeline runs offline: full-page screenshot → ZIP → tracker cleanup.",
+      "output.palette": "palette",
+      "output.typo": "typography",
+      "output.tokens": "tokens",
+      "output.sourceA": "Source: this very page, captured with",
+      "output.sourceB": "— the tokens above are its own.",
+      "cmd.title": "Commands",
+      "cmd.jump": "captures the URL and stores the reference: full-page screenshot, clean ZIP, tokens",
+      "cmd.tongue": "reads a saved reference's tokens: palette, typography, measurements",
+      "cmd.pond": "lists and searches the references saved on your machine",
+      "cmd.export": "writes the tokens as CSS or JSON for your project",
+      "install.title": "Install",
+      "install.lead": "Runs entirely on your machine. Copy, paste and wait for Chromium to download.",
+      "install.tabs": "Install method",
+      "install.reqA": "Requirements:",
+      "install.reqB": "for the queue. Nothing leaves your network.",
+      "why.title": "Why we don't host",
+      "why.p1": "Capturing pages eats bandwidth and runs heavy browsers. Putting that behind a server would mean paying for it on one side — and throttling capture on the other.",
+      "why.p2": "Running locally, your data stays on your network, there is no infrastructure cost and no exposed attack surface.",
+      "why.p3": "This page is the other side of that: a static HTML file, no API, no cookies, no telemetry. There is nothing to carry into production — there is no app behind it.",
+      "proof.title": "Proof",
+      "proof.img": "Full-page capture of this very landing, 1440 by 5039 pixels, generated by zfrog",
+      "proof.capA": "Full-page capture of this page — 1440×5039 px, a PNG inside the reference ZIP. The palette and tokens above came from the same",
+      "proof.capB": "Third-party site captures stay on your machine; the official page only shows what is ours.",
+      "foot.license": "LICENSE",
+      "foot.repo": "repository",
+      "foot.changelog": "changelog",
+      "foot.contact": "contact"
+    },
+    es: {
+      "meta.desc": "zfrog captura referencias de diseño web como datos — screenshot, paleta y tokens — y corre entero en tu máquina. Sin versión hospedada, por diseño.",
+      "a11y.skip": "ir al contenido",
+      "a11y.sections": "Secciones",
+      "brand.home": "zfrog — inicio",
+      "brand.mascot": "Mascota zfrog: una ranita verde con una lupa y una hoja en blanco",
+      "nav.install": "instalar",
+      "nav.commands": "comandos",
+      "nav.why": "por qué",
+      "hero.title": "Guarda la referencia con los colores, la tipografía y el CSS que la hicieron.",
+      "hero.tagline": "Captura, organiza y adapta referencias de diseño web — offline, en tu máquina.",
+      "hero.outputLabel": "salida — los tokens de esta página, extraídos por ella misma:",
+      "hero.nohost": "no hay versión hospedada — por diseño.",
+      "hero.install": "Instalar localmente",
+      "hero.code": "Ver código",
+      "common.copy": "copiar",
+      "common.copied": "copiado",
+      "output.title": "Lo que sale",
+      "output.lead": "Cada salida abajo vino de un comando ejecutado de verdad. Nada aquí es ilustración.",
+      "output.playwright": "captura visual — screenshot full-page en los breakpoints que definas",
+      "output.scrapy": "descubrimiento — sigue el sitio y mapea sus páginas",
+      "output.static": "espeja sitios estáticos",
+      "output.pipeline": "La auto-detección elige el motor. El pipeline corre offline: screenshot full-page → ZIP → limpieza de trackers.",
+      "output.palette": "paleta",
+      "output.typo": "tipografía",
+      "output.tokens": "tokens",
+      "output.sourceA": "Fuente: esta misma página, capturada con",
+      "output.sourceB": "— los tokens de arriba son los suyos.",
+      "cmd.title": "Comandos",
+      "cmd.jump": "captura la URL y guarda la referencia: screenshot full-page, ZIP limpio, tokens",
+      "cmd.tongue": "lee los tokens de una referencia guardada: paleta, tipografía, medidas",
+      "cmd.pond": "lista y busca las referencias guardadas en tu máquina",
+      "cmd.export": "escribe los tokens como CSS o JSON para tu proyecto",
+      "install.title": "Instalar",
+      "install.lead": "Corre entero en tu máquina. Copia, pega y espera a que baje Chromium.",
+      "install.tabs": "Método de instalación",
+      "install.reqA": "Requisitos:",
+      "install.reqB": "para la cola. Nada sale de tu red.",
+      "why.title": "Por qué no hospedamos",
+      "why.p1": "Capturar páginas consume ancho de banda y corre navegadores pesados. Poner eso detrás de un servidor significaría pagarlo de un lado — y limitar la captura del otro.",
+      "why.p2": "Corriendo local, tus datos quedan en tu red, no hay costo de infraestructura ni superficie de ataque expuesta.",
+      "why.p3": "Esta página es el otro lado de eso: un archivo HTML estático, sin API, sin cookies, sin telemetría. No hay nada que llevar a producción — no hay aplicación detrás.",
+      "proof.title": "Prueba",
+      "proof.img": "Captura full-page de esta misma landing, de 1440 por 5039 píxeles, generada por zfrog",
+      "proof.capA": "Captura full-page de esta página — 1440×5039 px, un PNG dentro del ZIP de la referencia. La paleta y los tokens de arriba vinieron del mismo",
+      "proof.capB": "Las capturas de sitios de terceros quedan en tu máquina; la página oficial solo muestra lo nuestro.",
+      "foot.license": "LICENSE",
+      "foot.repo": "repositorio",
+      "foot.changelog": "changelog",
+      "foot.contact": "contacto"
+    }
+  };
+
+  var LANGS = ["pt", "en", "es"];
+  var LOCALES = { pt: "pt-BR", en: "en", es: "es" };
+  var copyLabel = "copiar";
+
+  function detect() {
+    try {
+      var q = new URLSearchParams(location.search).get("lang");
+      if (q && LANGS.indexOf(q) !== -1) return q;
+      var saved = localStorage.getItem("zfrog-lang");
+      if (saved && LANGS.indexOf(saved) !== -1) return saved;
+    } catch (e) {}
+    var nav = (navigator.language || "pt").slice(0, 2).toLowerCase();
+    return LANGS.indexOf(nav) !== -1 ? nav : "pt";
+  }
+
+  function apply(lang) {
+    var dict = I18N[lang] || I18N.pt;
+    copyLabel = dict["common.copy"];
+    document.documentElement.setAttribute("lang", LOCALES[lang] || "pt-BR");
+    var og = document.querySelector('meta[property="og:locale"]');
+    if (og) og.setAttribute("content", lang === "pt" ? "pt_BR" : lang === "es" ? "es_ES" : "en_US");
+    document.querySelectorAll("[data-i18n]").forEach(function(el){
+      var v = dict[el.getAttribute("data-i18n")];
+      if (v !== undefined) el.textContent = v;
+    });
+    document.querySelectorAll("[data-i18n-aria]").forEach(function(el){
+      var v = dict[el.getAttribute("data-i18n-aria")];
+      if (v !== undefined) el.setAttribute("aria-label", v);
+    });
+    document.querySelectorAll("[data-i18n-alt]").forEach(function(el){
+      var v = dict[el.getAttribute("data-i18n-alt")];
+      if (v !== undefined) el.setAttribute("alt", v);
+    });
+    document.querySelectorAll("[data-i18n-meta]").forEach(function(el){
+      var v = dict[el.getAttribute("data-i18n-meta")];
+      if (v !== undefined) el.setAttribute("content", v);
+    });
+    document.querySelectorAll("[data-lang]").forEach(function(btn){
+      btn.setAttribute("aria-pressed", btn.getAttribute("data-lang") === lang ? "true" : "false");
+    });
+    try { localStorage.setItem("zfrog-lang", lang); } catch (e) {}
+    try {
+      var url = new URL(location.href);
+      if (url.searchParams.get("lang") !== lang) {
+        url.searchParams.set("lang", lang);
+        history.replaceState(null, "", url.toString());
+      }
+    } catch (e) {}
+  }
+
+  document.querySelectorAll("[data-lang]").forEach(function(btn){
+    btn.addEventListener("click", function(){ apply(btn.getAttribute("data-lang")); });
+  });
+
+  apply(detect());
+  window.__zfrogCopyLabel = function(){ return copyLabel; };
+  window.__zfrogCopiedLabel = function(){
+    var lang;
+    try { lang = localStorage.getItem("zfrog-lang") || "pt"; } catch (e) { lang = "pt"; }
+    return (I18N[lang] || I18N.pt)["common.copied"];
+  };
+
+  var rm = window.matchMedia('(prefers-reduced-motion: reduce)');
+  var staticParam = new URLSearchParams(location.search).has('static');
+
+  var typed = document.getElementById('typed');
+  var out = document.getElementById('hero-out');
+  var full = typed.textContent;
+  if (rm.matches || staticParam) {
+    out.classList.add('on');
+  } else {
+    typed.textContent = '';
+    var i = 0;
+    var t = setInterval(function(){
+      i++;
+      typed.textContent = full.slice(0, i);
+      if (i >= full.length) {
+        clearInterval(t);
+        out.classList.add('on');
+      }
+    }, 26);
+  }
+
+  function copiar(texto, btn) {
+    var original = window.__zfrogCopyLabel ? window.__zfrogCopyLabel() : "copiar";
+    function ok() {
+      btn.textContent = window.__zfrogCopiedLabel ? window.__zfrogCopiedLabel() : "copiado";
+      btn.classList.add('ok');
+      setTimeout(function(){
+        btn.textContent = original;
+        btn.classList.remove('ok');
+      }, 1500);
+    }
+    function fallback() {
+      var ta = document.createElement('textarea');
+      ta.value = texto;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); ok(); } catch (e) {}
+      document.body.removeChild(ta);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(texto).then(ok, fallback);
+    } else {
+      fallback();
+    }
+  }
+
+  document.querySelectorAll('.copy').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var texto;
+      if (btn.dataset.copyText) {
+        texto = btn.dataset.copyText;
+      } else if (btn.dataset.copyTarget) {
+        var alvo = document.querySelector(btn.dataset.copyTarget);
+        if (!alvo) return;
+        texto = alvo.textContent;
+      } else {
+        return;
+      }
+      copiar(texto, btn);
+    });
+  });
+
+  var tabPip = document.getElementById('tab-pip');
+  var tabDocker = document.getElementById('tab-docker');
+  var panePip = document.getElementById('pane-pip');
+  var paneDocker = document.getElementById('pane-docker');
+  function trocar(pipAtivo) {
+    tabPip.setAttribute('aria-selected', pipAtivo ? 'true' : 'false');
+    tabDocker.setAttribute('aria-selected', pipAtivo ? 'false' : 'true');
+    panePip.classList.toggle('panel-oculto', !pipAtivo);
+    paneDocker.classList.toggle('panel-oculto', pipAtivo);
+  }
+  tabPip.addEventListener('click', function(){ trocar(true); });
+  tabDocker.addEventListener('click', function(){ trocar(false); });
+})();
+</script>
+</body>
+</html>

@@ -1,4 +1,3 @@
-"use client"
 
 /**
  * An API key kept in localStorage, as a fallback to the session cookie.

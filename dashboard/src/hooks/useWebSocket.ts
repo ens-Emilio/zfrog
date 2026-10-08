@@ -1,8 +1,7 @@
-"use client"
 import { useCallback, useEffect, useRef, useState } from "react"
+import { getDesktopConfig } from "@/lib/desktop"
 
 import { getApiKey } from "@/lib/auth"
-
 /** Must match `WS_SUBPROTOCOL` in zfrog/ws.py: the server echoes only what the
  * client proposed, so the browser has to offer it explicitly. */
 export const WS_SUBPROTOCOL = "zfrog.v1"
@@ -30,26 +29,39 @@ export function useWebSocket(
   const [events, setEvents] = useState<WsEvent[]>([])
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectAttempt = useRef(0)
-  const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const reconnectTimer = useRef<NodeJS.Timeout | undefined>(undefined)
+
+  const connectRef = useRef<() => void>(() => {})
+
+  const scheduleReconnect = useCallback(() => {
+    clearTimeout(reconnectTimer.current)
+
+    const delay = Math.min(1000 * Math.pow(2, reconnectAttempt.current), 30000)
+    reconnectAttempt.current++
+
+    reconnectTimer.current = setTimeout(() => {
+      connectRef.current()
+    }, delay)
+  }, [])
 
   const connect = useCallback(() => {
     if (!jobId) return
 
+    const desktopToken = getDesktopConfig()?.token
     const baseUrl =
-      process.env.NEXT_PUBLIC_WS_URL ||
-      process.env.NEXT_PUBLIC_API_URL?.replace("http", "ws") ||
+      import.meta.env.VITE_WS_URL ||
+      (getDesktopConfig()?.url ? getDesktopConfig()!.url.replace("http", "ws") : null) ||
+      import.meta.env.VITE_API_URL?.replace("http", "ws") ||
       "ws://localhost:8000"
 
     const url = `${baseUrl}/ws/jobs/${jobId}`
 
-    // The session cookie rides along on the handshake (same-origin, or a
-    // configured cross-origin with CORS credentials), and the server checks
-    // Origin — so the dashboard puts no credential in the URL. A stored API key
-    // is offered as a subprotocol, which is a header: reverse proxies do not log
-    // it, unlike a query string.
-    const key = getApiKey()
-    const protocols = key ? [WS_SUBPROTOCOL, `${WS_KEY_PREFIX}${key}`] : undefined
-
+    // Credentials: desktop token (Tauri sidecar) takes precedence — it is the
+    // only credential that exists in that mode. Otherwise use the stored API key.
+    const desktopKey = desktopToken ? `${WS_KEY_PREFIX}${desktopToken}` : null
+    const userKey = !desktopKey ? getApiKey() : ""
+    const keyProtocol = desktopKey || (userKey ? `${WS_KEY_PREFIX}${userKey}` : null)
+    const protocols = keyProtocol ? [WS_SUBPROTOCOL, keyProtocol] : undefined
     try {
       const ws = new WebSocket(url, protocols)
       wsRef.current = ws
@@ -82,20 +94,9 @@ export function useWebSocket(
     } catch {
       scheduleReconnect()
     }
-  }, [jobId, onEvent])
-
-  const scheduleReconnect = useCallback(() => {
-    if (reconnectTimer.current) clearTimeout(reconnectTimer.current)
-
-    const delay = Math.min(1000 * Math.pow(2, reconnectAttempt.current), 30000)
-    reconnectAttempt.current++
-
-    reconnectTimer.current = setTimeout(() => {
-      connect()
-    }, delay)
-  }, [connect])
-
+  }, [jobId, onEvent, scheduleReconnect])
   useEffect(() => {
+    connectRef.current = connect
     connect()
     return () => {
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current)

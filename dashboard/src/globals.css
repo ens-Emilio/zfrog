@@ -1,0 +1,10 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-feature-settings: "rlig" 1, "calt" 1;
+    font-family: "Iosevka", ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    background-color: var(--bg);
+    color: var(--fg);
+  }
+}

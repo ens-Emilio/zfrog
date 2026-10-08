@@ -1,4 +1,3 @@
-"use client"
 
 import { useCallback, useEffect, useState } from "react"
 
@@ -36,16 +35,16 @@ export function applyMotion(motion: Motion) {
 
 /** Theme state for the controls that toggle it. */
 export function useTheme(): [Theme, () => void] {
-  const [theme, setTheme] = useState<Theme>("dark")
+  const [theme, setTheme] = useState<Theme>("light")
 
   useEffect(() => {
     let stored: string | null = null
     try {
       stored = localStorage.getItem(THEME_KEY)
     } catch {
-      /* storage disabled: keep the dark default */
+      /* storage disabled: keep the light default */
     }
-    setTheme(stored === "light" ? "light" : "dark")
+    setTheme(stored === "dark" ? "dark" : "light")
   }, [])
 
   const toggle = useCallback(() => {
@@ -59,7 +58,7 @@ export function useTheme(): [Theme, () => void] {
   return [theme, toggle]
 }
 
-/** Motion state for the "Reduzir animações" switch. */
+/** Motion state for the "Reduce motion" switch. */
 export function useMotion(): [Motion, (value: Motion) => void] {
   const [motion, setMotion] = useState<Motion>("full")
 

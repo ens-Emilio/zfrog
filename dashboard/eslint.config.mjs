@@ -1,18 +1,18 @@
-import { defineConfig, globalIgnores } from "eslint/config";
-import nextVitals from "eslint-config-next/core-web-vitals";
-import nextTs from "eslint-config-next/typescript";
+import { defineConfig, globalIgnores } from "eslint/config"
+import eslintReact from "@eslint/js"
+import tseslint from "typescript-eslint"
+import reactHooks from "eslint-plugin-react-hooks"
 
 const eslintConfig = defineConfig([
-  ...nextVitals,
-  ...nextTs,
-  // Override default ignores of eslint-config-next.
-  globalIgnores([
-    // Default ignores of eslint-config-next:
-    ".next/**",
-    "out/**",
-    "build/**",
-    "next-env.d.ts",
-  ]),
-]);
+  eslintReact.configs.recommended,
+  ...tseslint.configs.recommended,
+  reactHooks.configs.flat.recommended,
+  {
+    // Padrão de fetch-em-effect pré-existente em todas as páginas; revisar junto
+    // com a adoção futura de TanStack Query.
+    rules: { "react-hooks/set-state-in-effect": "warn" },
+  },
+  globalIgnores(["dist/**", "src/routeTree.gen.ts", "node_modules/**"]),
+])
 
-export default eslintConfig;
+export default eslintConfig

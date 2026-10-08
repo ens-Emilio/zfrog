@@ -1,0 +1,280 @@
+{
+  "url": "http://127.0.0.1:8933/index.html?static",
+  "title": "zfrog — Design Reference Engine",
+  "element_count": 165,
+  "palette": [
+    {
+      "hex": "#111110",
+      "count": 312,
+      "role": "primary",
+      "properties": {
+        "color": 99,
+        "borderTopColor": 110,
+        "outlineColor": 99,
+        "backgroundColor": 4
+      }
+    },
+    {
+      "hex": "#55554F",
+      "count": 180,
+      "role": null,
+      "properties": {
+        "color": 63,
+        "borderTopColor": 53,
+        "outlineColor": 63,
+        "backgroundColor": 1
+      }
+    },
+    {
+      "hex": "#FAFAF5",
+      "count": 7,
+      "role": "accent",
+      "properties": {
+        "backgroundColor": 2,
+        "color": 2,
+        "borderTopColor": 1,
+        "outlineColor": 2
+      }
+    },
+    {
+      "hex": "#000000",
+      "count": 3,
+      "role": null,
+      "properties": {
+        "color": 1,
+        "borderTopColor": 1,
+        "outlineColor": 1
+      }
+    },
+    {
+      "hex": "#3F6212",
+      "count": 3,
+      "role": "secondary",
+      "properties": {
+        "backgroundColor": 3
+      }
+    }
+  ],
+  "fonts": [
+    {
+      "family": "JetBrains Mono",
+      "count": 154,
+      "sizes": {
+        "16px": 68,
+        "13px": 52,
+        "12px": 15,
+        "14px": 11,
+        "15px": 3,
+        "17px": 2,
+        "68px": 1,
+        "19px": 1,
+        "13.5px": 1
+      },
+      "weights": {
+        "400": 137,
+        "700": 17
+      },
+      "headings": 7,
+      "body": 21
+    },
+    {
+      "family": "monospace",
+      "count": 10,
+      "sizes": {
+        "13px": 8,
+        "12.5px": 1,
+        "13.5px": 1
+      },
+      "weights": {
+        "400": 10
+      },
+      "headings": 0,
+      "body": 0
+    },
+    {
+      "family": "Times New Roman",
+      "count": 1,
+      "sizes": {
+        "16px": 1
+      },
+      "weights": {
+        "400": 1
+      },
+      "headings": 0,
+      "body": 0
+    }
+  ],
+  "font_sizes": [
+    [
+      "16px",
+      69
+    ],
+    [
+      "13px",
+      60
+    ],
+    [
+      "12px",
+      15
+    ],
+    [
+      "14px",
+      11
+    ],
+    [
+      "15px",
+      3
+    ],
+    [
+      "13.5px",
+      2
+    ],
+    [
+      "17px",
+      2
+    ],
+    [
+      "12.5px",
+      1
+    ],
+    [
+      "19px",
+      1
+    ],
+    [
+      "68px",
+      1
+    ]
+  ],
+  "font_weights": [
+    [
+      "400",
+      148
+    ],
+    [
+      "700",
+      17
+    ]
+  ],
+  "padding": [
+    [
+      "14px",
+      33
+    ],
+    [
+      "12px",
+      20
+    ],
+    [
+      "10px",
+      18
+    ],
+    [
+      "86.4px",
+      16
+    ],
+    [
+      "24px",
+      13
+    ],
+    [
+      "128px",
+      11
+    ],
+    [
+      "8px",
+      10
+    ],
+    [
+      "16px",
+      8
+    ],
+    [
+      "6px",
+      8
+    ],
+    [
+      "110px",
+      1
+    ],
+    [
+      "40px",
+      1
+    ],
+    [
+      "64px",
+      1
+    ]
+  ],
+  "margin": [
+    [
+      "12px",
+      9
+    ],
+    [
+      "73.5938px",
+      8
+    ],
+    [
+      "73.6094px",
+      8
+    ],
+    [
+      "16px",
+      4
+    ],
+    [
+      "20px",
+      3
+    ],
+    [
+      "24px",
+      3
+    ],
+    [
+      "10px",
+      2
+    ],
+    [
+      "40px",
+      2
+    ],
+    [
+      "14px",
+      1
+    ],
+    [
+      "28px",
+      1
+    ],
+    [
+      "2px",
+      1
+    ],
+    [
+      "32px",
+      1
+    ]
+  ],
+  "radii": [
+    [
+      "0px",
+      142
+    ],
+    [
+      "2px",
+      23
+    ]
+  ],
+  "shadows": [],
+  "assets": [
+    {
+      "url": "http://127.0.0.1:8933/assets/mascot.png",
+      "kind": "img",
+      "width": 500,
+      "height": 500,
+      "alt": "Mascote zfrog: um sapinho verde segurando uma lupa e uma folha em branco"
+    }
+  ],
+  "unreadable_colors": 0
+}

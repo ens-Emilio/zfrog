@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="System design do zfrog — arquitetura do motor de referências: engines, auto-detecção, pipeline offline, fila Redis, CLI e deploy.">
+<meta property="og:title" content="zfrog — System Design">
+<meta property="og:description" content="Arquitetura do motor: engines, pipeline de captura offline, fila e CLI.">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="pt_BR">
+<meta name="theme-color" content="#FAFAF5" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111110" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/png" href="assets/mascot.png">
+<title>zfrog — System Design</title>
+<style>
+@layer od-layout {
+  :where(.od-stack,.od-row,.od-row-top,.od-cluster,.od-grid,.od-field,.od-stat,.od-cell,.od-tile) > :where(*) { min-width: 0; }
+  .od-stack   { display: flex; flex-direction: column; gap: var(--od-gap, 8px); }
+  .od-row     { display: flex; align-items: center; gap: var(--od-gap, 8px); }
+  .od-row-top { display: flex; align-items: flex-start; gap: var(--od-gap, 8px); }
+  .od-cluster { display: flex; flex-wrap: wrap; align-items: center; gap: var(--od-gap, 8px); }
+  .od-fill    { flex: 1 1 0; min-width: 0; }
+  .od-fixed   { flex: none; }
+  .od-grid    { display: grid; gap: var(--od-gap, 12px); grid-template-columns: repeat(var(--od-cols, 3), minmax(0, 1fr)); }
+  .od-stat, .od-field, .od-cell { display: grid; gap: var(--od-gap, 2px); }
+  :where(.od-stat,.od-field,.od-cell) > :where(*) { display: block; }
+  .od-tile { display: grid; grid-template-rows: auto 1fr; }
+  :where(.od-tile) > :where(*) { display: block; }
+  .od-media { display: block; width: 100%; height: auto; aspect-ratio: var(--od-ratio, auto); }
+  .od-media-cover { object-fit: cover; }
+  .od-truncate { display: block; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .od-nowrap  { white-space: nowrap; }
+  .od-keep    { word-break: keep-all; overflow-wrap: anywhere; }
+  .od-screen { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; height: 100%; }
+  .od-scroll { overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
+  .od-spacer { flex: none; visibility: hidden; pointer-events: none; }
+  .od-touch  { min-width: 44px; min-height: 44px; }
+}
+/* /OD-LAYOUT-PRIMITIVES v1 */
+
+@font-face{
+  font-family:'JetBrains Mono';
+  src:url('assets/fonts/jetbrains-mono-latin.woff2') format('woff2');
+  font-weight:100 800;font-style:normal;font-display:swap;
+}
+@font-face{
+  font-family:'JetBrains Mono';
+  src:url('assets/fonts/jetbrains-mono-italic-latin.woff2') format('woff2');
+  font-weight:400;font-style:italic;font-display:swap;
+}
+
+:root{
+  --papel:#FAFAF5;
+  --tinta:#111110;
+  --muted:#55554F;
+  --hairline:rgba(17,17,16,.28);
+  --hairline-soft:rgba(17,17,16,.14);
+  --acento:#3F6212;
+  --acento-soft:rgba(63,98,18,.10);
+  --raio:2px;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --pad:clamp(20px,6vw,96px);
+  --maxw:1120px;
+  --hover:100ms;
+  --secao-py:clamp(56px,9vw,128px);
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --papel:#111110;
+    --tinta:#EDEDE6;
+    --muted:#A8A89E;
+    --hairline:rgba(237,237,230,.24);
+    --hairline-soft:rgba(237,237,230,.12);
+    --acento:#A3C24C;
+    --acento-soft:rgba(163,194,76,.14);
+  }
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;
+  background:var(--papel);
+  color:var(--tinta);
+  font-family:var(--mono);
+  font-size:16px;
+  line-height:1.65;
+}
+a{color:inherit}
+code{font-family:var(--mono)}
+:focus-visible{outline:2px solid var(--acento);outline-offset:2px}
+
+.skip{
+  position:absolute;left:-9999px;top:0;
+  background:var(--tinta);color:var(--papel);
+  padding:10px 16px;z-index:10;
+}
+.skip:focus{left:0}
+
+.top{
+  display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap;
+  max-width:calc(var(--maxw) + 2*var(--pad));
+  margin-inline:auto;
+  padding:24px var(--pad);
+}
+.brand{
+  display:inline-flex;align-items:center;gap:10px;
+  font-weight:700;font-size:17px;text-decoration:none;
+}
+.brand img{width:28px;height:28px;flex:none;border-radius:2px}
+.brand:hover{color:var(--acento)}
+.top nav{display:flex;gap:20px;flex-wrap:wrap}
+.top nav a{
+  font-size:13px;text-decoration:none;color:var(--muted);
+  transition:color var(--hover) ease-out;
+}
+.top nav a:hover{color:var(--acento);text-decoration:underline;text-underline-offset:4px}
+.top nav a[aria-current="page"]{color:var(--tinta)}
+
+section{
+  border-top:1px solid var(--hairline);
+  padding:var(--secao-py) var(--pad);
+  display:grid;
+  grid-template-columns:200px minmax(0,1fr);
+  gap:40px;
+  max-width:calc(var(--maxw) + 2*var(--pad));
+  margin-inline:auto;
+}
+section > .label h2{
+  margin:0;font-size:13px;font-weight:400;
+  letter-spacing:.08em;color:var(--muted);
+}
+section > .content{min-width:0}
+section > .content > p:first-child{margin-top:0}
+section > .content > p:last-child{margin-bottom:0}
+
+.hero{border-top:none;padding-top:clamp(48px,8vw,110px)}
+.kicker{
+  margin:0 0 20px;font-size:13px;color:var(--muted);letter-spacing:.08em;
+}
+.hero h1{
+  margin:0;
+  font-size:clamp(32px,4.4vw,56px);
+  line-height:1.1;
+  letter-spacing:-.03em;
+  font-weight:700;
+  max-width:20ch;
+}
+.hero p{
+  margin:24px 0 0;font-size:clamp(16px,1.4vw,19px);
+  max-width:62ch;
+}
+.lead{font-size:clamp(16px,1.3vw,18px);max-width:68ch}
+.note{font-size:13px;color:var(--muted);margin:16px 0 0}
+
+.block{margin-top:40px}
+.block:first-child{margin-top:0}
+.block > h3{margin:0 0 4px;font-size:15px;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.block > h3 code{font-size:12px;color:var(--muted);font-weight:400}
+.block > p{margin:0 0 16px;font-size:14px;color:var(--muted);max-width:68ch}
+
+/* layer diagram */
+.diagram{
+  border:1px solid var(--hairline);border-radius:var(--raio);
+  padding:20px 14px;
+  display:flex;flex-direction:column;gap:0;
+}
+.layer{
+  border:1px solid var(--hairline);border-radius:var(--raio);
+  padding:12px 14px;background:transparent;
+}
+.layer .lt{font-size:14px;font-weight:700}
+.layer .ls{font-size:12px;color:var(--muted);margin-top:4px}
+.layer.accenta{border-color:var(--acento)}
+.layer.accenta .lt{color:var(--acento)}
+.arrow{
+  display:flex;align-items:center;justify-content:center;
+  height:28px;color:var(--muted);font-size:14px;
+}
+.arrow svg{width:14px;height:22px}
+
+/* columns */
+.cols{display:grid;gap:1px;border:1px solid var(--hairline);border-radius:var(--raio);overflow:hidden;background:var(--hairline)}
+.cols.n2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.cols.n3{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media (max-width:760px){.cols.n3{grid-template-columns:1fr}.cols.n2{grid-template-columns:1fr}}
+.col{background:var(--papel);padding:16px 14px}
+.col .ct{font-size:14px;font-weight:700;margin:0 0 6px}
+.col .cd{font-size:13px;color:var(--muted);margin:0}
+.col ul{margin:8px 0 0;padding-left:16px;font-size:13px;color:var(--muted)}
+.col li{margin:4px 0}
+
+/* flow */
+.flow{margin:0;padding:0;list-style:none;border-left:1px solid var(--hairline);}
+.flow-item{position:relative;padding:0 0 24px 24px}
+.flow-item:last-child{padding-bottom:0}
+.flow-item::before{
+  content:"";position:absolute;left:-4px;top:7px;
+  width:7px;height:7px;background:var(--papel);border:1px solid var(--acento);
+}
+.flow-item .fk{
+  font-size:13px;font-weight:700;
+  display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;
+}
+.flow-item .fk code{font-size:12px;color:var(--muted);font-weight:400}
+.flow-item .fd{font-size:14px;color:var(--muted);margin:4px 0 0;max-width:66ch}
+
+/* tables */
+.token-scroll{overflow-x:auto;border:1px solid var(--hairline);border-radius:var(--raio)}
+.token-table{width:100%;border-collapse:collapse;font-size:13px}
+.token-table th,.token-table td{
+  text-align:left;padding:10px 12px;border-bottom:1px solid var(--hairline-soft);vertical-align:top;
+}
+.token-table th{color:var(--muted);font-weight:400;font-size:12px;letter-spacing:.06em}
+.token-table tr:last-child td{border-bottom:none}
+.token-table td code{font-size:12.5px}
+
+/* code / terminal */
+.code{
+  border:1px solid var(--hairline);border-radius:var(--raio);
+  background:transparent;margin:16px 0 0;padding:16px;
+  font-size:13px;line-height:1.7;overflow-x:auto;
+}
+.code .p{color:var(--muted);user-select:none}
+.code .k{color:var(--acento)}
+.code .c{color:var(--muted)}
+
+/* rows */
+.rows{margin:0;padding:0;list-style:none;border-top:1px solid var(--hairline-soft)}
+.rows li{display:flex;gap:16px;flex-wrap:wrap;align-items:baseline;padding:12px 0;border-bottom:1px solid var(--hairline-soft)}
+.rows .campo{font-weight:700;min-width:14ch}
+.rows .valor{color:var(--muted);flex:1 1 24ch;min-width:0}
+@media (max-width:520px){.rows .campo{min-width:0}}
+
+.rules{margin:0;padding:0;list-style:none;border-top:1px solid var(--hairline-soft)}
+.rules li{padding:14px 0 14px 30px;border-bottom:1px solid var(--hairline-soft);position:relative;font-size:14px}
+.rules li::before{position:absolute;left:0;top:15px;font-weight:700;font-size:13px}
+.rules li.do::before{content:"✓";color:var(--acento)}
+.rules li.dont::before{content:"✕";color:var(--muted)}
+.rules li b{font-weight:700}
+
+footer{
+  border-top:1px solid var(--hairline);
+  max-width:calc(var(--maxw) + 2*var(--pad));
+  margin-inline:auto;
+  padding:40px var(--pad) 64px;
+  display:flex;gap:16px;flex-wrap:wrap;align-items:baseline;
+  font-size:13px;color:var(--muted);
+}
+footer a{color:var(--muted);text-decoration:none;transition:color var(--hover) ease-out}
+footer a:hover{color:var(--acento);text-decoration:underline;text-underline-offset:4px}
+
+@media (max-width:767px){
+  section{grid-template-columns:1fr;gap:20px}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#conteudo">pular para o conteúdo</a>
+
+<header class="top">
+  <a class="brand" href="index.html" aria-label="zfrog — início">
+    <img src="assets/mascot.png" width="28" height="28" alt="Mascote zfrog: um sapinho verde segurando uma lupa e uma folha em branco">
+    zfrog
+  </a>
+  <nav aria-label="Documentos">
+    <a href="index.html">landing</a>
+    <a href="design-system.html">design system</a>
+    <a href="system-design.html" aria-current="page">system design</a>
+    <a href="https://github.com/ens-Emilio/zfrog">github</a>
+  </nav>
+</header>
+
+<main id="conteudo">
+
+<section class="hero">
+  <div class="label"><h2>System Design</h2></div>
+  <div class="content">
+    <h1>Um motor de captura que roda inteiro na sua máquina.</h1>
+    <p class="lead">O zfrog transforma uma URL em dados de design: screenshot full-page, paleta com papéis, tipografia e CSS computado. Uma CLI fina, um núcleo de orquestração e três engines trocáveis. Nada disso toca um servidor nosso — o produto não tem backend hospedado, por decisão.</p>
+    <p class="note">Documento de arquitetura, não contrato final. Comportamentos de <code>tongue</code>, <code>pond</code> e da fila descrevem o desenho pretendido e devem ser conferidos contra o README do repositório.</p>
+  </div>
+</section>
+
+<section id="visao">
+  <div class="label"><h2>Visão geral</h2></div>
+  <div class="content">
+    <p class="lead">Quatro camadas, cada uma com uma responsabilidade. A CLI não sabe capturar; o núcleo não sabe desenhar terminal; os engines não conhecem a CLI.</p>
+
+    <div class="diagram" role="img" aria-label="Diagrama de camadas: CLI sobre o núcleo, sobre os engines, sobre o armazenamento local">
+      <div class="layer">
+        <div class="lt">CLI <span style="color:var(--muted);font-weight:400">jump · tongue · pond · export</span></div>
+        <div class="ls">Interpreta argumentos, imprime progresso, escreve os arquivos de saída.</div>
+      </div>
+      <div class="arrow" aria-hidden="true">
+        <svg viewBox="0 0 14 22"><path d="M7 1 V21 M2 16 L7 21 L12 16" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+      </div>
+      <div class="layer accenta">
+        <div class="lt">Núcleo — orquestração</div>
+        <div class="ls">Resolve o motor, agenda o job, conduz o pipeline e consolida os tokens.</div>
+      </div>
+      <div class="arrow" aria-hidden="true">
+        <svg viewBox="0 0 14 22"><path d="M7 1 V21 M2 16 L7 21 L12 16" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+      </div>
+      <div class="layer">
+        <div class="lt">Engines — playwright · scrapy · staticfile + wget</div>
+        <div class="ls">Cada um implementa a mesma interface de captura; o núcleo escolhe por heurística ou por flag.</div>
+      </div>
+      <div class="arrow" aria-hidden="true">
+        <svg viewBox="0 0 14 22"><path d="M7 1 V21 M2 16 L7 21 L12 16" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+      </div>
+      <div class="layer">
+        <div class="lt">Armazenamento local — <code>pond/</code></div>
+        <div class="ls">Screenshots, HTML, tokens e ZIP por referência. Tudo em disco, na sua rede.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="engines">
+  <div class="label"><h2>Engines</h2></div>
+  <div class="content">
+    <p class="lead">Uma interface, três implementações. Trocar o motor não muda o formato da saída — só como a página é alcançada.</p>
+
+    <div class="block">
+      <h3>A interface <code>Engine</code></h3>
+      <p>Toda implementação expõe os mesmos passos. O núcleo programa contra esta interface, nunca contra um engine concreto.</p>
+      <pre class="code"><span class="k">class</span> Engine(Protocol):
+    <span class="k">def</span> can_handle(url: str) -&gt; bool: ...
+    <span class="k">def</span> capture(url: str, *, viewports: list[int]) -&gt; Capture: ...
+    <span class="k">def</span> name() -&gt; str: ...
+
+<span class="c"># Capture carrega: screenshot full-page, html bruto,</span>
+<span class="c"># css computado e a árvore de elementos observada.</span></pre>
+    </div>
+
+    <div class="token-scroll" style="margin-top:24px">
+      <table class="token-table">
+        <thead>
+          <tr><th>Engine</th><th>Entrega</th><th>Quando é escolhido</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>playwright</code></td><td>screenshot full-page, DOM após render, CSS computado por elemento</td><td>padrão; páginas com JS, SPA, layout dinâmico</td></tr>
+          <tr><td><code>scrapy</code></td><td>descoberta de páginas e extração estrutural do HTML</td><td>sites grandes, quando o objetivo é mapear e não só uma página</td></tr>
+          <tr><td><code>staticfile + wget</code></td><td>espelho de sites estáticos, sem browser</td><td>HTML puro, quando não vale subir o Chromium</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section id="autodeteccao">
+  <div class="label"><h2>Auto-detecção</h2></div>
+  <div class="content">
+    <p class="lead">O usuário não precisa escolher o motor. A seleção parte do mais capaz para o mais barato e para assim que encontra um que funciona.</p>
+
+    <ol class="flow">
+      <li class="flow-item">
+        <span class="fk">Flag explícita <code>--engine</code></span>
+        <p class="fd">Se o usuário declarou o motor, nada é inferido. Exceção: um engine que não pode tratar a URL falha com erro claro, sem cair para outro.</p>
+      </li>
+      <li class="flow-item">
+        <span class="fk">Sonda leve <code>can_handle</code></span>
+        <p class="fd">Requisita o documento base e observa sinais: preset de framework JS, tags de app de página única, presença de conteúdo só no bundle.</p>
+      </li>
+      <li class="flow-item">
+        <span class="fk">Decisão</span>
+        <p class="fd">Conteúdo dependente de JS → <code>playwright</code>. Site estático com muitas páginas → <code>scrapy</code>. Estático e pequeno → <code>staticfile + wget</code>.</p>
+      </li>
+      <li class="flow-item">
+        <span class="fk">Registro</span>
+        <p class="fd">O motor escolhido e a razão ficam gravados na referência, para o <code>tongue</code> poder relatar depois.</p>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<section id="pipeline">
+  <div class="label"><h2>Pipeline de captura</h2></div>
+  <div class="content">
+    <p class="lead">Cinco passos, todos offline. Cada passo produz um artefato que o seguinte consome; qualquer falha é local e não derruba a referência inteira.</p>
+
+    <ol class="flow">
+      <li class="flow-item">
+        <span class="fk">1. Screenshot full-page</span>
+        <p class="fd">Viewport e altura total da página, nos breakpoints pedidos. Reserva a largura e a altura reais para não cortar nem distorcer.</p>
+      </li>
+      <li class="flow-item">
+        <span class="fk">2. Extração de tokens</span>
+        <p class="fd">Varre os elementos, conta ocorrências de cor, tamanho de fonte, família, raio e sombra; atribui papéis (primary, accent, neutro).</p>
+      </li>
+      <li class="flow-item">
+        <span class="fk">3. Empacotamento em ZIP</span>
+        <p class="fd">Screenshot, HTML bruto, CSS computado e <code>design-tokens.json</code> vão juntos para um pacote por referência.</p>
+      </li>
+      <li class="flow-item">
+        <span class="fk">4. Limpeza de trackers</span>
+        <p class="fd">Remove scripts de telemetria, pings e URLs de rastreio do HTML guardado. O que fica é o documento, não o comportamento de terceiros.</p>
+      </li>
+      <li class="flow-item">
+        <span class="fk">5. Persistência</span>
+        <p class="fd">Grava em <code>pond/</code> sob a chave derivada da URL; atualiza o índice que o <code>pond</code> consulta.</p>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<section id="fila">
+  <div class="label"><h2>Fila e jobs</h2></div>
+  <div class="content">
+    <p class="lead">Capturas são trabalhos assíncronos. Um worker pega um job, roda o pipeline e publica o resultado. A fila fica em Redis, no mesmo host.</p>
+
+    <div class="cols n3" style="margin-bottom:24px">
+      <div class="col">
+        <p class="ct">enfileirar</p>
+        <p class="cd">A CLI cria o job com URL, breakpoints e motor resolvido e devolve um identificador.</p>
+      </div>
+      <div class="col">
+        <p class="ct">processar</p>
+        <p class="cd">O worker retira o job, roda o pipeline, reporta progresso por passo.</p>
+      </div>
+      <div class="col">
+        <p class="ct">concluir</p>
+        <p class="cd">Estado final em <code>done</code> ou <code>failed</code> com a causa; o artefato fica em <code>pond/</code>.</p>
+      </div>
+    </div>
+
+    <ul class="rows">
+      <li><span class="campo">waiting</span><span class="valor">na fila, aguardando um worker livre</span></li>
+      <li><span class="campo">running</span><span class="valor">em processamento, com o passo atual exposto</span></li>
+      <li><span class="campo">done</span><span class="valor">pipeline completo, artefatos gravados</span></li>
+      <li><span class="campo">failed</span><span class="valor">erro com causa e o passo em que parou</span></li>
+    </ul>
+    <p class="note">Falha de um job não afeta os outros: o estado vive no job, não no processo. Redis também é o requisito de runtime que mais pesa no setup.</p>
+  </div>
+</section>
+
+<section id="cli">
+  <div class="label"><h2>CLI</h2></div>
+  <div class="content">
+    <p class="lead">Quatro verbos. O nome carrega a metáfora do sapo; o comportamento é direto.</p>
+
+    <div class="block">
+      <h3>jump <code>captura uma URL</code></h3>
+      <p>Ponto de entrada do produto. Resolve o motor, enfileira e conduz o pipeline até a referência estar salva.</p>
+      <pre class="code"><span class="p">$</span> zfrog jump http://localhost:3000
+<span class="c">referência salva · 165 elementos · 7 cores · 1 família</span></pre>
+    </div>
+
+    <div class="block">
+      <h3>tongue <code>lê os tokens de uma referência</code></h3>
+      <p>Relata paleta, tipografia e medidas da referência salva, sem reabrir a página.</p>
+      <pre class="code"><span class="p">$</span> zfrog tongue localhost
+<span class="c">primary #111110 · acento #3F6212 · JetBrains Mono 16px · raio 2px</span></pre>
+    </div>
+
+    <div class="block">
+      <h3>pond <code>lista e busca referências</code></h3>
+      <p>Consulta o índice local: quais referências existem, quando foram capturadas e quanto ocupam.</p>
+      <pre class="code"><span class="p">$</span> zfrog pond
+<span class="c">localhost · 1 referência · 0,4 MB</span></pre>
+    </div>
+
+    <div class="block">
+      <h3>export <code>escreve tokens para o seu projeto</code></h3>
+      <p>Converte uma referência em arquivos que entram direto no código: CSS de variáveis ou JSON.</p>
+      <pre class="code"><span class="p">$</span> zfrog export --css localhost
+<span class="c">tokens.css</span></pre>
+    </div>
+  </div>
+</section>
+
+<section id="artefatos">
+  <div class="label"><h2>Artefatos e armazenamento</h2></div>
+  <div class="content">
+    <p class="lead">Tudo o que o motor produz vive em disco. O ZIP é o artefato portátil; o índice torna a coleção consultável.</p>
+
+    <pre class="code">pond/
+  index.json                     <span class="c"># índice: URL, data, motor, tamanho</span>
+  localhost/
+    capture.zip                  <span class="c"># pacote portátil da referência</span>
+    fullpage.png                 <span class="c"># screenshot completo</span>
+    page.html                    <span class="c"># HTML limpo de trackers</span>
+    computed.css                 <span class="c"># CSS computado</span>
+    design-tokens.json           <span class="c"># paleta, fontes, raios, sombras</span>
+    tokens.css                   <span class="c"># gerado por export --css</span></pre>
+
+    <ul class="rows" style="margin-top:24px">
+      <li><span class="campo">design-tokens.json</span><span class="valor">contrato entre captura e export; inclui contagem de elementos e papéis de cor</span></li>
+      <li><span class="campo">capture.zip</span><span class="valor">unidade de transporte: permite mover uma referência sem perder nada</span></li>
+      <li><span class="campo">index.json</span><span class="valor">fonte do <code>pond</code>; reconstruível a partir das pastas</span></li>
+    </ul>
+  </div>
+</section>
+
+<section id="runtime">
+  <div class="label"><h2>Runtime</h2></div>
+  <div class="content">
+    <p class="lead">O que precisa existir na máquina. É o custo real de rodar local — e o motivo de não haver versão hospedada.</p>
+
+    <ul class="rows">
+      <li><span class="campo">Python 3.12+</span><span class="valor">runtime do núcleo, da CLI e do engine de descoberta</span></li>
+      <li><span class="campo">Playwright + Chromium</span><span class="valor">≈ 3 GB; necessário para o motor de captura visual</span></li>
+      <li><span class="campo">Redis</span><span class="valor">fila de jobs e estado de processamento</span></li>
+    </ul>
+    <p class="note">Captura web consome banda e roda browsers pesados. Por isso o produto não é um serviço: rodando local, os dados ficam na sua rede, e não há superfície de ataque exposta nem custo de infraestrutura.</p>
+  </div>
+</section>
+
+<section id="deploy">
+  <div class="label"><h2>Deploy do site</h2></div>
+  <div class="content">
+    <p class="lead">Este site é o oposto arquitetural do app: estático puro, hospedado em CDN, sem estado.</p>
+
+    <ul class="rules">
+      <li class="do">Páginas estáticas (<code>index.html</code>, este documento e o design system) publicadas no <b>Cloudflare Pages</b> como projeto dedicado, sem build step.</li>
+      <li class="do">Fontes self-hosted e subsetadas; imagens com largura e altura definidas para não deslocar o layout.</li>
+      <li class="do">Sem backend, sem API, sem cookies e sem telemetria — logo, sem banner de consentimento e sem origin na VPS.</li>
+      <li class="dont">Não hospedar captura: nenhuma rota do site executa o motor. O site converte, não processa.</li>
+    </ul>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <span>zfrog · system design</span>
+  <span>© 2026 Emilio N. Silva</span>
+  <span>Apache 2.0</span>
+  <a href="index.html">landing</a>
+  <a href="design-system.html">design system</a>
+  <a href="https://github.com/ens-Emilio/zfrog">repositório</a>
+  <a href="mailto:miliocontact.net@gmail.com">contato</a>
+</footer>
+
+</body>
+</html>

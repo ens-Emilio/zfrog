@@ -2,26 +2,44 @@
   "name": "dashboard",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "i18n:check": "python3 scripts/i18n-check.py",
+    "desktop:dev": "tauri dev",
+    "desktop:build": "tauri build"
   },
   "dependencies": {
+    "@fontsource/iosevka": "^5.3.0",
+    "@tanstack/react-query": "^5.104.1",
+    "@tanstack/react-router": "^1",
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-dialog": "^2.8.1",
+    "@tauri-apps/plugin-notification": "^2.5.1",
+    "@tauri-apps/plugin-opener": "^2.7.0",
     "lucide-react": "^0.525.0",
-    "next": "16.3.5",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
+    "@eslint/js": "^9.39.5",
+    "@tailwindcss/vite": "^4",
+    "@tanstack/router-plugin": "^1.168.42",
+    "@tauri-apps/cli": "^2",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^5",
     "eslint": "^9",
-    "eslint-config-next": "16.3.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "typescript-eslint": "^8.71.1",
+    "vite": "^7",
+    "vite-tsconfig-paths": "^5"
   }
 }

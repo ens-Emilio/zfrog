@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="light" data-motion="full">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>zfrog</title>
+    <script>
+      // Applies the stored theme and motion preference before the first paint.
+      // Blocking on purpose: setting `data-theme` after paint would flash the wrong
+      // palette for someone who chose the other one. Light is the default (DESIGN.md §5.2).
+      ;(function () {
+        try {
+          var t = localStorage.getItem("zfrog-theme")
+          document.documentElement.setAttribute("data-theme", t === "dark" ? "dark" : "light")
+          var m = localStorage.getItem("zfrog-motion")
+          document.documentElement.setAttribute("data-motion", m === "reduced" ? "reduced" : "full")
+        } catch (e) {}
+      })()
+    </script>
+  </head>
+  <body class="min-h-screen">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
