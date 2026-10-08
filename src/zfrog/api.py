@@ -2531,7 +2531,7 @@ async def get_stats(
     auth: AuthDecision = Depends(auth_dependency(ACTION_READ)),
 ):
     """Get system statistics."""
-    from zfrog.utils.rate_limit import _global_concurrency, _global_limiter
+    from zfrog.utils.rate_limit import global_concurrency, global_limiter
 
     jobs = list_jobs()
     completed = sum(1 for j in jobs if j.status.value == "completed")
@@ -2543,8 +2543,8 @@ async def get_stats(
         "completed": completed,
         "failed": failed,
         "running": running,
-        "concurrent_slots_available": _global_concurrency.available,
-        "rate_limit_rps": _global_limiter.rate,
+        "concurrent_slots_available": global_concurrency.available,
+        "rate_limit_rps": global_limiter.rate,
     }
 
 
@@ -2661,7 +2661,7 @@ async def get_config(
     auth: AuthDecision = Depends(auth_dependency(ACTION_READ)),
 ):
     """Get current configuration."""
-    from zfrog.utils.rate_limit import _global_limiter
+    from zfrog.utils.rate_limit import global_limiter
     
     return ConfigResponse(
         redis_url=redact_url_credentials(settings.redis_url),
@@ -2669,7 +2669,7 @@ async def get_config(
         max_concurrent_jobs=settings.max_concurrent_jobs,
         worker_concurrency=settings.worker_concurrency,
         proxy_url=settings.proxy_url,
-        rate_limit_rps=_global_limiter.rate,
+        rate_limit_rps=global_limiter.rate,
         http_timeout_connect=settings.http_timeout_connect,
         http_timeout_read=settings.http_timeout_read,
     )
@@ -2680,16 +2680,16 @@ async def set_rate_limit(update: RateLimitUpdate,
                          auth: AuthDecision = Depends(auth_dependency(ACTION_ADMIN))):
     """Update the global rate limit.
 
-    `_global_limiter` is process-wide, so an unauthenticated caller could slow
+    `global_limiter` is process-wide, so an unauthenticated caller could slow
     the whole instance to a crawl from one request.
     """
-    from zfrog.utils.rate_limit import _global_limiter
+    from zfrog.utils.rate_limit import global_limiter
     
     if update.requests_per_second <= 0:
         raise HTTPException(status_code=400, detail="Rate must be positive")
     
-    _global_limiter.set_rate(update.requests_per_second)
-    return {"rate_limit_rps": _global_limiter.rate}
+    global_limiter.set_rate(update.requests_per_second)
+    return {"rate_limit_rps": global_limiter.rate}
 
 
 @app.websocket("/ws/jobs/{job_id}")

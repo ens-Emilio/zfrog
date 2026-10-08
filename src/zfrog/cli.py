@@ -60,13 +60,13 @@ def clone(
     from pathlib import Path
     from zfrog.config import settings
     from zfrog.orchestrator import run_job
-    from zfrog.utils.rate_limit import _global_limiter
+    from zfrog.utils.rate_limit import global_limiter
     
     # Override output directory
     settings.output_dir = Path(output)
     
     # Set rate limit
-    _global_limiter.set_rate(rate_limit)
+    global_limiter.set_rate(rate_limit)
     
     # Create job
     job = JobCreate(

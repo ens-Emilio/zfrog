@@ -24,7 +24,7 @@ from zfrog.pipeline.reference import register_reference
 from zfrog.pipeline.screenshot import take_screenshots
 from zfrog.storage.local import get_output_dir
 from zfrog.utils.http import create_client
-from zfrog.utils.rate_limit import _global_limiter, _global_concurrency
+from zfrog.utils.rate_limit import global_limiter, global_concurrency
 from zfrog.utils.cleanup import is_cancelled, CancellationError
 from zfrog.utils.webhooks import notify_job_completed, notify_job_failed
 from zfrog.utils.url_guard import check_url
@@ -179,7 +179,7 @@ async def run_job(job: JobCreate, job_id: str | None = None) -> JobResult:
 
     try:
         # Acquire concurrency slot
-        await _global_concurrency.acquire()
+        await global_concurrency.acquire()
         
         try:
             # Get output directory. An org-scoped job writes inside its own
@@ -196,7 +196,7 @@ async def run_job(job: JobCreate, job_id: str | None = None) -> JobResult:
             await publish_job_event(job_id, "status", {"status": "probing", "url": str(job.url)})
             
             # Apply rate limiting
-            await _global_limiter.acquire()
+            await global_limiter.acquire()
             
             probe_result = await probe_url(str(job.url), client)
             job_record.probe = probe_result
@@ -224,7 +224,7 @@ async def run_job(job: JobCreate, job_id: str | None = None) -> JobResult:
                 _fire_and_forget(publish_job_event(job_id, "progress", {"message": msg}))
             
             # Apply rate limit before engine execution
-            await _global_limiter.acquire()
+            await global_limiter.acquire()
             
             engine_result = await engine.execute(job, output_dir, on_progress)
             
@@ -394,7 +394,7 @@ async def run_job(job: JobCreate, job_id: str | None = None) -> JobResult:
             
         finally:
             # Release concurrency slot
-            _global_concurrency.release()
+            global_concurrency.release()
         
     except CancellationError as e:
         job_record.status = JobStatus.CANCELLED
