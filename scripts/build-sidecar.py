@@ -124,9 +124,9 @@ def build() -> Path:
         sys.exit(1)
     size = out_path.stat().st_size
     if size < MIN_SIDECAR_BYTES:
-        print(f"✗ {out_path} too small ({size} bytes) — build incomplete", file=sys.stderr)
+        print(f"[FAIL] {out_path} too small ({size} bytes) - build incomplete", file=sys.stderr)
         sys.exit(1)
-    print(f"✓ {out_path} ({size / 1_048_576:.1f} MB)", file=sys.stderr)
+    print(f"[OK] {out_path} ({size / 1_048_576:.1f} MB)", file=sys.stderr)
 
     # Tauri expects a sidecar named `zfrog-api` (without triple) when running
     # `tauri dev` — keep a symlink/copy for dev.
@@ -157,10 +157,10 @@ def check() -> None:
         sys.exit(1)
     size = p.stat().st_size
     if size < MIN_SIDECAR_BYTES:
-        print(f"✗ {p} exists but too small ({size} bytes) — rebuild", file=sys.stderr)
+        print(f"[FAIL] {p} exists but too small ({size} bytes) - rebuild", file=sys.stderr)
         print("  Run: python scripts/build-sidecar.py", file=sys.stderr)
         sys.exit(1)
-    print(f"✓ {p} ({size / 1_048_576:.1f} MB)")
+    print(f"[OK] {p} ({size / 1_048_576:.1f} MB)")
 
 
 if __name__ == "__main__":

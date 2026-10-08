@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "identifier": "com.zfrog.desktop",
   "build": {
-    "beforeDevCommand": "npm run dev -- --port 3000 --host 127.0.0.1",
-    "beforeBuildCommand": "npm run build",
+    "beforeDevCommand": "npm --prefix dashboard run dev -- --port 3000 --host 127.0.0.1",
+    "beforeBuildCommand": "npm --prefix dashboard run build",
     "devUrl": "http://localhost:3000",
     "frontendDist": "../dashboard/dist"
   },

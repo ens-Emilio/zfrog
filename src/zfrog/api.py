@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import sys
 import time
 from dataclasses import asdict
 from datetime import datetime, timezone
@@ -2356,7 +2357,6 @@ async def browsers_status(auth: AuthDecision = Depends(auth_dependency(ACTION_RE
     """
     import os
     import subprocess
-    import sys
 
     browsers_path = os.environ.get("PLAYWRIGHT_BROWSERS_PATH", "") or None
     available = False
@@ -2401,9 +2401,7 @@ async def browsers_install(request: Request, auth: AuthDecision = Depends(auth_d
     Runs ``playwright install chromium`` as a background task and returns
     immediately; progress via ``GET /browsers/status``.
     """
-    import asyncio
     import os
-    import subprocess
 
     browsers_path = os.environ.get("PLAYWRIGHT_BROWSERS_PATH", "")
     env = os.environ.copy()
