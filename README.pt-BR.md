@@ -714,12 +714,10 @@ API **somente leitura** sobre os mesmos dados do REST: `jobs`, `job`, `snapshots
 que você não pediu) e devolve `errors` por campo, como a especificação manda. Mutations são recusadas.
 
 ## SDKs
-
 ```bash
-cd sdk/js && bun test     # 21 testes
-cd sdk/go && go test ./... # 37 subtestes
+cd sdk/js && bun test     # 22 testes
+cd sdk/go && go test ./... # 12 testes (5 subtestes em TestEndpointsUseTheDocumentedRequests)
 ```
-
 Clientes para JavaScript/TypeScript (`sdk/js`, sem dependências) e Go (`sdk/go`, só stdlib). Cobrem os
 mesmos endpoints do REST, com erro tipado (`ZfrogError` / `*APIError`) carregando status e `detail`.
 
@@ -1256,7 +1254,7 @@ zfrog/
 ├── dashboard/              # TUI Dashboard (Vite + React 19 + TanStack Router)
 ├── deploy/k8s/             # Operator + CRD (ZfrogJob)
 ├── sdk/                    # Clientes JS e Go
-├── tests/                  # 80 módulos de teste
+├── tests/                  # 88 módulos (86 test_*.py + conftest + __init__)
 ├── pyproject.toml
 ├── Dockerfile
 ├── docker-compose.yml
@@ -1278,13 +1276,13 @@ ZFROG_REDIS_URL=redis://127.0.0.1:6379/0 pytest tests/ -q
 
 O que o CI roda, e o que se espera de cada passo:
 
- | Passo | Comando | Estado |
- |---|---|---|
- | Lockfile | `uv lock --check` | verde |
- | Lint | `ruff check . --select F821,F811,F402,E9` | verde |
- | Testes | `pytest tests/ -q` | verde (1713) |
- | Tipos do painel | `tsc --noEmit` (Vite + TanStack) | verde |
- | Build do painel | `vite build` (27 rotas) | verde |
+| Passo | Comando | Estado |
+|---|---|---|
+| Lockfile | `uv lock --check` | verde |
+| Lint | `ruff check . --select F821,F811,F402,E9` | verde |
+| Testes | `pytest tests/ -q` | verde (1721) |
+| Tipos do painel | `tsc --noEmit` (Vite + TanStack) | verde |
+| Build do painel | `vite build` (28 rotas, 27 sem __root) | verde |
 
 **Sobre o lint:** o gate cobre só as regras de **correção** — `F821` (nome indefinido),
 `F811` (redefinição), `F402` (import encoberto por variável de laço) e `E9` (sintaxe).

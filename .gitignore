@@ -45,9 +45,8 @@ build/
 # Rust / Tauri (gerado)
 src-tauri/target/
 src-tauri/gen/
-src-tauri/binaries/zfrog-api-*
+src-tauri/binaries/zfrog-api*
 !src-tauri/binaries/.gitkeep
-
 # Virtual environment
 venv/
 .venv/

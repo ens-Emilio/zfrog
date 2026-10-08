@@ -120,7 +120,7 @@ Clientes oficiais para a API REST, sem dependências além do próprio runtime:
 
 ```bash
 cd sdk/js && bun test       # JavaScript/TypeScript (22 testes)
-cd sdk/go && go test ./...  # Go, só stdlib (37 subtestes)
+cd sdk/go && go test ./...  # Go, só stdlib (12 testes, 5 subtestes)
 ```
 
 ```ts

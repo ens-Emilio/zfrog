@@ -70,5 +70,5 @@ Eliminados do repositório:
 - [x] `prefers-reduced-motion` respeitado nos spinners e transições.
 - [x] Testes de TypeScript (`npx tsc --noEmit`) aprovados com 0 erros em todo o dashboard.
 - [x] Build de produção (`npm run build`) validado com sucesso.
- - [x] Suite de testes de backend (`uv run pytest tests/ -q`): 1713 testes passando (63 warnings).
+ - [x] Suite de testes de backend (`uv run pytest tests/ -q`): 1721 testes passando (63 warnings).
 - [x] Snapshots visuais gerados via Playwright em modo claro e escuro.

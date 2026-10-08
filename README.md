@@ -716,8 +716,8 @@ you didn't ask for) and returns per-field `errors` as the spec requires. Mutatio
 ## SDKs
 
 ```bash
-cd sdk/js && bun test     # 21 testes
-cd sdk/go && go test ./... # 37 subtestes
+cd sdk/js && bun test     # 22 testes
+cd sdk/go && go test ./... # 12 testes (5 subtestes em TestEndpointsUseTheDocumentedRequests)
 ```
 
 Clients for JavaScript/TypeScript (`sdk/js`, zero dependencies) and Go (`sdk/go`, stdlib only). They cover the
@@ -1255,8 +1255,7 @@ zfrog/
 │       └── resources.py
 ├── dashboard/              # TUI Dashboard (Vite + React 19 + TanStack Router)
 ├── deploy/k8s/             # Operator + CRD (ZfrogJob)
-├── sdk/                    # Clientes JS e Go
-├── tests/                  # 80 módulos de teste
+├── tests/                  # 88 módulos (86 test_*.py + conftest + __init__)
 ├── pyproject.toml
 ├── Dockerfile
 ├── docker-compose.yml
@@ -1282,10 +1281,9 @@ What CI runs and what each step must satisfy:
 |---|---|---|
 | Lockfile | `uv lock --check` | verde |
 | Lint | `ruff check . --select F821,F811,F402,E9` | verde |
- | Testes | `pytest tests/ -q` | verde (1713) |
- | Tipos do painel | `tsc --noEmit` (Vite + TanStack) | verde |
- | Build do painel | `vite build` (27 rotas) | verde |
-
+| Testes | `pytest tests/ -q` | verde (1721) |
+| Tipos do painel | `tsc --noEmit` (Vite + TanStack) | verde |
+| Build do painel | `vite build` (28 rotas, 27 sem __root) | verde |
 **About linting:** the gate only covers **correctness** rules — `F821` (nome indefinido),
 `F811` (redefinition), `F402` (import shadowed by loop variable) and `E9` (syntax).
 These are the ones that catch bugs — and how a `new_script` used without being created in

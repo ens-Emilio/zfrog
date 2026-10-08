@@ -150,7 +150,7 @@ já indexado, e modelo quebrado.
 
  ## Verificação
  
- - `pytest tests/ -q` — 1713 passed, 63 warnings (pós-tradução EN: `src/zfrog` + `dashboard` + `landing` trilíngue, correções de regressão `workers/enrich/versioning/workflows`).
+ - `pytest tests/ -q` — 1721 passed, 63 warnings (pós-tradução EN: `src/zfrog` + `dashboard` + `landing` trilíngue, correções de regressão `workers/enrich/versioning/workflows`).
  - `npx tsc --noEmit` (no `dashboard/`) e `cargo check` (no `src-tauri/`) verdes.
  - `ruff check . --select F821,F811,F402,E9` verde (é o gate do CI).
  - Smoke real: `jump` numa página, `tongue` num seletor, `pond`/`pond --search`,

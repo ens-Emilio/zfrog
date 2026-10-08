@@ -7,7 +7,7 @@ Data: 2026-10-07. Status: Todas as fases concluídas (2026-10-07) — Fase 1 (da
 - Verificado no browser nos 3 idiomas. `design-system.html` / `system-design.html` seguem só PT (docs internos).
 Fase 2 (Python em EN) concluída (2026-10-07):
 - ~70 arquivos: orquestrador/api/audit/url_guard/storage, ai/*, engines/*, cli, workers, integrations, pipeline, analysis, etc. migrados para EN (mensagens, helps, logs, docstrings, prompts).
-- Verde: 1713 passed. Últimos 3 fix: visual_search (EN color/lightness/hue words, IndexResult reasons), catalog (docstring), lexical scorer substring collision (serif em sans-serif) → teste ajustado para 'georgia'.
+- Verde: 1721 passed. Últimos 3 fix: visual_search (EN color/lightness/hue words, IndexResult reasons), catalog (docstring), lexical scorer substring collision (serif em sans-serif) → teste ajustado para 'georgia'.
 - Restam 61 acentos intencionais: ai/domains.py (fixtures de domínio PT — dado, não UI) + analysis/trends.py (exemplos de folding 'Preço').
 Fase 4 (Docs) concluída (2026-10-07):
 - README.md → EN (prosa + headings + comentários de shell + árvore); README.pt-BR.md preservado verbatim em PT (1328 linhas, 122 fences, idêntico ao original).

@@ -189,7 +189,7 @@ Atualizar [`dashboard/src/routes/workers.tsx`](file:///home/zens/allkodex/all-ko
    - Verificação de tipos: `npm run typecheck` (0 erros).
    - Linter: `npm run lint` (0 erros).
    - Build de produção: `npm run build` (sucesso).
-   - Testes de backend: `uv run pytest tests/ -q` (1713 testes passando).
+   - Testes de backend: `uv run pytest tests/ -q` (1721 testes passando).
    - Verificação em navegador via Playwright de todas as novas telas.
 
 ## 3. Critérios de Sucesso
@@ -216,7 +216,7 @@ Atualizar [`dashboard/src/routes/workers.tsx`](file:///home/zens/allkodex/all-ko
 - [x] **Navegação & Palette (`__root.tsx`, `ajuda.tsx`):** Todas as 11 novas abas e comandos indexados no `ctrl+k` e na documentação CLI.
 - [x] **Validação TypeScript:** `npm run typecheck` (0 erros).
 - [x] **Validação Linter:** `npx eslint src --quiet` (0 erros).
-- [x] **Build de Produção:** `npm run build` (26 rotas compiladas com sucesso em 3.4s).
- - [x] **Suíte de Testes Backend:** `uv run pytest tests/ -q` (1713 testes passando, 0 falhas).
+- [x] **Build de Produção:** `npm run build` (28 rotas, 27 sem __root, compiladas com sucesso em 3.4s).
+ - [x] **Suíte de Testes Backend:** `uv run pytest tests/ -q` (1721 testes passando, 0 falhas).
 - [x] **Validação Visual Playwright:** Navegação real nas rotas `/chat`, `/comparar`, `/datasets`, `/grafo`, `/precos`, `/graphql`, `/probe`, `/captura`, `/qualidade`, `/workers` executadas com snapshots e screenshots salvos.
 
