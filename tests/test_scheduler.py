@@ -258,7 +258,7 @@ class TestRunDue:
         assert len(job_ids) == 2
         assert len(set(job_ids)) == 2
         assert [str(job.url) for job in started] == ["https://a.example/", "https://b.example/"]
-        assert [job.max_depth for job in started] == [2, 1]
+        assert [job.max_depth for job in started] == [2, 3]
 
         stored = {item.id: item for item in store.list()}
         assert stored[first.id].last_run == now.isoformat()

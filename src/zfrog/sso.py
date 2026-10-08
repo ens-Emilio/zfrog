@@ -154,10 +154,11 @@ def config_from_settings() -> OidcConfig:
     if not issuer or not client_id:
         raise ValueError("configure ZFROG_OIDC_ISSUER and ZFROG_OIDC_CLIENT_ID")
 
+    secret_val = settings.oidc_client_secret.get_secret_value() if hasattr(settings.oidc_client_secret, "get_secret_value") else str(settings.oidc_client_secret or "")
     return OidcConfig(
         issuer=issuer,
         client_id=client_id,
-        client_secret=(settings.oidc_client_secret or "").strip(),
+        client_secret=secret_val.strip(),
         redirect_uri=(settings.oidc_redirect_uri or "").strip(),
         scopes=[scope for scope in (settings.oidc_scopes or "").split() if scope],
         username_claim=(settings.oidc_username_claim or "email").strip() or "email",

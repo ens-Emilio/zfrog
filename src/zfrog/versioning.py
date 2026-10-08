@@ -16,6 +16,8 @@ from __future__ import annotations
 import json
 import logging
 import shutil
+import os
+import tempfile
 import uuid
 from dataclasses import asdict, dataclass, fields
 from pathlib import Path
@@ -110,7 +112,24 @@ class VersionStore:
         path = self._refs_path(url)
         path.parent.mkdir(parents=True, exist_ok=True)
         payload = {"branches": {name: branches[name] for name in sorted(branches)}}
-        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        text = json.dumps(payload, ensure_ascii=False, indent=2)
+        fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".tmp-refs-")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                fh.write(text)
+                fh.flush()
+                os.fsync(fh.fileno())
+            os.replace(tmp, path)
+            try:
+                os.chmod(path, 0o600)
+            except OSError:
+                pass
+        except BaseException:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+            raise
 
     # --------------------------------------------------------------- versions
 
@@ -127,7 +146,24 @@ class VersionStore:
     def _write_version(self, version: Version) -> None:
         path = self._version_path(version.url, version.id)
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(asdict(version), ensure_ascii=False, indent=2), encoding="utf-8")
+        text = json.dumps(asdict(version), ensure_ascii=False, indent=2)
+        fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".tmp-ver-")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                fh.write(text)
+                fh.flush()
+                os.fsync(fh.fileno())
+            os.replace(tmp, path)
+            try:
+                os.chmod(path, 0o600)
+            except OSError:
+                pass
+        except BaseException:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+            raise
 
     def _load_version(self, url: str, version_id: str) -> Version | None:
         path = self._version_path(url, version_id)

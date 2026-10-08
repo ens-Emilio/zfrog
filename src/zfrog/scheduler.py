@@ -110,7 +110,7 @@ class ScheduleStore:
                 return schedule
         return None
 
-    def add(self, cron: str, url: str, mode: str = "auto", max_depth: int = 1) -> Schedule:
+    def add(self, cron: str, url: str, mode: str = "auto", max_depth: int = 3) -> Schedule:
         """Create and persist a schedule.
 
         Raises:
@@ -183,7 +183,7 @@ class ScheduleStore:
             cron=str(item["cron"]),
             url=str(item["url"]),
             mode=str(item.get("mode", "auto")),
-            max_depth=int(item.get("max_depth", 1)),
+            max_depth=int(item.get("max_depth", 3)),
             enabled=bool(item.get("enabled", True)),
             last_run=item.get("last_run"),
             next_run=item.get("next_run"),

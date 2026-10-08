@@ -26,12 +26,11 @@ services:
       - "127.0.0.1:8200:8000"
     volumes:
       - zfrog-data:/app/data
-      - ./ai_config.yaml:/app/ai_config.yaml:ro
     environment:
       - ZFROG_DATA_DIR=/app/data
       - ZFROG_REDIS_URL=redis://valkey:6379/0
       - ZFROG_AI_MODEL=${ZFROG_AI_MODEL:-ollama/qwen2.5}
-      - ZFROG_AUTH_ENABLED=${ZFROG_AUTH_ENABLED:-false}
+      - ZFROG_AUTH_ENABLED=${ZFROG_AUTH_ENABLED:-true}
       - ZFROG_CORS_ORIGINS=${ZFROG_CORS_ORIGINS:-https://zfrog.pages.dev,https://zfrog.truuz.com.br,http://localhost:3000}
     depends_on:
       valkey:
@@ -61,7 +60,6 @@ services:
       celery -A zfrog.queue worker -l info -c ${WORKER_CONCURRENCY:-2}
     volumes:
       - zfrog-data:/app/data
-      - ./ai_config.yaml:/app/ai_config.yaml:ro
     environment:
       - ZFROG_DATA_DIR=/app/data
       - ZFROG_REDIS_URL=redis://valkey:6379/0

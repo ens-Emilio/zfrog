@@ -9,8 +9,8 @@
 <meta property="og:description" content="Arquitetura do motor: engines, pipeline de captura offline, fila e CLI.">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="pt_BR">
-<meta name="theme-color" content="#FAFAF5" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#111110" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f4f2ec" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#161512" media="(prefers-color-scheme: dark)">
 <link rel="icon" type="image/png" href="assets/mascot.png">
 <title>zfrog — System Design</title>
 <style>
@@ -50,14 +50,22 @@
   font-weight:400;font-style:italic;font-display:swap;
 }
 
-:root{
-  --papel:#FAFAF5;
-  --tinta:#111110;
-  --muted:#55554F;
-  --hairline:rgba(17,17,16,.28);
-  --hairline-soft:rgba(17,17,16,.14);
-  --acento:#3F6212;
-  --acento-soft:rgba(63,98,18,.10);
+ :root{
+  --papel:#f4f2ec;
+  --bg:#f4f2ec;
+  --bg-raised:#ebe8df;
+  --tinta:#1d1c1a;
+  --fg:#1d1c1a;
+  --muted:#57544c;
+  --fg-muted:#57544c;
+  --fg-dim:#6e6b62;
+  --hairline:#d9d6cc;
+  --line:#d9d6cc;
+  --hairline-soft:#e6e3d9;
+  --sel-bg:#e6e3d9;
+  --acento:#4f6b3a;
+  --accent:#4f6b3a;
+  --acento-soft:rgba(79,107,58,.10);
   --raio:2px;
   --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   --pad:clamp(20px,6vw,96px);
@@ -67,13 +75,21 @@
 }
 @media (prefers-color-scheme: dark){
   :root{
-    --papel:#111110;
-    --tinta:#EDEDE6;
-    --muted:#A8A89E;
-    --hairline:rgba(237,237,230,.24);
-    --hairline-soft:rgba(237,237,230,.12);
-    --acento:#A3C24C;
-    --acento-soft:rgba(163,194,76,.14);
+    --papel:#161512;
+    --bg:#161512;
+    --bg-raised:#1e1c17;
+    --tinta:#e6e3da;
+    --fg:#e6e3da;
+    --muted:#aba79c;
+    --fg-muted:#aba79c;
+    --fg-dim:#949084;
+    --hairline:#35332b;
+    --line:#35332b;
+    --hairline-soft:#26241d;
+    --sel-bg:#26241d;
+    --acento:#93b27b;
+    --accent:#93b27b;
+    --acento-soft:rgba(147,178,123,.14);
   }
 }
 
@@ -452,7 +468,7 @@ footer a:hover{color:var(--acento);text-decoration:underline;text-underline-offs
       <h3>tongue <code>lê os tokens de uma referência</code></h3>
       <p>Relata paleta, tipografia e medidas da referência salva, sem reabrir a página.</p>
       <pre class="code"><span class="p">$</span> zfrog tongue localhost
-<span class="c">primary #111110 · acento #3F6212 · JetBrains Mono 16px · raio 2px</span></pre>
+<span class="c">primary #1d1c1a · acento #4f6b3a · JetBrains Mono 16px · raio 2px</span></pre>
     </div>
 
     <div class="block">

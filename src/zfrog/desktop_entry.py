@@ -36,10 +36,18 @@ def _resolve_data_dir(cli_value: str | None) -> Path:
 def main() -> None:
     parser = argparse.ArgumentParser(description="zfrog desktop sidecar")
     parser.add_argument("--port", type=int, required=True, help="Loopback port chosen by Tauri")
-    parser.add_argument("--auth-token", required=True, help="Ephemeral bearer token (64 hex chars)")
+    parser.add_argument(
+        "--auth-token",
+        default=None,
+        help="Ephemeral bearer token (64 hex chars); prefer ZFROG_DESKTOP_TOKEN env",
+    )
     parser.add_argument("--data-dir", default=None, help="State directory (XDG/APPDATA)")
     parser.add_argument("--host", default="127.0.0.1", help="Bind host (must be loopback)")
     args = parser.parse_args()
+    # Token via env (Tauri sets ZFROG_DESKTOP_TOKEN); --auth-token kept for backwards compat.
+    auth_token = (args.auth_token or os.environ.get("ZFROG_DESKTOP_TOKEN") or "").strip()
+    if not auth_token:
+        parser.error("--auth-token or ZFROG_DESKTOP_TOKEN is required")
 
     if args.host not in ("127.0.0.1", "localhost"):
         parser.error("--host must be 127.0.0.1 or localhost (sidecar is loopback-only)")
@@ -61,7 +69,9 @@ def main() -> None:
     # Only set if the caller didn't already pin it.
     os.environ.setdefault("PLAYWRIGHT_BROWSERS_PATH", str(browsers_path))
     os.environ["ZFROG_DATA_DIR"] = str(data_dir)
-    os.environ["ZFROG_DESKTOP_TOKEN"] = args.auth_token
+    os.environ["ZFROG_DESKTOP_TOKEN"] = auth_token
+    import hmac
+
     import uvicorn
     from fastapi import Request
     from fastapi.middleware.cors import CORSMiddleware
@@ -79,12 +89,14 @@ def main() -> None:
         presented = auth.removeprefix("Bearer ").strip() if auth else ""
         if not presented:
             presented = request.headers.get("x-zfrog-desktop-token", "").strip()
-        if presented != args.auth_token:
+        if not hmac.compare_digest(presented, auth_token):
             return JSONResponse(status_code=401, content={"detail": "Invalid desktop token"})
         return await call_next(request)
-
     # Patch ws.py so the desktop token carried as a WebSocket subprotocol
     # (zfrog.key.<token>) is accepted even when auth_enabled is off.
+    import logging
+
+    _desktop_log = logging.getLogger("zfrog.desktop")
     try:
         import zfrog.ws as _ws
 
@@ -96,7 +108,7 @@ def main() -> None:
                 (v[len(_ws.WS_KEY_PREFIX) :] for v in offered if v.startswith(_ws.WS_KEY_PREFIX)),
                 "",
             )
-            if subprotocol_key and subprotocol_key == args.auth_token:
+            if subprotocol_key and hmac.compare_digest(subprotocol_key, auth_token):
                 if not _ws._origin_allowed(websocket):  # type: ignore[attr-defined]
                     await websocket.close(code=_ws._WS_FORBIDDEN)  # type: ignore[attr-defined]
                     return False
@@ -115,7 +127,7 @@ def main() -> None:
 
         _ws._origin_allowed = _desktop_origin_allowed  # type: ignore[attr-defined]
     except Exception:
-        pass
+        _desktop_log.exception("Failed to patch ws.py for desktop auth — WebSocket auth may be degraded")
 
     app.add_middleware(
         CORSMiddleware,

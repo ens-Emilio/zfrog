@@ -4,10 +4,9 @@ import asyncio
 import json
 from datetime import datetime, timezone
 from celery import Celery
-from redis import asyncio as aioredis
 
 from zfrog.config import settings
-
+from zfrog.storage.redis_client import get_async_client
 # Configure Celery
 celery_app = Celery(
     "zfrog",
@@ -119,9 +118,7 @@ async def publish_job_event(job_id: str, event_type: str, data: dict):
     }
     
     try:
-        redis_client = aioredis.from_url(settings.redis_url)
+        redis_client = get_async_client()
         await redis_client.publish(channel, json.dumps(event))
-        await redis_client.close()
     except Exception:
-        # If Redis is unavailable, fail silently - events are best-effort
         pass

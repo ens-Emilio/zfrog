@@ -55,19 +55,20 @@ class RateLimiter:
         """Update the rate limit."""
         self.rate = requests_per_second
 
-
 # Global rate limiter instance
 _global_limiter = RateLimiter(requests_per_second=1.0, burst_size=5)
+
+# Public alias — prefer over underscored variant.
+global_limiter = _global_limiter
 
 
 def rate_limit(func: Callable) -> Callable:
     """Decorator to apply rate limiting to async functions."""
     @wraps(func)
-    async def wrapper(*args, **kwargs):
+    async def wrapper(*args: Any, **kwargs: Any) -> Any:
         await _global_limiter.acquire()
         return await func(*args, **kwargs)
     return wrapper
-
 
 class RetryHandler:
     """Exponential backoff retry handler."""
@@ -200,9 +201,10 @@ class ConcurrencyLimiter:
 # Global concurrency limiter
 _global_concurrency = ConcurrencyLimiter(max_concurrent=5)
 
+global_concurrency = _global_concurrency
+
 
 def concurrency_limit(func: Callable) -> Callable:
-    """Decorator to apply concurrency limiting."""
     @wraps(func)
     async def wrapper(*args, **kwargs):
         await _global_concurrency.acquire()

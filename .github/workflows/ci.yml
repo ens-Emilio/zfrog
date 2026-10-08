@@ -84,7 +84,28 @@ jobs:
           ZFROG_REDIS_URL: redis://127.0.0.1:6379/0
         run: |
           mkdir -p "$ZFROG_DATA_DIR"
-          pytest tests/ -q
+          pytest tests/ -q --cov=zfrog --cov-report=term-missing --cov-fail-under=60
+
+  sdk-js:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --cwd sdk/js
+      - run: bun test --cwd sdk/js
+
+  sdk-go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: sdk/go/go.mod
+          cache-dependency-path: sdk/go/go.mod
+      - working-directory: sdk/go
+        run: go test ./...
 
   dashboard:
     runs-on: ubuntu-latest

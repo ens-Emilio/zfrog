@@ -18,12 +18,17 @@ COPY pyproject.toml README.md ./
 COPY src/ src/
 
 # Install the package (this pulls cryptography, playwright, litellm, …).
-RUN pip install --no-cache-dir -e .
+RUN pip install --no-cache-dir .
 
 # Install the browser and its system libraries. This is the slow layer; keep it
 # after the pip install so a source change does not re-download Chromium.
 RUN playwright install --with-deps chromium
 
+# Playwright installs browsers to /root/.cache when run as root; relocate for runtime user.
+ENV PLAYWRIGHT_BROWSERS_PATH=/app/ms-playwright
+RUN mkdir -p /app/ms-playwright && \
+    if [ -d /root/.cache/ms-playwright ]; then mv /root/.cache/ms-playwright/* /app/ms-playwright/ 2>/dev/null || true; fi && \
+    chown -R 10001:10001 /app/ms-playwright 2>/dev/null || true
 # Every store writes under this root (see ZFROG_DATA_DIR in config.py), so a single
 # volume mount keeps keys, users, sessions, versions and indexes across restarts.
 ENV ZFROG_DATA_DIR=/app/data

@@ -2,10 +2,8 @@
 
 from pathlib import Path
 
-from pydantic import model_validator
+from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
-
 class Settings(BaseSettings):
     """Zfrog application settings.
     
@@ -160,7 +158,7 @@ class Settings(BaseSettings):
     # SSO (OpenID Connect)
     oidc_issuer: str = ""
     oidc_client_id: str = ""
-    oidc_client_secret: str = ""
+    oidc_client_secret: SecretStr = SecretStr("")
     oidc_redirect_uri: str = "http://localhost:8000/auth/callback"
     oidc_scopes: str = "openid email profile"
     oidc_username_claim: str = "email"

@@ -178,13 +178,11 @@ async fn start_sidecar(app: tauri::AppHandle) {
         .args([
             "--port",
             &port.to_string(),
-            "--auth-token",
-            &token,
             "--data-dir",
             &data_dir.to_string_lossy().to_string(),
         ])
-        .env("ZFROG_DATA_DIR", data_dir.to_string_lossy().to_string());
-
+        .env("ZFROG_DATA_DIR", data_dir.to_string_lossy().to_string())
+        .env("ZFROG_DESKTOP_TOKEN", token.clone());
     let (mut rx, child) = match sidecar_cmd.spawn() {
         Ok(pair) => pair,
         Err(e) => {

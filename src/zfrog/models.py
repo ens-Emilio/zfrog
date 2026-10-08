@@ -1,11 +1,46 @@
 """Core data models for Zfrog."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Literal
+from typing import Literal, get_args
 
 from pydantic import BaseModel, Field, HttpUrl
+
+#: All job modes — single source of truth. ``JobMode`` is the Literal
+#: used by Pydantic; :data:`ALL_MODES` derives from it so callers that
+#: need a runtime tuple do not duplicate the list.
+JobMode = Literal["auto", "jump", "tongue", "mirror", "scrape", "singlepage", "extract", "analyze", "compare", "ask", "pdf", "summarize", "delta", "entities", "enrich", "translate", "sentiment", "tags", "video", "api_discovery"]
+ALL_MODES: tuple[str, ...] = get_args(JobMode)
+
+#: Mode → engine name. ``auto`` is absent: it is resolved via
+#: ``get_engine_for_probe``. ``sentiment``/``tags`` are aliases of
+#: ``enrich`` (one engine, three entry points).
+ENGINE_FOR_MODE: dict[str, str] = {
+    "jump": "jump",
+    "tongue": "tongue",
+    "mirror": "wget",
+    "singlepage": "static_file",
+    "scrape": "playwright",
+    "extract": "scrapy",
+    "analyze": "analyze",
+    "compare": "compare",
+    "ask": "ask",
+    "pdf": "pdf",
+    "summarize": "summarize",
+    "delta": "delta",
+    "entities": "entities",
+    "enrich": "enrich",
+    "sentiment": "enrich",
+    "tags": "enrich",
+    "translate": "translate",
+    "video": "video",
+    "api_discovery": "api_discovery",
+}
+
+#: Modes whose capture is a page whose *design* is worth reading.
+#: ``jump`` is absent: it extracts its own tokens and registers its own card.
+DESIGN_MODES: frozenset[str] = frozenset({"auto", "mirror", "scrape", "singlepage", "delta"})
 
 
 class JobStatus(str, Enum):
@@ -23,7 +58,7 @@ class JobCreate(BaseModel):
     """Request to create a new extraction job."""
     
     url: HttpUrl
-    mode: Literal["auto", "jump", "tongue", "mirror", "scrape", "singlepage", "extract", "analyze", "compare", "ask", "pdf", "summarize", "delta", "entities", "enrich", "translate", "sentiment", "tags", "video", "api_discovery"] = "auto"
+    mode: JobMode = "auto"
     follow_links: bool = True
     max_depth: int = Field(default=3, ge=0, le=100)
     respect_robots: bool = True
@@ -81,8 +116,8 @@ class Job(BaseModel):
     status: JobStatus = JobStatus.PENDING
     probe: ProbeResult | None = None
     output_path: str | None = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     error: str | None = None
     # Organization that owns this job's data, copied from the JobCreate that
     # started it. None means the shared area. The WebSocket reads it to refuse

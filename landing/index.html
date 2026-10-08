@@ -13,8 +13,8 @@
 <link rel="alternate" hreflang="en" href="?lang=en">
 <link rel="alternate" hreflang="es" href="?lang=es">
 <link rel="alternate" hreflang="x-default" href="?lang=pt">
-<meta name="theme-color" content="#FAFAF5" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#111110" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f4f2ec" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#161512" media="(prefers-color-scheme: dark)">
 <link rel="icon" type="image/png" href="assets/mascot.png">
 <title>zfrog — Design Reference Engine</title>
 <style>
@@ -29,12 +29,21 @@
   font-weight:400;font-style:italic;font-display:swap;
 }
 
-:root{
-  --papel:#FAFAF5;
-  --tinta:#111110;
-  --muted:#55554F;
-  --hairline:rgba(17,17,16,.28);
-  --acento:#3F6212;
+ :root{
+  /* tui.css light — papel quente claro */
+  --papel:#f4f2ec;
+  --bg:#f4f2ec;
+  --bg-raised:#ebe8df;
+  --tinta:#1d1c1a;
+  --fg:#1d1c1a;
+  --muted:#57544c;
+  --fg-muted:#57544c;
+  --fg-dim:#6e6b62;
+  --hairline:#d9d6cc;
+  --line:#d9d6cc;
+  --sel-bg:#e6e3d9;
+  --acento:#4f6b3a;
+  --accent:#4f6b3a;
   --raio:2px;
   --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   --pad:clamp(20px,6vw,96px);
@@ -44,11 +53,19 @@
 }
 @media (prefers-color-scheme: dark){
   :root{
-    --papel:#111110;
-    --tinta:#EDEDE6;
-    --muted:#A8A89E;
-    --hairline:rgba(237,237,230,.24);
-    --acento:#A3C24C;
+    --papel:#161512;
+    --bg:#161512;
+    --bg-raised:#1e1c17;
+    --tinta:#e6e3da;
+    --fg:#e6e3da;
+    --muted:#aba79c;
+    --fg-muted:#aba79c;
+    --fg-dim:#949084;
+    --hairline:#35332b;
+    --line:#35332b;
+    --sel-bg:#26241d;
+    --acento:#93b27b;
+    --accent:#93b27b;
   }
 }
 
@@ -189,9 +206,9 @@ section > .content > p:last-child{margin-bottom:0}
   transition:background-color var(--hover) ease-out,color var(--hover) ease-out;
 }
 .btn-primary{background:var(--tinta);color:var(--papel);border:1px solid var(--tinta)}
-.btn-primary:hover{background:var(--acento);border-color:var(--acento);color:#FAFAF5}
+.btn-primary:hover{background:var(--acento);border-color:var(--acento);color:#f4f2ec}
 @media (prefers-color-scheme: dark){
-  .btn-primary:hover{color:#111110}
+  .btn-primary:hover{color:#161512}
 }
 .btn-ghost{border:1px solid var(--hairline);color:var(--tinta)}
 .btn-ghost:hover{border-color:var(--acento);color:var(--acento)}
@@ -361,13 +378,13 @@ footer a:hover{color:var(--acento);text-decoration:underline;text-underline-offs
     <div class="hero-output" id="hero-out">
       <p class="saida-label" data-i18n="hero.outputLabel">saída — os tokens desta página, extraídos por ela mesma:</p>
       <div class="swatch-row">
-        <span class="swatch"><i style="background:#FAFAF5"></i>papel #FAFAF5</span>
-        <span class="swatch"><i style="background:#111110"></i>tinta #111110</span>
-        <span class="swatch"><i style="background:#3F6212"></i>acento #3F6212</span>
+        <span class="swatch"><i style="background:#f4f2ec"></i>papel #f4f2ec</span>
+        <span class="swatch"><i style="background:#1d1c1a"></i>tinta #1d1c1a</span>
+        <span class="swatch"><i style="background:#4f6b3a"></i>acento #4f6b3a</span>
       </div>
       <div class="tokline-row">
-        <code>--papel:#FAFAF5; --tinta:#111110; --acento:#3F6212; --raio:2px; --sombra:none;</code>
-        <button class="copy" type="button" data-copy-text="--papel:#FAFAF5; --tinta:#111110; --acento:#3F6212; --raio:2px; --sombra:none;" data-i18n="common.copy">copiar</button>
+        <code>--bg:#f4f2ec; --fg:#1d1c1a; --accent:#4f6b3a; --line:#d9d6cc; --raio:2px;</code>
+        <button class="copy" type="button" data-copy-text="--bg:#f4f2ec; --fg:#1d1c1a; --accent:#4f6b3a; --line:#d9d6cc; --raio:2px;" data-i18n="common.copy">copiar</button>
       </div>
     </div>
 
@@ -394,11 +411,9 @@ footer a:hover{color:var(--acento);text-decoration:underline;text-underline-offs
     <div class="outputs">
       <div class="panel">
         <div class="panel-h"><span data-i18n="output.palette">paleta</span><span>165 elementos</span></div>
-        <div class="panel-b">
-          <div class="pal-linha"><i style="background:#111110"></i><span class="pal-hex">#111110</span><span class="pal-role">primary</span><span class="pal-count">×312</span></div>
-          <div class="pal-linha"><i style="background:#55554F"></i><span class="pal-hex">#55554F</span><span class="pal-role">—</span><span class="pal-count">×180</span></div>
-          <div class="pal-linha"><i style="background:#3F6212"></i><span class="pal-hex">#3F6212</span><span class="pal-role">acento</span><span class="pal-count">×1</span></div>
-        </div>
+          <div class="pal-linha"><i style="background:#1d1c1a"></i><span class="pal-hex">#1d1c1a</span><span class="pal-role">primary</span><span class="pal-count">×312</span></div>
+          <div class="pal-linha"><i style="background:#57544c"></i><span class="pal-hex">#57544c</span><span class="pal-role">—</span><span class="pal-count">×180</span></div>
+          <div class="pal-linha"><i style="background:#4f6b3a"></i><span class="pal-hex">#4f6b3a</span><span class="pal-role">acento</span><span class="pal-count">×1</span></div>
       </div>
       <div class="panel">
         <div class="panel-h"><span data-i18n="output.typo">tipografia</span><span>1 família</span></div>
@@ -413,9 +428,9 @@ footer a:hover{color:var(--acento);text-decoration:underline;text-underline-offs
   "url": "http://localhost:3000",
   "element_count": 165,
   "palette": [
-    {"hex": "#111110", "count": 312, "role": "primary"},
-    {"hex": "#55554F", "count": 180, "role": null},
-    {"hex": "#3F6212", "count": 1,   "role": "accent"}
+    {"hex": "#1d1c1a", "count": 312, "role": "primary"},
+    {"hex": "#57544c", "count": 180, "role": null},
+    {"hex": "#4f6b3a", "count": 1,   "role": "accent"}
   ],
   "fonts": [
     {"family": "JetBrains Mono",
@@ -443,7 +458,7 @@ footer a:hover{color:var(--acento);text-decoration:underline;text-underline-offs
     <div class="cmd">
       <p class="cmd-nome"><code>tongue</code><span data-i18n="cmd.tongue">lê os tokens de uma referência salva: paleta, tipografia, medidas</span></p>
       <pre class="cmd-ex">$ zfrog tongue localhost
-<b>primary #111110 · acento #3F6212 · JetBrains Mono 16px · raio 2px</b></pre>
+<b>primary #1d1c1a · acento #4f6b3a · JetBrains Mono 16px · raio 2px</b></pre>
     </div>
     <div class="cmd">
       <p class="cmd-nome"><code>pond</code><span data-i18n="cmd.pond">lista e busca as referências salvas na sua máquina</span></p>

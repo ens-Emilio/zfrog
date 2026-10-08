@@ -1,11 +1,13 @@
 """Webhook notification utilities."""
 
+import logging
 import asyncio
 import uuid
 from typing import Callable, Any
 from pydantic import BaseModel, Field, HttpUrl
 
 from zfrog.models import JobResult
+logger = logging.getLogger(__name__)
 
 
 class WebhookConfig(BaseModel):
@@ -26,14 +28,11 @@ _webhooks: list[WebhookConfig] = []
 
 _REDIS_KEY = "zfrog:webhooks"
 
-def _redis():
+def _redis():  # type: ignore[no-untyped-def]
     """A Redis client for the shared registry, or None when unavailable."""
     try:
-        import redis
-
-        from zfrog.config import settings
-
-        client = redis.from_url(settings.redis_url, decode_responses=True)
+        from zfrog.storage.redis_client import get_sync_client
+        client = get_sync_client()
         client.ping()
         return client
     except Exception:
@@ -141,7 +140,7 @@ async def notify_webhooks(event: str, data: dict[str, Any]):
             _record_delivery(webhook, event, "ok", f"HTTP {response.status_code}")
         except Exception as e:
             _record_delivery(webhook, event, "error", str(e))
-            print(f"Webhook notification failed: {e}")
+            logger.warning("Webhook notification failed: %s", e)
 
 def _record_delivery(webhook: WebhookConfig, event: str, outcome: str, detail: str) -> None:
     """Note a delivery attempt in the audit log.

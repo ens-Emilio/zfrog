@@ -25,13 +25,13 @@
 /users.json
 /orgs.json
 /annotations/
-/domains/
 /workers.json
+/websession.key
+*.key
 /analysis/
 /finetune/
 /totp.json
 /arweave-wallet.json
-
 # Python
 __pycache__/
 *.py[cod]
@@ -76,7 +76,7 @@ htmlcov/
 .pytest_cache/
 
 # Docker
-.dockerignore
+# (removed — .dockerignore must be committed; it defines the Docker build context)
 
 # wrangler files
 .wrangler

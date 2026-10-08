@@ -40,7 +40,7 @@ from typing import Any, Callable
 from zfrog.config import settings
 from zfrog.diff import capture_snapshot
 from zfrog.engines import get_engine
-from zfrog.models import JobCreate, ProbeResult
+from zfrog.models import ENGINE_FOR_MODE as _ENGINE_FOR_MODE, JobCreate, ProbeResult
 from zfrog.orchestrator import run_job
 from zfrog.probe import probe_url
 from zfrog.utils.http import create_client
@@ -66,12 +66,12 @@ REQUIRED_PARAMS: dict[str, frozenset[str]] = {
 }
 
 #: Steps that run one engine directly, mapped to the engine they use.
+#: Derived from :data:`ENGINE_FOR_MODE` so the workflow engine names never
+#: drift from the job-mode taxonomy defined in :mod:`zfrog.models`.
 STEP_ENGINES: dict[str, str] = {
-    "summarize": "summarize",
-    "analyze": "analyze",
-    "extract": "scrapy",
-    "compare": "compare",
-    "pdf": "pdf",
+    name: _ENGINE_FOR_MODE[name]
+    for name in ("summarize", "analyze", "extract", "compare", "pdf")
+    if name in _ENGINE_FOR_MODE
 }
 
 #: Mode used by a ``clone`` step that does not name one.

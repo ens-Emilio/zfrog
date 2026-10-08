@@ -6,9 +6,8 @@ import time
 from datetime import datetime, timezone
 
 from fastapi import WebSocket, WebSocketDisconnect
-from redis import asyncio as aioredis
-
 from zfrog.config import settings
+from zfrog.storage.redis_client import get_async_client
 
 
 #: Application close code for a rejected handshake (4401: unauthorised).
@@ -127,7 +126,7 @@ async def job_progress_ws(websocket: WebSocket, job_id: str):
     pubsub = None
     
     try:
-        redis_client = aioredis.from_url(settings.redis_url)
+        redis_client = get_async_client()
         pubsub = redis_client.pubsub()
         await pubsub.subscribe(f"job:{job_id}:events")
         
@@ -244,8 +243,4 @@ async def job_progress_ws(websocket: WebSocket, job_id: str):
                 await pubsub.close()
             except Exception:
                 pass
-        if redis_client:
-            try:
-                await redis_client.close()
-            except Exception:
-                pass
+        # pooled client — do not close (shared across connections)

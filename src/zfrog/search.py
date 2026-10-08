@@ -17,6 +17,7 @@ from __future__ import annotations
 import array
 import asyncio
 import hashlib
+import html
 import inspect
 import logging
 import math
@@ -419,8 +420,10 @@ def _clip(text: str, width: int) -> str:
 
 
 def _clean_snippet(text: str | None, width: int = SNIPPET_MAX) -> str:
-    """Collapse whitespace and cap a snippet at ``width`` characters."""
-    return _clip(" ".join((text or "").split()), width)
+    """Collapse whitespace, HTML-escape, and cap at ``width`` characters."""
+    collapsed = " ".join((text or "").split())
+    escaped = html.escape(collapsed, quote=False)
+    return _clip(escaped, width)
 
 
 def _excerpt(text: str, needle: str, width: int = SNIPPET_MAX) -> str:
@@ -430,12 +433,14 @@ def _excerpt(text: str, needle: str, width: int = SNIPPET_MAX) -> str:
         return ""
     index = flat.lower().find(needle.lower()) if needle else -1
     if index < 0:
-        return _clip(flat, width)
+        clipped = _clip(flat, width)
+        return html.escape(clipped, quote=False)
     start = max(0, index - width // 3)
     window = flat[start : start + width]
     prefix = "…" if start > 0 else ""
     suffix = "…" if start + width < len(flat) else ""
-    return _clip(f"{prefix}{window}{suffix}", width)
+    clipped = _clip(f"{prefix}{window}{suffix}", width)
+    return html.escape(clipped, quote=False)
 
 
 def _search_like(conn: sqlite3.Connection, query: str, limit: int) -> list[SearchHit]:

@@ -194,6 +194,7 @@ def build_job_manifest(cr: dict, image: str | None = None) -> dict:
     container = {
         "name": "worker",
         "image": image or settings.k8s_worker_image,
+        "command": ["python", "-m", "zfrog.k8s.job_runner"],
         "env": [
             {"name": "ZFROG_JOB_URL", "value": str(url)},
             {"name": "ZFROG_JOB_MODE", "value": str(mode)},

@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import shutil
 import sys
 import time
 from dataclasses import asdict
@@ -12,7 +13,7 @@ from typing import Optional
 from fastapi import FastAPI, HTTPException, BackgroundTasks, WebSocket, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel, Field, HttpUrl
 
 from zfrog.models import JobCreate, Job, JobResult
 from zfrog.auth import AuthDecision
@@ -248,12 +249,11 @@ async def create_job(job: JobCreate, request: Request,
         org=job.org or "",
     )
     
-    # Check if we should use Celery
+    # Check if we should use Celery — pooled singleton, no per-request connection.
     use_celery = False
     try:
-        import redis
-        r = redis.from_url(settings.redis_url, decode_responses=True)
-        r.ping()
+        from zfrog.storage.redis_client import get_sync_client
+        get_sync_client().ping()
         use_celery = True
     except Exception:
         pass
@@ -267,8 +267,8 @@ async def create_job(job: JobCreate, request: Request,
             mode=job.mode,
             max_depth=job.max_depth,
             status=JobStatus.PENDING,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
             org=job.org,
         )
         update_job(job_record)
@@ -503,8 +503,7 @@ class ScheduleCreateRequest(BaseModel):
     cron: str
     url: str
     mode: str = "auto"
-    max_depth: int = 1
-
+    max_depth: int = Field(default=3, ge=0, le=100)
 class SearchRequest(BaseModel):
     """Search request."""
     query: str
@@ -1860,12 +1859,12 @@ _LOGIN_TTL_S = 600
 _LOGIN_REDIS_PREFIX = "zfrog:sso:state:"
 
 
-def _login_redis():
+def _login_redis():  # type: ignore[no-untyped-def]
     """A Redis client for the pending SSO logins, or None when unavailable."""
     try:
-        import redis
+        from zfrog.storage.redis_client import get_sync_client
 
-        client = redis.from_url(settings.redis_url, decode_responses=True)
+        client = get_sync_client()
         client.ping()
         return client
     except Exception:
@@ -2380,13 +2379,9 @@ async def browsers_status(auth: AuthDecision = Depends(auth_dependency(ACTION_RE
         detail = str(e)
     has_system_channel = False
     for bin_name in ("google-chrome", "chromium-browser", "chromium", "msedge", "microsoft-edge"):
-        try:
-            r = subprocess.run(["which", bin_name], capture_output=True, timeout=2)
-            if r.returncode == 0:
-                has_system_channel = True
-                break
-        except Exception:
-            pass
+        if shutil.which(bin_name):
+            has_system_channel = True
+            break
     return {
         "available": available or has_system_channel,
         "browsers_path": browsers_path or detail or None,
@@ -2599,10 +2594,12 @@ async def health_check():
 
     # The broker backs job state, pub/sub for the progress socket, and the SSO
     # login handshake. Unreachable means jobs and live updates are degraded.
+    # Health probe is the only caller allowed an ephemeral client (called ~1/min,
+    # needs short socket timeout); all hot paths use the pooled singleton.
+    client = None
     try:
         client = redis_client.from_url(settings.redis_url, socket_connect_timeout=2)
         client.ping()
-        client.close()
         checks["redis"] = {"ok": True, "url": redact_url_credentials(settings.redis_url)}
     except Exception as e:
         healthy = False
@@ -2611,6 +2608,12 @@ async def health_check():
             "url": redact_url_credentials(settings.redis_url),
             "error": str(e),
         }
+    finally:
+        if client is not None:
+            try:
+                client.close()
+            except Exception:
+                pass
 
     # Every store lives under data_dir. A mount that went read-only, or filled up,
     # is invisible until something tries to write.

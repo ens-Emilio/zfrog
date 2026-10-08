@@ -1,7 +1,7 @@
 """AI multi-provider client via LiteLLM.
 
 Supports any provider: Ollama, OpenAI, Anthropic, Google, Groq, Mistral, etc.
-Configuration via environment variables or ai_config.yaml.
+Configuration via environment variables.
 
 Examples:
     # Local (default)

@@ -139,10 +139,10 @@ class AnalyzeEngine(EngineAdapter):
         score = self._compute_score(seo, a11y, perf, content)
 
         # 7. Build result
-        from datetime import datetime
+        from datetime import datetime, timezone
         result = AnalyzeResult(
             url=url,
-            analyzed_at=datetime.utcnow().isoformat(),
+            analyzed_at=datetime.now(timezone.utc).isoformat(),
             content=content,
             seo=seo,
             accessibility=a11y,

@@ -2,10 +2,13 @@
 
 import asyncio
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Set
 
+import logging
+
 from zfrog.models import JobStatus
+logger = logging.getLogger(__name__)
 
 
 # Set of cancelled job IDs
@@ -20,14 +23,11 @@ _REDIS_PREFIX = "zfrog:cancelled:"
 _REDIS_TTL = 86400
 
 
-def _redis():
+def _redis():  # type: ignore[no-untyped-def]
     """A Redis client for the shared cancel flags, or None when unavailable."""
     try:
-        import redis
-
-        from zfrog.config import settings
-
-        client = redis.from_url(settings.redis_url, decode_responses=True)
+        from zfrog.storage.redis_client import get_sync_client
+        client = get_sync_client()
         client.ping()
         return client
     except Exception:
@@ -113,7 +113,7 @@ class JobCleanup:
         """
         self.max_age = timedelta(hours=max_age_hours)
         self.cleanup_interval = timedelta(minutes=cleanup_interval_minutes)
-        self._last_cleanup = datetime.utcnow()
+        self._last_cleanup = datetime.now(timezone.utc)
         self._running = False
         self._task: asyncio.Task | None = None
     
@@ -141,7 +141,7 @@ class JobCleanup:
             try:
                 await asyncio.sleep(60)  # Check every minute
                 
-                now = datetime.utcnow()
+                now = datetime.now(timezone.utc)
                 if now - self._last_cleanup >= self.cleanup_interval:
                     await self._cleanup_old_jobs()
                     self._last_cleanup = now
@@ -149,13 +149,13 @@ class JobCleanup:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                print(f"Cleanup error: {e}")
+                logger.warning("Cleanup error: %s", e)
     
     async def _cleanup_old_jobs(self):
         """Remove old completed/failed jobs."""
         from zfrog.orchestrator import _jobs, _results
         
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         to_remove = []
         
         for job_id, job in _jobs.items():
@@ -177,7 +177,7 @@ class JobCleanup:
                 shutil.rmtree(output_dir, ignore_errors=True)
         
         if to_remove:
-            print(f"Cleaned up {len(to_remove)} old jobs")
+            logger.info("Cleaned up %d old jobs", len(to_remove))
 
 
 # Global cleanup instance

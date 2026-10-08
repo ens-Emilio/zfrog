@@ -32,7 +32,7 @@ JOBS_PATH: Final[str] = "/jobs"
 DEFAULT_MODE: Final[str] = "mirror"
 
 #: Crawl depth used when the caller does not pick one.
-DEFAULT_MAX_DEPTH: Final[int] = 1
+DEFAULT_MAX_DEPTH: Final[int] = 3
 
 #: Host used when a worker record somehow carries no id.
 DEFAULT_HOST: Final[str] = "localhost"

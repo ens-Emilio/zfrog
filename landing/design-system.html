@@ -9,8 +9,8 @@
 <meta property="og:description" content="Tokens, tipografia e componentes do zfrog, como fonte única.">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="pt_BR">
-<meta name="theme-color" content="#FAFAF5" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#111110" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f4f2ec" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#161512" media="(prefers-color-scheme: dark)">
 <link rel="icon" type="image/png" href="assets/mascot.png">
 <title>zfrog — Design System</title>
 <style>
@@ -50,14 +50,23 @@
   font-weight:400;font-style:italic;font-display:swap;
 }
 
-:root{
-  --papel:#FAFAF5;
-  --tinta:#111110;
-  --muted:#55554F;
-  --hairline:rgba(17,17,16,.28);
-  --hairline-soft:rgba(17,17,16,.14);
-  --acento:#3F6212;
-  --acento-soft:rgba(63,98,18,.10);
+ :root{
+  /* unificado com tui.css — papel quente claro */
+  --papel:#f4f2ec;
+  --bg:#f4f2ec;
+  --bg-raised:#ebe8df;
+  --tinta:#1d1c1a;
+  --fg:#1d1c1a;
+  --muted:#57544c;
+  --fg-muted:#57544c;
+  --fg-dim:#6e6b62;
+  --hairline:#d9d6cc;
+  --line:#d9d6cc;
+  --hairline-soft:#e6e3d9;
+  --sel-bg:#e6e3d9;
+  --acento:#4f6b3a;
+  --accent:#4f6b3a;
+  --acento-soft:rgba(79,107,58,.10);
   --raio:2px;
   --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   --pad:clamp(20px,6vw,96px);
@@ -67,13 +76,21 @@
 }
 @media (prefers-color-scheme: dark){
   :root{
-    --papel:#111110;
-    --tinta:#EDEDE6;
-    --muted:#A8A89E;
-    --hairline:rgba(237,237,230,.24);
-    --hairline-soft:rgba(237,237,230,.12);
-    --acento:#A3C24C;
-    --acento-soft:rgba(163,194,76,.14);
+    --papel:#161512;
+    --bg:#161512;
+    --bg-raised:#1e1c17;
+    --tinta:#e6e3da;
+    --fg:#e6e3da;
+    --muted:#aba79c;
+    --fg-muted:#aba79c;
+    --fg-dim:#949084;
+    --hairline:#35332b;
+    --line:#35332b;
+    --hairline-soft:#26241d;
+    --sel-bg:#26241d;
+    --acento:#93b27b;
+    --accent:#93b27b;
+    --acento-soft:rgba(147,178,123,.14);
   }
 }
 
@@ -242,14 +259,14 @@ section > .content > p:last-child{margin-bottom:0}
   transition:background-color var(--hover) ease-out,color var(--hover) ease-out,border-color var(--hover) ease-out;
 }
 .btn-primary{background:var(--tinta);color:var(--papel);border:1px solid var(--tinta)}
-.btn-primary:hover{background:var(--acento);border-color:var(--acento);color:#FAFAF5}
+.btn-primary:hover{background:var(--acento);border-color:var(--acento);color:#f4f2ec}
 .btn-ghost{border:1px solid var(--hairline);color:var(--tinta);background:transparent}
 .btn-ghost:hover{border-color:var(--acento);color:var(--acento)}
 @media (prefers-color-scheme: dark){
-  .btn-primary:hover{color:#111110}
+  .btn-primary:hover{color:#161512}
 }
 .btn[aria-disabled="true"]{opacity:.4;cursor:not-allowed}
-.btn.is-hover{background:var(--acento);border-color:var(--acento);color:#FAFAF5}
+.btn.is-hover{background:var(--acento);border-color:var(--acento);color:#f4f2ec}
 .btn-ghost.is-hover{border-color:var(--acento);color:var(--acento);background:transparent}
 .btn.is-focus{outline:2px solid var(--acento);outline-offset:2px}
 .btn.is-primary-focus{outline:2px solid var(--acento);outline-offset:2px}
@@ -372,29 +389,29 @@ footer a:hover{color:var(--acento);text-decoration:underline;text-underline-offs
 
     <div class="swatches">
       <div class="swatch-card">
-        <div class="chip" style="background:#FAFAF5"></div>
+        <div class="chip" style="background:#f4f2ec"></div>
         <div class="meta">
           <div class="nome">papel</div>
-          <div class="hex">#FAFAF5 · escuro #111110</div>
-          <div class="var">--papel</div>
+          <div class="hex">#f4f2ec · escuro #161512</div>
+          <div class="var">--papel / --bg</div>
           <div class="uso">fundo da página e de superfícies</div>
         </div>
       </div>
       <div class="swatch-card">
-        <div class="chip" style="background:#111110"></div>
+        <div class="chip" style="background:#1d1c1a"></div>
         <div class="meta">
           <div class="nome">tinta</div>
-          <div class="hex">#111110 · escuro #EDEDE6</div>
-          <div class="var">--tinta</div>
+          <div class="hex">#1d1c1a · escuro #e6e3da</div>
+          <div class="var">--tinta / --fg</div>
           <div class="uso">texto principal, bordas fortes, ação primária</div>
         </div>
       </div>
       <div class="swatch-card">
-        <div class="chip" style="background:#55554F"></div>
+        <div class="chip" style="background:#57544c"></div>
         <div class="meta">
           <div class="nome">suave</div>
-          <div class="hex">#55554F · escuro #A8A89E</div>
-          <div class="var">--muted</div>
+          <div class="hex">#57544c · escuro #aba79c</div>
+          <div class="var">--muted / --fg-muted</div>
           <div class="uso">rótulos, legendas, metadados</div>
         </div>
       </div>
@@ -402,17 +419,17 @@ footer a:hover{color:var(--acento);text-decoration:underline;text-underline-offs
         <div class="chip" style="background:repeating-linear-gradient(45deg,var(--hairline-soft) 0 6px,transparent 6px 12px);"></div>
         <div class="meta">
           <div class="nome">hairline</div>
-          <div class="hex">rgba(17,17,16,.28)</div>
-          <div class="var">--hairline / --hairline-soft</div>
+          <div class="hex">#d9d6cc · escuro #35332b</div>
+          <div class="var">--hairline / --line</div>
           <div class="uso">divisórias de seção e de linha de dado</div>
         </div>
       </div>
       <div class="swatch-card">
-        <div class="chip" style="background:#3F6212"></div>
+        <div class="chip" style="background:#4f6b3a"></div>
         <div class="meta">
           <div class="nome">acento</div>
-          <div class="hex">#3F6212 · escuro #A3C24C</div>
-          <div class="var">--acento / --acento-soft</div>
+          <div class="hex">#4f6b3a · escuro #93b27b</div>
+          <div class="var">--acento / --accent</div>
           <div class="uso">ação, foco, confirmação — nunca fundo de bloco</div>
         </div>
       </div>
@@ -580,8 +597,8 @@ footer a:hover{color:var(--acento);text-decoration:underline;text-underline-offs
       <div class="cap"><b>Tarja e swatch</b><span>.badge · .inline-swatch</span></div>
       <div class="stage">
         <span class="badge"><i aria-hidden="true"></i>não há versão hospedada — por design</span>
-        <span style="font-size:13px"><i class="inline-swatch" style="background:#FAFAF5"></i> papel #FAFAF5</span>
-        <span style="font-size:13px"><i class="inline-swatch" style="background:#3F6212"></i> acento #3F6212</span>
+        <span style="font-size:13px"><i class="inline-swatch" style="background:#f4f2ec"></i> papel #f4f2ec</span>
+        <span style="font-size:13px"><i class="inline-swatch" style="background:#4f6b3a"></i> acento #4f6b3a</span>
       </div>
       <p class="stage-caption" style="padding:0 14px 14px">O swatch é sempre acompanhado do nome e do hex — a cor nunca é a única informação.</p>
     </div>

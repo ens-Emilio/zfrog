@@ -8,6 +8,8 @@ from pathlib import Path
 
 from zfrog.config import settings
 from zfrog.models import (
+    DESIGN_MODES,
+    ENGINE_FOR_MODE,
     Job,
     JobCreate,
     JobResult,
@@ -18,17 +20,25 @@ from zfrog.engines import get_engine, get_engine_for_probe
 from zfrog.pipeline.link_rewriter import rewrite_links
 from zfrog.pipeline.privacy_cleaner import clean_privacy
 from zfrog.pipeline.packager import package_zip
-from zfrog.pipeline.reference import DESIGN_MODES, register_reference
+from zfrog.pipeline.reference import register_reference
 from zfrog.pipeline.screenshot import take_screenshots
 from zfrog.storage.local import get_output_dir
 from zfrog.utils.http import create_client
 from zfrog.utils.rate_limit import _global_limiter, _global_concurrency
 from zfrog.utils.cleanup import is_cancelled, CancellationError
-from zfrog.utils.url_guard import check_url
 from zfrog.utils.webhooks import notify_job_completed, notify_job_failed
+from zfrog.utils.url_guard import check_url
 from zfrog.queue import publish_job_event
-
 logger = logging.getLogger(__name__)
+
+# Keep references to fire-and-forget tasks so GC doesn't cancel them.
+_bg_tasks: set[asyncio.Task] = set()
+
+
+def _fire_and_forget(coro) -> None:  # type: ignore[no-untyped-def]
+    task = asyncio.create_task(coro)
+    _bg_tasks.add(task)
+    task.add_done_callback(_bg_tasks.discard)
 
 
 # In-memory job storage (fallback when Redis unavailable)
@@ -200,58 +210,18 @@ async def run_job(job: JobCreate, job_id: str | None = None) -> JobResult:
             job_record.status = JobStatus.RUNNING
             update_job(job_record)
             
-            # Determine engine based on mode or probe suggestion.
-            # "auto" is the default: the probe picked the motor above. The capture
-            # modes map to the motors by role: jump captures a reference card
-            # (screenshot + tokens), tongue extracts one component, mirror is the
-            # assets motor, singlepage the light motor, scrape the visual capture
-            # motor, extract the discovery motor.
-            if job.mode == "jump":
-                engine = get_engine("jump")
-            elif job.mode == "tongue":
-                engine = get_engine("tongue")
-            elif job.mode == "mirror":
-                engine = get_engine("wget")
-            elif job.mode == "singlepage":
-                engine = get_engine("static_file")
-            elif job.mode == "scrape":
-                engine = get_engine("playwright")
-            elif job.mode == "extract":
-                engine = get_engine("scrapy")
-            elif job.mode == "analyze":
-                engine = get_engine("analyze")
-            elif job.mode == "compare":
-                engine = get_engine("compare")
-            elif job.mode == "ask":
-                engine = get_engine("ask")
-            elif job.mode == "pdf":
-                engine = get_engine("pdf")
-            elif job.mode == "summarize":
-                engine = get_engine("summarize")
-            elif job.mode == "delta":
-                engine = get_engine("delta")
-            elif job.mode == "entities":
-                engine = get_engine("entities")
-            elif job.mode in ("enrich", "sentiment", "tags"):
-                # One engine, three entry points: the job's mode says which
-                # question the user asked, the engine answers both at once.
-                engine = get_engine("enrich")
-            elif job.mode == "translate":
-                engine = get_engine("translate")
-            elif job.mode == "video":
-                engine = get_engine("video")
-            elif job.mode == "api_discovery":
-                engine = get_engine("api_discovery")
+            # Determine engine from mode; "auto" (and unknown) falls back to probe.
+            engine_name = ENGINE_FOR_MODE.get(job.mode)
+            if engine_name is not None:
+                engine = get_engine(engine_name)
             else:
-                # Auto-detect based on probe
                 engine = get_engine_for_probe(probe_result)
             
             await publish_job_event(job_id, "status", {"status": "running", "engine": engine.name})
             
             # Step 3: Execute engine with rate limiting
             def on_progress(msg: str):
-                # Emit WebSocket events for progress updates
-                asyncio.create_task(publish_job_event(job_id, "progress", {"message": msg}))
+                _fire_and_forget(publish_job_event(job_id, "progress", {"message": msg}))
             
             # Apply rate limit before engine execution
             await _global_limiter.acquire()

@@ -550,15 +550,21 @@ def _redis_state() -> tuple[bool, str]:
     """
     from zfrog.config import settings
 
+    client = None
     try:
         import redis
 
         client = redis.from_url(settings.redis_url, socket_connect_timeout=2)
         client.ping()
-        client.close()
         return True, settings.redis_url
     except Exception:
         return False, settings.redis_url
+    finally:
+        if client is not None:
+            try:
+                client.close()
+            except Exception:
+                pass
 
 
 @app.command()

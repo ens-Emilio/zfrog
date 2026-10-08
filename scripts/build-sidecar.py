@@ -26,14 +26,18 @@ MIN_SIDECAR_BYTES = 10 * 1024 * 1024  # sanity: real onefile build is >10MB
 
 
 def target_triple() -> str:
-    machine = platform.machine().lower()
-    arch = "x86_64" if machine in ("x86_64", "amd64", "x64") else machine
+    raw = platform.machine().lower()
+    arch_map = {
+        "x86_64": "x86_64", "amd64": "x86_64", "x64": "x86_64",
+        "aarch64": "aarch64", "arm64": "aarch64",
+        "armv7l": "armv7", "i386": "i686", "i686": "i686",
+    }
+    arch = arch_map.get(raw, raw)
     if sys.platform == "win32":
         return f"{arch}-pc-windows-msvc"
     if sys.platform == "darwin":
         return f"{arch}-apple-darwin"
     return f"{arch}-unknown-linux-gnu"
-
 
 def build() -> Path:
     triple = target_triple()

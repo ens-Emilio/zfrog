@@ -49,7 +49,6 @@ services:
       - "${API_BIND:-127.0.0.1}:8000:8000"
     volumes:
       - zfrog-data:/app/data
-      - ./ai_config.yaml:/app/ai_config.yaml:ro
     environment:
       - ZFROG_DATA_DIR=/app/data
       - ZFROG_REDIS_URL=redis://valkey:6379/0
@@ -84,7 +83,6 @@ services:
       celery -A zfrog.queue worker -l info -c ${WORKER_CONCURRENCY:-2}
     volumes:
       - zfrog-data:/app/data
-      - ./ai_config.yaml:/app/ai_config.yaml:ro
     environment:
       - ZFROG_DATA_DIR=/app/data
       - ZFROG_REDIS_URL=redis://valkey:6379/0

@@ -27,23 +27,26 @@ export function useWebSocket(
   const [connected, setConnected] = useState(false)
   const [lastEvent, setLastEvent] = useState<WsEvent | null>(null)
   const [events, setEvents] = useState<WsEvent[]>([])
+  const reconnectTimer = useRef<number | undefined>(undefined)
+  const abortedRef = useRef(false)
+  const onEventRef = useRef(onEvent)
+  const connectRef = useRef<() => void>(() => {})
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectAttempt = useRef(0)
-  const reconnectTimer = useRef<NodeJS.Timeout | undefined>(undefined)
 
-  const connectRef = useRef<() => void>(() => {})
+  onEventRef.current = onEvent
 
   const scheduleReconnect = useCallback(() => {
+    if (abortedRef.current) return
     clearTimeout(reconnectTimer.current)
 
     const delay = Math.min(1000 * Math.pow(2, reconnectAttempt.current), 30000)
     reconnectAttempt.current++
 
-    reconnectTimer.current = setTimeout(() => {
+    reconnectTimer.current = window.setTimeout(() => {
       connectRef.current()
     }, delay)
   }, [])
-
   const connect = useCallback(() => {
     if (!jobId) return
 
@@ -76,7 +79,7 @@ export function useWebSocket(
           const parsed: WsEvent = JSON.parse(event.data)
           setLastEvent(parsed)
           setEvents((prev) => [...prev.slice(-99), parsed])
-          onEvent?.(parsed)
+          onEventRef.current?.(parsed)
         } catch {
           // ignore malformed messages
         }
@@ -85,21 +88,23 @@ export function useWebSocket(
       ws.onclose = () => {
         setConnected(false)
         wsRef.current = null
-        scheduleReconnect()
+        if (!abortedRef.current) scheduleReconnect()
       }
 
       ws.onerror = () => {
         setConnected(false)
       }
     } catch {
-      scheduleReconnect()
+      if (!abortedRef.current) scheduleReconnect()
     }
-  }, [jobId, onEvent, scheduleReconnect])
+  }, [jobId, scheduleReconnect])
   useEffect(() => {
+    abortedRef.current = false
     connectRef.current = connect
     connect()
     return () => {
-      if (reconnectTimer.current) clearTimeout(reconnectTimer.current)
+      abortedRef.current = true
+      clearTimeout(reconnectTimer.current)
       if (wsRef.current) {
         wsRef.current.close()
         wsRef.current = null

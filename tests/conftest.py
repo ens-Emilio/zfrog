@@ -32,12 +32,12 @@ def _isolated_catalog(tmp_path_factory):
 FIXTURE_DIR = Path(__file__).parent / "fixtures"
 
 
-def _ensure_fixtures():
+def _ensure_fixtures(target: Path = FIXTURE_DIR):
     """Create fixture HTML files if they don't exist."""
-    FIXTURE_DIR.mkdir(exist_ok=True)
+    target.mkdir(parents=True, exist_ok=True)
 
     # 1. Static site (minimal)
-    (FIXTURE_DIR / "static_site.html").write_text("""<!DOCTYPE html>
+    (target / "static_site.html").write_text("""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8">
@@ -61,7 +61,7 @@ def _ensure_fixtures():
 </body>
 </html>""", encoding="utf-8")
 
-    (FIXTURE_DIR / "page2.html").write_text("""<!DOCTYPE html>
+    (target / "page2.html").write_text("""<!DOCTYPE html>
 <html lang="en">
 <head><title>Page 2</title></head>
 <body>
@@ -72,7 +72,7 @@ def _ensure_fixtures():
 </html>""", encoding="utf-8")
 
     # 2. SPA-like page (simulates React/Vue output)
-    (FIXTURE_DIR / "spa_page.html").write_text("""<!DOCTYPE html>
+    (target / "spa_page.html").write_text("""<!DOCTYPE html>
 <html lang="en">
 <head>
     <title>SPA Test</title>
@@ -92,7 +92,7 @@ def _ensure_fixtures():
 </html>""", encoding="utf-8")
 
     # 3. Page with trackers (for privacy cleaner testing)
-    (FIXTURE_DIR / "tracked_page.html").write_text("""<!DOCTYPE html>
+    (target / "tracked_page.html").write_text("""<!DOCTYPE html>
 <html lang="en">
 <head>
     <title>Tracked Page</title>
@@ -113,10 +113,10 @@ def _ensure_fixtures():
     for i in range(20):
         links_html += f'<a href="page{i}.html">Link {i}</a>\n'
     links_html += '</body></html>'
-    (FIXTURE_DIR / "link_farm.html").write_text(links_html, encoding="utf-8")
+    (target / "link_farm.html").write_text(links_html, encoding="utf-8")
 
     for i in range(20):
-        (FIXTURE_DIR / f"page{i}.html").write_text(
+        (target / f"page{i}.html").write_text(
             f"<html><head><title>Page {i}</title></head><body><p>Content {i}</p></body></html>",
             encoding="utf-8",
         )
@@ -125,10 +125,17 @@ def _ensure_fixtures():
     import base64
     # 1x1 transparent PNG
     png_b64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
-    (FIXTURE_DIR / "logo.png").write_bytes(base64.b64decode(png_b64))
+    (target / "logo.png").write_bytes(base64.b64decode(png_b64))
 
 
-_ensure_fixtures()
+@pytest.fixture(scope="session", autouse=True)
+def _ensure_fixture_files(tmp_path_factory):
+    """Populate fixture files in a temp dir so import has no side-effects."""
+    tmp = tmp_path_factory.mktemp("zfrog-fixtures")
+    _ensure_fixtures(tmp)
+    global FIXTURE_DIR
+    FIXTURE_DIR = tmp
+    yield
 
 
 class FixtureHandler(SimpleHTTPRequestHandler):

@@ -18,15 +18,10 @@ from pathlib import Path
 
 from zfrog.catalog import Card, Catalog, site_of
 from zfrog.config import settings
+from zfrog.models import DESIGN_MODES  # noqa: F401 — re-exported for backwards compat
 from zfrog.tokens import DesignTokens
 
 logger = logging.getLogger(__name__)
-
-#: Modes whose capture is a page whose *design* is worth reading. The analysis engines
-#: (analyze, compare, ask, summarize…) read text, not layout, and a palette from them
-#: would be noise. `jump` is absent on purpose: it extracts its own tokens and
-#: registers its own card, so routing it here would do both twice.
-DESIGN_MODES: frozenset[str] = frozenset({"auto", "mirror", "scrape", "singlepage", "delta"})
 
 
 def parse_tags(raw: str | Sequence[str] | None) -> list[str]:

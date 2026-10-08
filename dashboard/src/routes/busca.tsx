@@ -210,8 +210,9 @@ function BuscaPage() {
                       borderLeft: "2px solid var(--line)",
                       margin: "0.25lh 0",
                     }}
-                    dangerouslySetInnerHTML={{ __html: hit.snippet }}
-                  />
+                  >
+                    {hit.snippet}
+                  </p>
                 )}
 
                 {hit.url && (

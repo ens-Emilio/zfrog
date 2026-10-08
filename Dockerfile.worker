@@ -1,0 +1,6 @@
+# Placeholder — the worker image is built from ./Dockerfile.
+# Use: docker build -f Dockerfile -t zfrog-worker:latest .
+# This file exists for backwards compatibility with `docker build -f Dockerfile.worker ...`
+# referenced in deploy/k8s/operator.yaml. No separate stage; see ./Dockerfile.
+FROM python:3.12-slim
+# See ./Dockerfile for actual build steps.

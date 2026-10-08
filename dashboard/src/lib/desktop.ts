@@ -58,8 +58,14 @@ export function getDesktopConfig(): SidecarConfig | null {
 function persist(cfg: SidecarConfig): void {
   try {
     const raw = JSON.stringify(cfg)
+    // sessionStorage only — token+url are ephemeral per boot (C2: stale localStorage caused offline dashboard after restart)
     window.sessionStorage.setItem(STORAGE_KEY, raw)
-    window.localStorage.setItem(STORAGE_KEY, raw)
+    // Clear stale localStorage from older builds so it never shadows sessionStorage.
+    try {
+      window.localStorage.removeItem(STORAGE_KEY)
+    } catch {
+      // ignore
+    }
   } catch {
     // ignore quota / private mode
   }
@@ -68,12 +74,15 @@ function persist(cfg: SidecarConfig): void {
 export function clearDesktopConfig(): void {
   try {
     window.sessionStorage.removeItem(STORAGE_KEY)
-    window.localStorage.removeItem(STORAGE_KEY)
+    try {
+      window.localStorage.removeItem(STORAGE_KEY)
+    } catch {
+      // ignore
+    }
   } catch {
     // ignore
   }
 }
-
 /**
  * Resolve the sidecar config. Tries `invoke` immediately; if the sidecar
  * hasn't finished booting yet it waits for the `sidecar-ready` event.
