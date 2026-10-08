@@ -1,6 +1,6 @@
 [package]
 name = "zfrog-desktop"
-version = "0.1.0"
+version = "0.1.1"
 description = "Zfrog desktop — design reference engine"
 authors = ["Zfrog Contributors"]
 edition = "2021"
@@ -17,6 +17,7 @@ tauri-plugin-shell = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-notification = "2"
 tauri-plugin-opener = "2"
+tauri-plugin-updater = "2"
 portpicker = "0.1"
 rand = { version = "0.8", features = ["small_rng"] }
 tokio = { version = "1", features = ["full"] }

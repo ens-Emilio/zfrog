@@ -10,6 +10,7 @@ import { AuthGate } from "@/components/AuthGate"
 import { ToastRegion } from "@/components/ToastRegion"
 import { API_URL, api } from "@/lib/api"
 import { effectiveApiUrl, desktopHeaders, isDesktop, resolveDesktopConfig } from "@/lib/desktop"
+import { check as checkUpdate } from "@tauri-apps/plugin-updater"
 import { useTheme } from "@/lib/prefs"
 import { getLang, initLang, setLang, useT, type I18nKey } from "@/lib/i18n"
 import { LANG_LABEL, LANG_ORDER } from "@/lib/lang"
@@ -110,6 +111,39 @@ function BrowsersBanner() {
       <button className="tui-btn" onClick={() => setDismissed(true)}>{t("browsers.dismiss")}</button>
     </div>
   )
+}
+
+// Desktop auto-update — checks GitHub Releases via tauri-plugin-updater.
+// Silent outside Tauri (checks `isDesktop()` first).
+function UpdaterBanner() {
+  const [state, setState] = useState<"idle" | "available" | "downloading" | "ready">("idle")
+  const [version, setVersion] = useState("")
+  const [progress, setProgress] = useState(0)
+  const check = useCallback(async () => {
+    if (!isDesktop()) return
+    try {
+      const update = await checkUpdate()
+      if (update) { setVersion(update.version || ""); setState("available") }
+    } catch { /* offline or no updater config */ }
+  }, [])
+  const install = useCallback(async () => {
+    setState("downloading")
+    try {
+      const update = await checkUpdate()
+      if (!update) { setState("idle"); return }
+      let dl = 0
+      await update.downloadAndInstall((ev: any) => {
+        if (ev.event === "Started") dl = 0
+        else if (ev.event === "Progress") { dl += ev.data?.chunkLength ?? 0; setProgress((v) => Math.min(99, v + 1)) }
+      })
+      setState("ready")
+    } catch { setState("idle") }
+  }, [])
+  useEffect(() => { check() }, [check])
+  if (state === "idle") return null
+  if (state === "ready") return <div style={{ padding: "8px 16px", borderBottom: "1px solid var(--border)", background: "var(--surface)" }}><span className="tui-hint">Atualiza\u00E7\u00E3o v{version} instalada \u2014 reinicie o app.</span></div>
+  if (state === "downloading") return <div style={{ padding: "8px 16px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12, background: "var(--surface)" }}><Spinner /><span className="tui-hint">Baixando v{version}\u2026 {progress}%</span></div>
+  return <div style={{ padding: "8px 16px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12, background: "var(--surface)" }}><span className="tui-hint">Nova vers\u00E3o v{version} dispon\u00EDvel.</span><button className="tui-btn" onClick={install} style={{ fontSize: 12, padding: "4px 10px" }}>Atualizar agora</button><button className="tui-btn" onClick={() => setState("idle")} style={{ fontSize: 12, padding: "4px 10px" }}>Depois</button></div>
 }
 
 function Palette({
@@ -268,6 +302,7 @@ function Shell() {
         </button>
       </header>
       <div className="tui-col" style={{ padding: "0 1lh" }}><BrowsersBanner /></div>
+      <div className="tui-col" style={{ padding: "0 1lh" }}><UpdaterBanner /></div>
 
       <main className="tui-main" id="conteudo">
         <div className="tui-col">

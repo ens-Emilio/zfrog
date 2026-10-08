@@ -51,6 +51,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(sidecar_state)
         .invoke_handler(tauri::generate_handler![get_sidecar_config, open_path, reveal_path])
         .setup(|app| {

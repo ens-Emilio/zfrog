@@ -1,6 +1,6 @@
 {
   "name": "dashboard",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -21,6 +21,7 @@
     "@tauri-apps/plugin-dialog": "^2.8.1",
     "@tauri-apps/plugin-notification": "^2.5.1",
     "@tauri-apps/plugin-opener": "^2.7.0",
+    "@tauri-apps/plugin-updater": "^2.13.2",
     "lucide-react": "^0.525.0",
     "react": "19.2.8",
     "react-dom": "19.2.8"

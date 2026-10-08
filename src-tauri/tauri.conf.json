@@ -1,10 +1,10 @@
 {
   "productName": "zfrog",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "identifier": "com.zfrog.desktop",
   "build": {
-    "beforeDevCommand": "npm --prefix dashboard run dev -- --port 3000 --host 127.0.0.1",
-    "beforeBuildCommand": "npm --prefix dashboard run build",
+    "beforeDevCommand": "sh -c 'npm --prefix dashboard run dev -- --port 3000 --host 127.0.0.1 2>/dev/null || npm --prefix ../dashboard run dev -- --port 3000 --host 127.0.0.1'",
+    "beforeBuildCommand": "sh -c 'npm --prefix dashboard run build 2>/dev/null || npm --prefix ../dashboard run build'",
     "devUrl": "http://localhost:3000",
     "frontendDist": "../dashboard/dist"
   },
@@ -21,7 +21,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self' tauri: asset: http://asset.localhost; script-src 'self' 'sha256-36VkN0JwhRbigrUJFbD23oBUac8yFW2quF+XDCPNq9A=' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: data: http: https:; connect-src 'self' http://127.0.0.1:* http://localhost:* ipc: http://ipc.localhost; font-src 'self' data:"
+      "csp": "default-src 'self' tauri: asset: http://asset.localhost; script-src 'self' 'sha256-36VkN0JwhRbigrUJFbD23oBUac8yFW2quF+XDCPNq9A=' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: data: http: https:; connect-src 'self' https://github.com https://api.github.com https://objects.githubusercontent.com https://*.githubusercontent.com https://*.githubassets.com http://127.0.0.1:* http://localhost:* ipc: http://ipc.localhost; font-src 'self' data:"
     }
   },
   "bundle": {
@@ -45,11 +45,18 @@
     "longDescription": "Capture, organize and adapt web design references.",
     "externalBin": [
       "binaries/zfrog-api"
-    ]
+    ],
+    "createUpdaterArtifacts": "v1Compatible"
   },
   "plugins": {
     "shell": {
       "open": true
+    },
+    "updater": {
+      "pubkey": "RWTxRWRieKCQNNlLGk/z6iJJYmHSVETKTd0DJp2gecw7IqGXAv4nyY5V",
+      "endpoints": [
+        "https://github.com/ens-Emilio/zfrog/releases/latest/download/latest.json"
+      ]
     }
   }
 }
