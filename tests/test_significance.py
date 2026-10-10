@@ -315,7 +315,7 @@ async def test_judge_significance_prompt_is_bounded(monkeypatch):
 
     prompt = seen["prompt"]
     assert len(prompt) < 4000
-    assert prompt.startswith(f"Site: (unknown)\n\n### Page 1: grande.html")
+    assert prompt.startswith("Site: (unknown)\n\n### Page 1: grande.html")
     # Head and tail of both sides survive, so an end-of-page change is visible.
     assert "A" * 100 in prompt and "fim do texto antigo" in prompt
     assert "B" * 100 in prompt and "fim do texto novo" in prompt

@@ -11,7 +11,6 @@ Composite score = weighted average (configurable).
 
 from __future__ import annotations
 
-import asyncio
 import difflib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -92,8 +91,8 @@ def _score_visual_similarity(original: str, clone: str) -> float:
     Since we can't run a real browser here, we compare the HTML line structure
     as a proxy for visual similarity.
     """
-    orig_lines = [l.strip() for l in original.splitlines() if l.strip()]
-    clone_lines = [l.strip() for l in clone.splitlines() if l.strip()]
+    orig_lines = [line.strip() for line in original.splitlines() if line.strip()]
+    clone_lines = [line.strip() for line in clone.splitlines() if line.strip()]
 
     if not orig_lines and not clone_lines:
         return 100.0

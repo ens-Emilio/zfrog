@@ -39,7 +39,6 @@ def main() -> int:
     # Lazy imports so `python -m zfrog.k8s.job_runner --help` style checks
     # do not pay the heavy import cost when the module is only probed.
     from zfrog.models import JobCreate
-
     from zfrog.orchestrator import create_and_run_job_sync
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")

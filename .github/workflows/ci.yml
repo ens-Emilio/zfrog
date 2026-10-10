@@ -63,22 +63,7 @@ jobs:
         run: pip install -e ".[dev]"
 
       - name: Lint
-        # Correctness rules only: F821 (undefined name), F811 (redefinition),
-        # F402 (import shadowed by a loop variable) and E9 (syntax). Those catch
-        # bugs — the first runs of this gate found an undefined `new_script` in
-        # engines/static_file.py (a NameError swallowed by `except Exception`),
-        # four `Optional` annotations that were never imported (NameError at
-        # runtime via `from __future__ import annotations`), a Python-3.12-only
-        # f-string in tests/test_sso.py (SyntaxError on the declared 3.11 floor),
-        # a redundant local `update_job` import in api.py, and a loop variable
-        # shadowing a module import (`signal` in cli.py).
-        #
-        # The style rules in pyproject.toml (E501 line length, I001 import order,
-        # UP0xx modernisation) report ~450 violations on the existing code, so
-        # enabling them here would open with a red build that nobody could trust.
-        # Tightening this is tracked work, not a silent omission.
-        run: ruff check . --select F821,F811,F402,E9
-
+        run: ruff check .
       - name: Run the suite
         env:
           ZFROG_REDIS_URL: redis://127.0.0.1:6379/0

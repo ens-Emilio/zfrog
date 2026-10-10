@@ -3,7 +3,7 @@
 import hashlib
 import json
 from dataclasses import asdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -245,18 +245,18 @@ def test_restore_writes_the_version_with_relative_paths(tmp_path):
 
 
 def test_parse_when_accepts_the_documented_formats():
-    end_of_day = datetime(2026, 9, 1, 23, 59, 59, tzinfo=timezone.utc)
+    end_of_day = datetime(2026, 9, 1, 23, 59, 59, tzinfo=UTC)
 
     assert parse_when("2026-09-01") == end_of_day
     assert parse_when(" 2026-09-01 ") == end_of_day
-    assert parse_when("2026-09-01T12:00") == datetime(2026, 9, 1, 12, 0, tzinfo=timezone.utc)
-    assert parse_when("2026-09-01 12:00") == datetime(2026, 9, 1, 12, 0, tzinfo=timezone.utc)
-    assert parse_when("2026-09-01T12:00:30Z") == datetime(2026, 9, 1, 12, 0, 30, tzinfo=timezone.utc)
+    assert parse_when("2026-09-01T12:00") == datetime(2026, 9, 1, 12, 0, tzinfo=UTC)
+    assert parse_when("2026-09-01 12:00") == datetime(2026, 9, 1, 12, 0, tzinfo=UTC)
+    assert parse_when("2026-09-01T12:00:30Z") == datetime(2026, 9, 1, 12, 0, 30, tzinfo=UTC)
 
     parsed = parse_when("2026-09-01")
     assert parsed.tzinfo is not None and parsed.hour == 23 and parsed.minute == 59
     # The end of the day is later than any capture from that day.
-    assert parsed > datetime(2026, 9, 1, 12, 0, tzinfo=timezone.utc)
+    assert parsed > datetime(2026, 9, 1, 12, 0, tzinfo=UTC)
 
 
 def test_parse_when_rejects_unaccepted_formats():

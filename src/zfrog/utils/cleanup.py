@@ -1,18 +1,16 @@
 """Job cancellation and cleanup utilities."""
 
 import asyncio
-import time
-from datetime import datetime, timezone, timedelta
-from typing import Set
-
 import logging
+from datetime import UTC, datetime, timedelta
 
 from zfrog.models import JobStatus
+
 logger = logging.getLogger(__name__)
 
 
 # Set of cancelled job IDs
-_cancelled_jobs: Set[str] = set()
+_cancelled_jobs: set[str] = set()
 
 # Lock for thread-safe access
 _cancel_lock = asyncio.Lock()
@@ -113,7 +111,7 @@ class JobCleanup:
         """
         self.max_age = timedelta(hours=max_age_hours)
         self.cleanup_interval = timedelta(minutes=cleanup_interval_minutes)
-        self._last_cleanup = datetime.now(timezone.utc)
+        self._last_cleanup = datetime.now(UTC)
         self._running = False
         self._task: asyncio.Task | None = None
     
@@ -141,7 +139,7 @@ class JobCleanup:
             try:
                 await asyncio.sleep(60)  # Check every minute
                 
-                now = datetime.now(timezone.utc)
+                now = datetime.now(UTC)
                 if now - self._last_cleanup >= self.cleanup_interval:
                     await self._cleanup_old_jobs()
                     self._last_cleanup = now
@@ -155,7 +153,7 @@ class JobCleanup:
         """Remove old completed/failed jobs."""
         from zfrog.orchestrator import _jobs, _results
         
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         to_remove = []
         
         for job_id, job in _jobs.items():
@@ -169,8 +167,8 @@ class JobCleanup:
             _results.pop(job_id, None)
             
             # Also remove output files
+
             from zfrog.config import settings
-            from pathlib import Path
             output_dir = settings.output_dir / job_id
             if output_dir.exists():
                 import shutil

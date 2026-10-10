@@ -8,8 +8,6 @@ keys, users, sessions and version blobs.
 
 from pathlib import Path
 
-import pytest
-
 from zfrog.config import _STATE_PATH_FIELDS, Settings
 
 

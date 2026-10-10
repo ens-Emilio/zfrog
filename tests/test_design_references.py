@@ -12,7 +12,12 @@ import time
 import pytest
 
 from zfrog.catalog import Card, Catalog, normalize_tag, site_of
-from zfrog.components import build_extract, component_to_json, component_to_markdown, summarize
+from zfrog.components import (
+    build_extract,
+    component_to_json,
+    component_to_markdown,
+    summarize,
+)
 
 
 def _raw(**overrides):

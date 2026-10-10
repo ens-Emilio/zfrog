@@ -29,9 +29,9 @@ import os
 import tempfile
 import time
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from urllib.parse import parse_qs, quote, urlencode, urlsplit, unquote
+from urllib.parse import parse_qs, quote, unquote, urlencode, urlsplit
 
 from zfrog.config import settings
 
@@ -378,7 +378,7 @@ class TotpStore:
             name=clean_name,
             secret=_encode_secret(key),
             issuer=(issuer or "").strip(),
-            created_at=datetime.now(timezone.utc).isoformat(),
+            created_at=datetime.now(UTC).isoformat(),
         )
         accounts.append(account)
         self._save(accounts)

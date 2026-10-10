@@ -293,11 +293,11 @@ function WorkersPage() {
 
             {/* Dispatch plan */}
             {dispatchPlan && (
-              <div style={{ marginTop: "12px", borderTop: "1px solid var(--border)", paddingTop: "10px" }}>
+              <div style={{ marginTop: "12px", borderTop: "1px solid var(--line)", paddingTop: "10px" }}>
                 <span className="tui-label">{t("workers.planCalculated")}</span>
                 <div className="space-y-1 font-mono text-[11px]" style={{ marginTop: "6px" }}>
                   {dispatchPlan.map((p, i) => (
-                    <div key={i} className="flex justify-between p-1.5 bg-[var(--bg-panel)] border border-[var(--border)]">
+                    <div key={i} className="flex justify-between p-1.5 bg-[var(--bg-raised)] border border-[var(--line)]">
                       <span className="truncate">{p.url}</span>
                       <span className="text-[var(--accent)] font-semibold shrink-0 ml-2">
                         ➔ {p.worker || t("workers.auto")} [{p.region || t("workers.default")}]
@@ -310,11 +310,11 @@ function WorkersPage() {
 
             {/* Dispatch result */}
             {dispatchResult && (
-              <div style={{ marginTop: "12px", borderTop: "1px solid var(--border)", paddingTop: "10px" }}>
+              <div style={{ marginTop: "12px", borderTop: "1px solid var(--line)", paddingTop: "10px" }}>
                 <span className="tui-label" style={{ color: "var(--ok)" }}>{t("workers.dispatchedTasks")}</span>
                 <div className="space-y-1 font-mono text-[11px]" style={{ marginTop: "6px" }}>
                   {dispatchResult.results.map((r, i) => (
-                    <div key={i} className="flex justify-between p-1.5 bg-[var(--bg-panel)] border border-[var(--ok)]">
+                    <div key={i} className="flex justify-between p-1.5 bg-[var(--bg-raised)] border border-[var(--ok)]">
                       <span className="truncate">{r.url}</span>
                       <span className="text-[var(--ok)] font-semibold shrink-0 ml-2">
                         {r.region} ({r.job_id || t("workers.sent")})

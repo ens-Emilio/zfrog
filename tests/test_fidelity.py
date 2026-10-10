@@ -1,11 +1,12 @@
 """Tests for Fidelity Score and Compare engine."""
 
-import pytest
 from pathlib import Path
 
-from zfrog.pipeline.fidelity import compute_fidelity, FidelityResult
+import pytest
+
 from zfrog.engines.compare import CompareEngine
 from zfrog.models import JobCreate
+from zfrog.pipeline.fidelity import compute_fidelity
 
 
 class TestFidelityScore:

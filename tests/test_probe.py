@@ -1,11 +1,15 @@
 """Tests for probe module."""
 
-import pytest
-import httpx
-from unittest.mock import AsyncMock, patch
 
-from zfrog.probe import probe_url, _detect_framework, _needs_js_rendering, _suggest_engine
+import pytest
+
 from zfrog.models import ProbeResult
+from zfrog.probe import (
+    _detect_framework,
+    _needs_js_rendering,
+    _suggest_engine,
+    probe_url,
+)
 from zfrog.utils.http import create_client
 
 

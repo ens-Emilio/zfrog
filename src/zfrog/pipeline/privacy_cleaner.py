@@ -5,7 +5,6 @@ from pathlib import Path
 
 from bs4 import BeautifulSoup
 
-
 # Known tracker domains
 TRACKER_DOMAINS = [
     "google-analytics.com",

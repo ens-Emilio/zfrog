@@ -7,18 +7,17 @@ full-page screenshot of every captured page.
 """
 
 import asyncio
-import base64
 import logging
 from pathlib import Path
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urlparse
 
-from playwright.async_api import async_playwright, Browser, BrowserContext, Page
+from playwright.async_api import Browser, BrowserContext, async_playwright
 
+from zfrog.config import settings
 from zfrog.engines.base import EngineAdapter, EngineResult
 from zfrog.models import JobCreate, ProbeResult
-from zfrog.config import settings
-from zfrog.utils.stealth import locale, user_agent, viewport
 from zfrog.session import SessionStore
+from zfrog.utils.stealth import locale, user_agent, viewport
 
 logger = logging.getLogger(__name__)
 

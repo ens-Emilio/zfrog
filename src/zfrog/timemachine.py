@@ -22,7 +22,7 @@ import json
 import logging
 import shutil
 from dataclasses import dataclass
-from datetime import datetime, time, timezone
+from datetime import UTC, datetime, time
 from pathlib import Path
 
 from zfrog.config import settings
@@ -84,8 +84,8 @@ def parse_when(when: str) -> datetime:
     if date_only:
         parsed = datetime.combine(parsed.date(), time(23, 59, 59))
     if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
+        return parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
 
 
 def _parse_captured_at(value: str) -> datetime | None:
@@ -95,8 +95,8 @@ def _parse_captured_at(value: str) -> datetime | None:
     except ValueError:
         return None
     if stamp.tzinfo is None:
-        return stamp.replace(tzinfo=timezone.utc)
-    return stamp.astimezone(timezone.utc)
+        return stamp.replace(tzinfo=UTC)
+    return stamp.astimezone(UTC)
 
 
 def _as_int(value: object) -> int:

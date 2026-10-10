@@ -20,6 +20,7 @@ from zfrog.regions import (
     score_region,
 )
 
+
 @pytest.fixture
 def local_config(monkeypatch):
     """A scheduler running in the ``local`` region with an empty inventory."""

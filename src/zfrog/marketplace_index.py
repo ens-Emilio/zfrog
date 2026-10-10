@@ -32,10 +32,11 @@ import logging
 import os
 import tempfile
 from collections import Counter
+from collections.abc import Iterable, Mapping
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Any
 
 import httpx
 
@@ -400,7 +401,7 @@ def _entry_from(asset: Any) -> IndexEntry:
 
 def _now() -> str:
     """Return the current UTC time as an ISO-8601 string."""
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 def _get(source: Any, key: str, default: Any = None) -> Any:
     """Read ``key`` from a mapping, a dataclass or any object, else ``default``."""

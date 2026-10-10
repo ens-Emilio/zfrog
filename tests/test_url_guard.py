@@ -9,7 +9,6 @@ public deployment turns it on.
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-import httpx
 import pytest
 
 from zfrog.config import settings

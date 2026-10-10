@@ -26,8 +26,8 @@ from pathlib import Path
 
 import pytest
 
-from zfrog.config import settings
 from zfrog import session
+from zfrog.config import settings
 
 # ── cipher stand-in (used only when `cryptography` is missing) ──────
 

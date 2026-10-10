@@ -57,10 +57,15 @@ jobs:
           pip install "PyInstaller>=6"
 
       - name: Build sidecar binary
+        env:
+          ZFROG_TARGET: ${{ matrix.target }}
         run: python scripts/build-sidecar.py
 
       - name: Verify sidecar
+        env:
+          ZFROG_TARGET: ${{ matrix.target }}
         run: python scripts/build-sidecar.py --check
+
 
       - name: Install dashboard deps
         working-directory: dashboard

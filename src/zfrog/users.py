@@ -32,7 +32,7 @@ import re
 import secrets
 import tempfile
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from zfrog.auth import ROLES
@@ -54,7 +54,7 @@ _SLUG_RE = re.compile(r"[^a-z0-9]+")
 
 def _now() -> str:
     """Return the current UTC time as an ISO-8601 string."""
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 def normalize_email(email: str) -> str:
     """Return ``email`` lowercased and stripped, the canonical comparison form."""

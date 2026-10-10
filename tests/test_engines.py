@@ -1,13 +1,12 @@
 """Tests for engine adapters."""
 
-import pytest
-import tempfile
-from pathlib import Path
 
-from zfrog.engines.wget import WgetEngine
-from zfrog.engines.static_file import StaticFileEngine
+import pytest
+
 from zfrog.engines.playwright import PlaywrightEngine
-from zfrog.models import JobCreate, ProbeResult
+from zfrog.engines.static_file import StaticFileEngine
+from zfrog.engines.wget import WgetEngine
+from zfrog.models import ProbeResult
 
 
 class TestWgetEngine:

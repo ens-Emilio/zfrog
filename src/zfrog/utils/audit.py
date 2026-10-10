@@ -26,7 +26,7 @@ import os
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from zfrog.config import settings
@@ -115,7 +115,7 @@ class AuditLog:
             extra = {}
 
         entry = AuditEntry(
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
             action=str(action),
             actor=str(actor or FALLBACK_ACTOR),
             target=str(target or ""),

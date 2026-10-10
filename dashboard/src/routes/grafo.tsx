@@ -97,12 +97,12 @@ function GrafoPage() {
         </div>
       }
     >
-      <div className="text-xs text-[var(--fg-dim)] border-b border-[var(--border)] pb-2 mb-3">
+      <div className="text-xs text-[var(--fg-dim)] border-b border-[var(--line)] pb-2 mb-3">
         {t("grafo.description")}
       </div>
 
       {/* Top configuration panel */}
-      <div className="border border-[var(--border)] bg-[var(--bg-panel)] p-4 mb-4 text-xs">
+      <div className="border border-[var(--line)] bg-[var(--bg-raised)] p-4 mb-4 text-xs">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
           <div className="md:col-span-2">
             <label className="text-[var(--fg-dim)] block mb-1.5">{t("grafo.siteDirLabel")}</label>
@@ -170,7 +170,7 @@ function GrafoPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 text-xs">
           {/* Columns 1 and 2: nodes and TUI visualization */}
           <div className="tui-panel lg:col-span-2 p-4 flex flex-col gap-3">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border)] pb-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--line)] pb-2">
               <div className="font-bold flex items-center gap-3">
                 <span className="uppercase tracking-wide">
                   {fmt(t("grafo.mappedElements"), { count: filteredNodes.length })}
@@ -211,7 +211,7 @@ function GrafoPage() {
                     className={`w-full text-left p-1.5 border flex items-center justify-between gap-2 ${
                       isSelected
                         ? "border-[var(--accent)] bg-[var(--bg-raised)] font-bold"
-                        : "border-[var(--border-subtle)] hover:border-[var(--border)]"
+                        : "border-[var(--line)] hover:border-[var(--line)]"
                     }`}
                     onClick={() => setSelectedNode(n)}
                   >
@@ -236,7 +236,7 @@ function GrafoPage() {
 
           {/* Column 3: selected node details */}
           <div className="tui-panel lg:col-span-1 p-4 flex flex-col gap-3">
-            <div className="font-bold border-b border-[var(--border)] pb-1 uppercase tracking-wide">
+            <div className="font-bold border-b border-[var(--line)] pb-1 uppercase tracking-wide">
               {t("grafo.selectionDetails")}
             </div>
 
@@ -248,7 +248,7 @@ function GrafoPage() {
                 </div>
                 <div>
                   <span className="text-[var(--fg-dim)] block text-[10px]">{t("grafo.category")}</span>
-                  <span className="px-1.5 py-0.5 border border-[var(--border)] font-mono uppercase text-[10px]">
+                  <span className="px-1.5 py-0.5 border border-[var(--line)] font-mono uppercase text-[10px]">
                     {selectedNode.type in FILTER_KEYS
                       ? t(FILTER_KEYS[selectedNode.type as NodeFilter])
                       : selectedNode.type}
@@ -256,7 +256,7 @@ function GrafoPage() {
                 </div>
 
                 {/* Outgoing connections */}
-                <div className="border-t border-[var(--border)] pt-2">
+                <div className="border-t border-[var(--line)] pt-2">
                   <span className="text-[var(--fg-dim)] block font-semibold mb-1">
                     {fmt(t("grafo.outgoing"), {
                       count: edges.filter((e) => e.source === selectedNode.id).length,
@@ -266,7 +266,7 @@ function GrafoPage() {
                     {edges
                       .filter((e) => e.source === selectedNode.id)
                       .map((e, i) => (
-                        <div key={i} className="truncate p-1 bg-[var(--bg-raised)] border border-[var(--border-subtle)]">
+                        <div key={i} className="truncate p-1 bg-[var(--bg-raised)] border border-[var(--line)]">
                           ➔ {e.target} <span className="text-[var(--fg-dim)]">({e.type})</span>
                         </div>
                       ))}
@@ -274,7 +274,7 @@ function GrafoPage() {
                 </div>
 
                 {/* Incoming connections */}
-                <div className="border-t border-[var(--border)] pt-2">
+                <div className="border-t border-[var(--line)] pt-2">
                   <span className="text-[var(--fg-dim)] block font-semibold mb-1">
                     {fmt(t("grafo.incoming"), {
                       count: edges.filter((e) => e.target === selectedNode.id).length,
@@ -284,7 +284,7 @@ function GrafoPage() {
                     {edges
                       .filter((e) => e.target === selectedNode.id)
                       .map((e, i) => (
-                        <div key={i} className="truncate p-1 bg-[var(--bg-raised)] border border-[var(--border-subtle)]">
+                        <div key={i} className="truncate p-1 bg-[var(--bg-raised)] border border-[var(--line)]">
                           ⬅ {e.source}
                         </div>
                       ))}

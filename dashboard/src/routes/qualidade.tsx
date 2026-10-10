@@ -137,7 +137,7 @@ function QualidadePage() {
         </div>
       }
     >
-      <div className="text-xs text-[var(--fg-dim)] border-b border-[var(--border)] pb-2 mb-3">
+      <div className="text-xs text-[var(--fg-dim)] border-b border-[var(--line)] pb-2 mb-3">
         {tab === "seguranca"
           ? t("qualidade.securityDesc")
           : t("qualidade.web3Desc")}
@@ -246,7 +246,7 @@ function QualidadePage() {
         <div className="flex flex-col gap-4" style={{ marginTop: "0.5lh" }}>
           {/* Arweave status */}
           <div className="tui-panel p-4 text-xs">
-            <div className="font-bold border-b border-[var(--border)] pb-1 mb-2">
+            <div className="font-bold border-b border-[var(--line)] pb-1 mb-2">
               {t("qualidade.arweaveStatusTitle")}
             </div>
             {arweaveStatusQuery.isLoading ? (
@@ -275,7 +275,7 @@ function QualidadePage() {
 
           {/* Publish panel */}
           <div className="tui-panel p-4 text-xs">
-            <div className="font-bold border-b border-[var(--border)] pb-1 mb-3">
+            <div className="font-bold border-b border-[var(--line)] pb-1 mb-3">
               {t("qualidade.publishTitle")}
             </div>
             <div className="flex flex-col gap-3 max-w-xl">
@@ -312,7 +312,7 @@ function QualidadePage() {
 
             {/* IPFS results */}
             {ipfsResult && (
-              <div className="mt-4 p-3 border border-[var(--accent)] bg-[var(--bg-panel)]">
+              <div className="mt-4 p-3 border border-[var(--accent)] bg-[var(--bg-raised)]">
                 <div className="font-bold text-[var(--accent)] mb-1">{t("qualidade.ipfsSuccess")}</div>
                 <div className="font-mono text-[11px]">CID: <b>{ipfsResult.cid}</b></div>
                 <div className="text-[10px] text-[var(--fg-dim)] mt-1">
@@ -323,7 +323,7 @@ function QualidadePage() {
 
             {/* Arweave results */}
             {arweaveResult && (
-              <div className="mt-4 p-3 border border-[var(--ok)] bg-[var(--bg-panel)]">
+              <div className="mt-4 p-3 border border-[var(--ok)] bg-[var(--bg-raised)]">
                 <div className="font-bold text-[var(--ok)] mb-1">{t("qualidade.arweaveSuccess")}</div>
                 <div className="font-mono text-[11px]">TX ID: <b>{arweaveResult.tx_id}</b></div>
                 <div className="text-[10px] text-[var(--fg-dim)] mt-1">

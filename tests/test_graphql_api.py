@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -55,7 +55,7 @@ def _job(job_id: str = "job-1", status: JobStatus = JobStatus.COMPLETED, minutes
         mode="mirror",
         max_depth=2,
         status=status,
-        created_at=datetime(2024, 5, 1, 12, 0, tzinfo=timezone.utc) + timedelta(minutes=minutes),
+        created_at=datetime(2024, 5, 1, 12, 0, tzinfo=UTC) + timedelta(minutes=minutes),
         output_path=f"/tmp/{job_id}",
     )
 

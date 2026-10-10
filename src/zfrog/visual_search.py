@@ -225,7 +225,12 @@ async def embed_catalog(catalog: Catalog, *, force: bool = False) -> IndexResult
     that cannot build vectors still works by words. Raising here turned a misconfigured
     model into a traceback in the middle of a command that had another answer ready.
     """
-    from zfrog.ai.client import embed, embedding_configured, get_embedding_model, is_available
+    from zfrog.ai.client import (
+        embed,
+        embedding_configured,
+        get_embedding_model,
+        is_available,
+    )
 
     if not is_available():
         return IndexResult(reason="LiteLLM is not installed.")

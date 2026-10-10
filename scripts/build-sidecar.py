@@ -26,6 +26,11 @@ MIN_SIDECAR_BYTES = 10 * 1024 * 1024  # sanity: real onefile build is >10MB
 
 
 def target_triple() -> str:
+    # CI can override via matrix.target so one workflow fans out to all
+    # platforms with the same script: `ZFROG_TARGET=x86_64-pc-windows-msvc`.
+    env_triple = __import__("os").environ.get("ZFROG_TARGET", "").strip()
+    if env_triple:
+        return env_triple
     raw = platform.machine().lower()
     arch_map = {
         "x86_64": "x86_64", "amd64": "x86_64", "x64": "x86_64",

@@ -74,8 +74,8 @@ function PrecosPage() {
     >
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 text-xs mt-3">
         {/* Watch form */}
-        <div className="border border-[var(--border)] bg-[var(--bg-panel)] p-4 flex flex-col gap-3">
-          <div className="font-bold border-b border-[var(--border)] pb-1 uppercase tracking-wide">
+        <div className="border border-[var(--line)] bg-[var(--bg-raised)] p-4 flex flex-col gap-3">
+          <div className="font-bold border-b border-[var(--line)] pb-1 uppercase tracking-wide">
             {t("precos.step1")}
           </div>
 
@@ -114,7 +114,7 @@ function PrecosPage() {
           </button>
 
           {/* Select existing site to inspect */}
-          <div className="border-t border-[var(--border)] pt-3 mt-3">
+          <div className="border-t border-[var(--line)] pt-3 mt-3">
             <span className="font-bold block mb-1.5 uppercase tracking-wide">
               {t("precos.step2")}
             </span>
@@ -131,8 +131,8 @@ function PrecosPage() {
         </div>
 
         {/* Price table and variations */}
-        <div className="border border-[var(--border)] bg-[var(--bg-panel)] p-4 flex flex-col gap-4 lg:col-span-2">
-          <div className="font-bold border-b border-[var(--border)] pb-1 flex justify-between items-baseline uppercase tracking-wide">
+        <div className="border border-[var(--line)] bg-[var(--bg-raised)] p-4 flex flex-col gap-4 lg:col-span-2">
+          <div className="font-bold border-b border-[var(--line)] pb-1 flex justify-between items-baseline uppercase tracking-wide">
             <span>
               {selectedSite ? t("precos.historyFor").replace("{{site}}", selectedSite) : t("precos.selectToView")}
             </span>
@@ -154,7 +154,7 @@ function PrecosPage() {
                   return (
                     <div
                       key={i}
-                      className="p-2 border border-[var(--border)] bg-[var(--bg-raised)] flex items-center justify-between font-mono"
+                      className="p-2 border border-[var(--line)] bg-[var(--bg-raised)] flex items-center justify-between font-mono"
                     >
                       <div className="truncate flex-1 mr-2">
                         <span>{ch.label}</span>
@@ -198,7 +198,7 @@ function PrecosPage() {
               <div className="overflow-x-auto max-h-[350px]">
                 <table className="w-full text-left font-mono text-[11px] border-collapse">
                   <thead>
-                    <tr className="border-b border-[var(--border)] text-[var(--fg-dim)] uppercase text-[10px]">
+                    <tr className="border-b border-[var(--line)] text-[var(--fg-dim)] uppercase text-[10px]">
                       <th className="p-1">{t("precos.col.datetime")}</th>
                       <th className="p-1">{t("precos.col.url")}</th>
                       <th className="p-1 text-right">{t("precos.col.price")}</th>
@@ -207,7 +207,7 @@ function PrecosPage() {
                   </thead>
                   <tbody>
                     {prices.map((p, idx) => (
-                      <tr key={idx} className="border-b border-[var(--border-subtle)] hover:bg-[var(--bg-raised)]">
+                      <tr key={idx} className="border-b border-[var(--line)] hover:bg-[var(--bg-raised)]">
                         <td className="p-1 text-[var(--fg-dim)] whitespace-nowrap">{p.detected_at}</td>
                         <td className="p-1 truncate max-w-xs">{p.url}</td>
                         <td className="p-1 text-right font-bold text-[var(--accent)]">

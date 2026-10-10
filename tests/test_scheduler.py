@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
 
 import pytest
@@ -21,7 +21,7 @@ from zfrog.scheduler import (
     run_due,
 )
 
-UTC = timezone.utc
+UTC = UTC
 PAST = "2020-01-01T00:00:00+00:00"
 FUTURE = "2999-01-01T00:00:00+00:00"
 
@@ -272,7 +272,7 @@ class TestRunDue:
         _use_store_file(tmp_path, monkeypatch)
         store = ScheduleStore()
 
-        failing = _force(store, store.add("0 2 * * *", "https://boom.example"), next_run=PAST)
+        _force(store, store.add("0 2 * * *", "https://boom.example"), next_run=PAST)
         healthy = _force(store, store.add("0 2 * * *", "https://healthy.example"), next_run=PAST)
 
         started = []

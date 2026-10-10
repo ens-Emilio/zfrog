@@ -275,7 +275,7 @@ def parse_color(value: str) -> tuple[str, float] | None:
     else:
         alpha = float(alpha_raw)
 
-    return "#%02X%02X%02X" % channels, alpha
+    return f"#{channels[0]:02X}{channels[1]:02X}{channels[2]:02X}", alpha
 
 
 def _channels(hex_color: str) -> tuple[float, float, float]:

@@ -1,13 +1,12 @@
 """Tests for pipeline modules."""
 
-import pytest
-import tempfile
 import zipfile
-from pathlib import Path
 
-from zfrog.pipeline.link_rewriter import rewrite_links, _rewrite_url
-from zfrog.pipeline.privacy_cleaner import clean_privacy
+import pytest
+
+from zfrog.pipeline.link_rewriter import rewrite_links
 from zfrog.pipeline.packager import package_zip
+from zfrog.pipeline.privacy_cleaner import clean_privacy
 
 
 class TestLinkRewriter:
@@ -39,7 +38,7 @@ class TestLinkRewriter:
         (tmp_path / "app.js").write_text("console.log('hello');")
         (tmp_path / "image.png").write_bytes(b'\x89PNG\r\n\x1a\n')  # Fake PNG header
         
-        count = await rewrite_links(tmp_path)
+        await rewrite_links(tmp_path)
         
         # Verify links were rewritten
         result = html_file.read_text()
@@ -55,7 +54,7 @@ class TestLinkRewriter:
         html_file = tmp_path / "index.html"
         html_file.write_text(html_content)
         
-        count = await rewrite_links(tmp_path)
+        await rewrite_links(tmp_path)
         
         result = html_file.read_text()
         assert "data:image/png;base64,abc123" in result
@@ -108,7 +107,7 @@ class TestPrivacyCleaner:
         html_file = tmp_path / "index.html"
         html_file.write_text(html_content)
         
-        count = await clean_privacy(tmp_path)
+        await clean_privacy(tmp_path)
         
         result = html_file.read_text()
         assert "fbq(" not in result

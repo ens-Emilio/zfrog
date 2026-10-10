@@ -1,6 +1,5 @@
 """Shared fixtures for Zfrog tests."""
 
-import asyncio
 import threading
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
@@ -8,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from zfrog.config import settings
+
 
 @pytest.fixture(scope="session", autouse=True)
 def _isolated_catalog(tmp_path_factory):

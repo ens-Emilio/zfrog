@@ -25,7 +25,13 @@ from bs4 import BeautifulSoup
 from zfrog.config import settings
 from zfrog.engines.base import EngineAdapter, EngineResult
 from zfrog.models import JobCreate, ProbeResult
-from zfrog.streams import is_dash, is_master_playlist, parse_m3u8, parse_mpd, select_variant
+from zfrog.streams import (
+    is_dash,
+    is_master_playlist,
+    parse_m3u8,
+    parse_mpd,
+    select_variant,
+)
 from zfrog.utils.http import create_client
 
 logger = logging.getLogger(__name__)

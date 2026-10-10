@@ -18,9 +18,10 @@ import asyncio
 import concurrent.futures
 import logging
 import unicodedata
+from collections.abc import Coroutine
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Coroutine, TypeVar
+from typing import Any, TypeVar
 
 from bs4 import BeautifulSoup
 

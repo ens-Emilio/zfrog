@@ -42,11 +42,12 @@ import re
 import string
 from collections.abc import Iterator
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-import zfrog
 from bs4 import BeautifulSoup, Comment, Tag
+
+import zfrog
 
 logger = logging.getLogger(__name__)
 
@@ -85,9 +86,9 @@ def _next_stamp() -> str:
     within the same second stay distinct (and therefore hash differently).
     """
     global _last_stamp
-    stamp = datetime.now(timezone.utc).strftime(_TIMESTAMP_FORMAT)
+    stamp = datetime.now(UTC).strftime(_TIMESTAMP_FORMAT)
     if stamp <= _last_stamp:
-        previous = datetime.strptime(_last_stamp, _TIMESTAMP_FORMAT).replace(tzinfo=timezone.utc)
+        previous = datetime.strptime(_last_stamp, _TIMESTAMP_FORMAT).replace(tzinfo=UTC)
         stamp = (previous + timedelta(seconds=1)).strftime(_TIMESTAMP_FORMAT)
     _last_stamp = stamp
     return stamp
@@ -110,9 +111,9 @@ def make_mark(source_url: str, extra: dict | None = None) -> Watermark:
         The watermark, with its payload already built.
     """
     stamp = _next_stamp()
-    digest = hashlib.sha256(f"{source_url}|{stamp}".encode("utf-8")).hexdigest()[:8]
+    digest = hashlib.sha256(f"{source_url}|{stamp}".encode()).hexdigest()[:8]
     mark = f"{MARK_PREFIX}{stamp}-{digest}"
-    created_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    created_at = datetime.now(UTC).isoformat(timespec="seconds")
     payload = dict(extra or {})
     payload.update(
         {

@@ -332,7 +332,7 @@ class Operator:
             await self.reconcile_once()
             try:
                 await asyncio.wait_for(stop.wait(), timeout=self.reconcile_interval_s)
-            except (TimeoutError, asyncio.TimeoutError):
+            except TimeoutError:
                 continue
         logger.info("operator stopped")
 

@@ -1,6 +1,6 @@
 """URL probing and auto-detection module."""
 
-from urllib.parse import urlparse, urljoin
+from urllib.parse import urlparse
 
 import httpx
 from bs4 import BeautifulSoup
@@ -65,7 +65,7 @@ async def probe_url(url: str, client: httpx.AsyncClient) -> ProbeResult:
         # Suggest engine based on detection
         result.suggested_engine = _suggest_engine(result)
         
-    except httpx.HTTPError as e:
+    except httpx.HTTPError:
         # On error, default to Playwright: a page the probe could not fetch may
         # still render in a browser.
         result.suggested_engine = "playwright"

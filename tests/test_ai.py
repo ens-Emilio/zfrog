@@ -1,6 +1,5 @@
 """Tests for AI summarization (no real model required — all calls mocked)."""
 
-from pathlib import Path
 
 import pytest
 

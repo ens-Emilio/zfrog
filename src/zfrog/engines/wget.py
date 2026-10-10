@@ -8,9 +8,9 @@ import asyncio
 import shutil
 from pathlib import Path
 
+from zfrog.config import settings
 from zfrog.engines.base import EngineAdapter, EngineResult
 from zfrog.models import JobCreate, ProbeResult
-from zfrog.config import settings
 from zfrog.utils.rate_limit import retry
 
 
@@ -48,7 +48,7 @@ class WgetEngine(EngineAdapter):
         Raises:
             Exception: If wget fails after retries.
         """
-        from zfrog.utils.cleanup import is_cancelled, CancellationError
+        from zfrog.utils.cleanup import CancellationError, is_cancelled
         
         # Create mirror subdirectory
         mirror_dir = output_dir / "mirror"
@@ -132,7 +132,7 @@ class WgetEngine(EngineAdapter):
                     for line in lines:
                         if "Downloading:" in line or "%" in line:
                             on_progress(line.strip()[:100])
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 pass
             
             try:
@@ -141,7 +141,7 @@ class WgetEngine(EngineAdapter):
                     timeout=0.1
                 )
                 stderr_data += stderr_chunk
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 pass
             
             # Check if process finished

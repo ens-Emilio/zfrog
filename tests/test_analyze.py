@@ -1,9 +1,10 @@
 """Tests for the Analyze engine."""
 
-import pytest
 from pathlib import Path
 
-from zfrog.engines.analyze import AnalyzeEngine, AnalyzeResult
+import pytest
+
+from zfrog.engines.analyze import AnalyzeEngine
 from zfrog.models import JobCreate
 
 

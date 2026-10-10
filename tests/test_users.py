@@ -18,6 +18,7 @@ from zfrog.users import (
     verify_password,
 )
 
+
 @pytest.fixture(autouse=True)
 def _isolated_identity_files(tmp_path, monkeypatch):
     """Every test gets its own user and organization files."""

@@ -4,7 +4,6 @@ The point of an organization is that its clones never mix with another's. These
 tests pin the two places that decide where a job's data lands.
 """
 
-from pathlib import Path
 
 import pytest
 

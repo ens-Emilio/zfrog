@@ -28,7 +28,7 @@ import base64
 import json
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -235,7 +235,7 @@ class SessionStore:
 
         payload = {
             "domain": normalized,
-            "saved_at": datetime.now(timezone.utc).isoformat(),
+            "saved_at": datetime.now(UTC).isoformat(),
             "encrypted": encrypted,
             "state": stored_state,
         }

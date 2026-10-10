@@ -20,24 +20,24 @@ import sys
 from pathlib import Path
 
 from zfrog.config import settings
+from zfrog.engines.analyze import AnalyzeEngine
+from zfrog.engines.api_discovery import ApiDiscoveryEngine
+from zfrog.engines.ask import AskEngine
 from zfrog.engines.base import EngineAdapter
-from zfrog.engines.wget import WgetEngine
-from zfrog.engines.static_file import StaticFileEngine
+from zfrog.engines.compare import CompareEngine
+from zfrog.engines.delta import DeltaEngine
+from zfrog.engines.enrich import EnrichEngine
+from zfrog.engines.entities import EntitiesEngine
+from zfrog.engines.jump import JumpEngine
+from zfrog.engines.pdf import PdfEngine
 from zfrog.engines.playwright import PlaywrightEngine
 from zfrog.engines.scrapy import ScrapyEngine
-from zfrog.engines.jump import JumpEngine
-from zfrog.engines.tongue import TongueEngine
-from zfrog.engines.analyze import AnalyzeEngine
-from zfrog.engines.compare import CompareEngine
-from zfrog.engines.ask import AskEngine
-from zfrog.engines.pdf import PdfEngine
+from zfrog.engines.static_file import StaticFileEngine
 from zfrog.engines.summarize import SummarizeEngine
-from zfrog.engines.delta import DeltaEngine
-from zfrog.engines.entities import EntitiesEngine
-from zfrog.engines.enrich import EnrichEngine
-from zfrog.engines.video import VideoEngine
+from zfrog.engines.tongue import TongueEngine
 from zfrog.engines.translate import TranslateEngine
-from zfrog.engines.api_discovery import ApiDiscoveryEngine
+from zfrog.engines.video import VideoEngine
+from zfrog.engines.wget import WgetEngine
 
 logger = logging.getLogger(__name__)
 

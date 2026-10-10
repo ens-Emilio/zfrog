@@ -32,7 +32,7 @@ import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -119,7 +119,7 @@ GROUP BY engine
 
 def _now() -> str:
     """ISO-8601 UTC timestamp for a freshly recorded run."""
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _success_rate(succeeded: int, runs: int) -> float:

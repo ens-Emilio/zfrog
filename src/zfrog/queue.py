@@ -2,11 +2,13 @@
 
 import asyncio
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
 from celery import Celery
 
 from zfrog.config import settings
 from zfrog.storage.redis_client import get_async_client
+
 # Configure Celery
 celery_app = Celery(
     "zfrog",
@@ -40,7 +42,7 @@ def run_job_task(self, job_data: dict):
         Serialized JobResult.
     """
     from zfrog.models import JobCreate
-    from zfrog.orchestrator import run_job, get_job, update_job, update_result
+    from zfrog.orchestrator import get_job, run_job, update_job
 
     # Read before the try so the failure path below can always name the record.
     job_id = job_data.get("job_id")
@@ -114,7 +116,7 @@ async def publish_job_event(job_id: str, event_type: str, data: dict):
     event = {
         "type": event_type,
         "data": data,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
     }
     
     try:

@@ -34,7 +34,7 @@ export function useWebSocket(
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectAttempt = useRef(0)
 
-  onEventRef.current = onEvent
+  useEffect(() => { onEventRef.current = onEvent }, [onEvent])
 
   const scheduleReconnect = useCallback(() => {
     if (abortedRef.current) return

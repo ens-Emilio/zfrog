@@ -72,7 +72,7 @@ function AjudaPage() {
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "0.5lh", padding: "0.5lh 1ch" }}>
             {CLI.map((c) => (
-              <div key={c.cmd} className="flex justify-between items-baseline text-[12px] border-b border-[var(--border-subtle)] pb-2">
+              <div key={c.cmd} className="flex justify-between items-baseline text-[12px] border-b border-[var(--line)] pb-2">
                 <div>
                   <code style={{ color: "var(--fg)", fontWeight: 600 }}>{c.cmd}</code>
                   <p style={{ color: "var(--fg-dim)", marginTop: "0.125lh" }}>{t(`ajuda.cli.${c.desc}`)}</p>
@@ -98,7 +98,7 @@ function AjudaPage() {
           <div className="overflow-x-auto p-2">
             <table className="tui-table w-full text-xs">
               <thead>
-                <tr className="border-b border-[var(--border)] text-[var(--fg-dim)] uppercase text-[10px]">
+                <tr className="border-b border-[var(--line)] text-[var(--fg-dim)] uppercase text-[10px]">
                   <th className="p-1 text-left">{t("ajuda.colMode")}</th>
                   <th className="p-1 text-left">{t("ajuda.colWhen")}</th>
                   <th className="p-1 text-left">{t("ajuda.colOutput")}</th>
@@ -108,7 +108,7 @@ function AjudaPage() {
                 {MODE_ORDER.map((id) => {
                   const mode = MODES[id]
                   return (
-                    <tr key={id} className="border-b border-[var(--border-subtle)]">
+                    <tr key={id} className="border-b border-[var(--line)]">
                       <td style={{ fontWeight: 600, color: "var(--fg)", whiteSpace: "nowrap" }} className="p-1">
                         {t(mode.label)}
                       </td>

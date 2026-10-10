@@ -18,7 +18,7 @@ import os
 import tempfile
 import uuid
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -66,7 +66,7 @@ class Annotation:
 def _now() -> str:
     """Return the current UTC time as ISO-8601, strictly increasing per process."""
     global _last_stamp
-    stamp = datetime.now(timezone.utc)
+    stamp = datetime.now(UTC)
     if _last_stamp is not None and stamp <= _last_stamp:
         stamp = _last_stamp + timedelta(microseconds=1)
     _last_stamp = stamp

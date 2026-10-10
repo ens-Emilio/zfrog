@@ -14,7 +14,7 @@ import os
 import tempfile
 import uuid
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from functools import partial
 from pathlib import Path
 
@@ -47,8 +47,8 @@ def _as_utc(value: datetime | None) -> datetime | None:
     if value is None:
         return None
     if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc)
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
 
 
 def next_run_for(schedule: Schedule, now: datetime | None = None) -> str | None:
@@ -56,7 +56,7 @@ def next_run_for(schedule: Schedule, now: datetime | None = None) -> str | None:
 
     Returns None when the cron expression is invalid or can never fire.
     """
-    reference = _as_utc(now) or datetime.now(timezone.utc)
+    reference = _as_utc(now) or datetime.now(UTC)
     try:
         cron = parse_cron(schedule.cron)
     except ValueError as exc:
@@ -210,7 +210,7 @@ class ScheduleStore:
 
 def due_schedules(now: datetime | None = None) -> list[Schedule]:
     """Return the enabled schedules whose next run has already arrived."""
-    reference = _as_utc(now) or datetime.now(timezone.utc)
+    reference = _as_utc(now) or datetime.now(UTC)
     return [schedule for schedule in ScheduleStore().list() if _is_due(schedule, reference)]
 
 
@@ -243,7 +243,7 @@ async def run_due(now: datetime | None = None) -> list[str]:
     recomputed from `now` before the job starts, which keeps the loop from firing the
     same slot twice.
     """
-    reference = _as_utc(now) or datetime.now(timezone.utc)
+    reference = _as_utc(now) or datetime.now(UTC)
     store = ScheduleStore()
     job_ids: list[str] = []
 

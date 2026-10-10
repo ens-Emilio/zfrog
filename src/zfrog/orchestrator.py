@@ -4,9 +4,9 @@ import asyncio
 import logging
 import time
 import uuid
-from pathlib import Path
 
 from zfrog.config import settings
+from zfrog.engines import get_engine, get_engine_for_probe
 from zfrog.models import (
     DESIGN_MODES,
     ENGINE_FOR_MODE,
@@ -15,20 +15,20 @@ from zfrog.models import (
     JobResult,
     JobStatus,
 )
-from zfrog.probe import probe_url
-from zfrog.engines import get_engine, get_engine_for_probe
 from zfrog.pipeline.link_rewriter import rewrite_links
-from zfrog.pipeline.privacy_cleaner import clean_privacy
 from zfrog.pipeline.packager import package_zip
+from zfrog.pipeline.privacy_cleaner import clean_privacy
 from zfrog.pipeline.reference import register_reference
 from zfrog.pipeline.screenshot import take_screenshots
-from zfrog.storage.local import get_output_dir
-from zfrog.utils.http import create_client
-from zfrog.utils.rate_limit import global_limiter, global_concurrency
-from zfrog.utils.cleanup import is_cancelled, CancellationError
-from zfrog.utils.webhooks import notify_job_completed, notify_job_failed
-from zfrog.utils.url_guard import check_url
+from zfrog.probe import probe_url
 from zfrog.queue import publish_job_event
+from zfrog.storage.local import get_output_dir
+from zfrog.utils.cleanup import CancellationError, is_cancelled
+from zfrog.utils.http import create_client
+from zfrog.utils.rate_limit import global_concurrency, global_limiter
+from zfrog.utils.url_guard import check_url
+from zfrog.utils.webhooks import notify_job_completed, notify_job_failed
+
 logger = logging.getLogger(__name__)
 
 # Keep references to fire-and-forget tasks so GC doesn't cancel them.
@@ -226,7 +226,7 @@ async def run_job(job: JobCreate, job_id: str | None = None) -> JobResult:
             # Apply rate limit before engine execution
             await global_limiter.acquire()
             
-            engine_result = await engine.execute(job, output_dir, on_progress)
+            await engine.execute(job, output_dir, on_progress)
             
             # Check for cancellation
             if await is_cancelled(job_id):
@@ -238,12 +238,10 @@ async def run_job(job: JobCreate, job_id: str | None = None) -> JobResult:
             await publish_job_event(job_id, "status", {"status": "processing"})
             
             # Rewrite links to be relative
-            links_rewritten = await rewrite_links(output_dir)
+            await rewrite_links(output_dir)
             await publish_job_event(job_id, "progress", {"message": "Links rewritten"})
-            
-            # Remove tracking scripts
-            trackers_removed = await clean_privacy(output_dir)
-            await publish_job_event(job_id, "progress", {"message": "Privacy cleaned"})
+
+            await clean_privacy(output_dir)
 
             # Visit every HTML page in a browser: a screenshot of each, and — for the
             # modes that are about design — the tokens of the entry page. Both come

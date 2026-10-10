@@ -81,7 +81,7 @@ function GraphQLPage() {
 
   return (
     <div>
-      <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-[var(--border)] pb-2 mb-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-[var(--line)] pb-2 mb-4">
         <div>
           <h1 className="text-xl font-bold tracking-tight">{t("graphql.title")}</h1>
           <span className="text-xs text-[var(--fg-dim)]">
@@ -129,7 +129,7 @@ function GraphQLPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Query editor */}
             <div className="tui-panel p-4 flex flex-col gap-3">
-              <div className="font-bold border-b border-[var(--border)] pb-1 flex justify-between">
+              <div className="font-bold border-b border-[var(--line)] pb-1 flex justify-between">
                 <span>{t("graphql.editorTitle")}</span>
                 <span className="text-[var(--fg-dim)]">{t("graphql.ctrlHint")}</span>
               </div>
@@ -157,7 +157,7 @@ function GraphQLPage() {
                 />
               </div>
 
-              <div className="flex justify-between items-center pt-2 border-t border-[var(--border)]">
+              <div className="flex justify-between items-center pt-2 border-t border-[var(--line)]">
                 <span className="text-[var(--fg-dim)] text-[10px]">
                   {t("graphql.endpoint")}<code>POST /graphql</code>
                 </span>
@@ -174,7 +174,7 @@ function GraphQLPage() {
 
             {/* Results panel */}
             <div className="tui-panel p-4 flex flex-col gap-3">
-              <div className="font-bold border-b border-[var(--border)] pb-1 flex justify-between">
+              <div className="font-bold border-b border-[var(--line)] pb-1 flex justify-between">
                 <span>{t("graphql.resultTitle")}</span>
                 {elapsedMs !== null && (
                   <span className="text-[var(--fg-dim)]">{elapsedMs}ms</span>
@@ -202,7 +202,7 @@ function GraphQLPage() {
       ) : (
         /* Schema SDL tab */
         <div className="tui-panel p-4 flex flex-col gap-3 text-xs">
-          <div className="font-bold border-b border-[var(--border)] pb-1 flex justify-between">
+          <div className="font-bold border-b border-[var(--line)] pb-1 flex justify-between">
             <span>{t("graphql.schemaTitle")}</span>
             <span className="text-[var(--fg-dim)]">{t("graphql.schemaHint")}</span>
           </div>

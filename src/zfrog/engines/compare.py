@@ -9,13 +9,12 @@ Modes:
 from __future__ import annotations
 
 import json
-import time
-from dataclasses import dataclass, asdict, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from zfrog.engines.base import EngineAdapter, EngineResult
 from zfrog.models import JobCreate, ProbeResult
-from zfrog.pipeline.fidelity import compute_fidelity, FidelityResult
+from zfrog.pipeline.fidelity import FidelityResult, compute_fidelity
 
 
 @dataclass
@@ -45,7 +44,6 @@ class CompareEngine(EngineAdapter):
             on_progress("Preparing comparison...")
 
         # Get original HTML from URL
-        import httpx
         from zfrog.utils.http import create_client
 
         original_html = ""
@@ -94,7 +92,6 @@ class CompareEngine(EngineAdapter):
         )
 
         # Build result
-        from datetime import datetime
         result = CompareResult(
             url=url,
             fidelity=fidelity,
@@ -139,8 +136,8 @@ class CompareEngine(EngineAdapter):
             f"## Fidelity Score: {f.composite}/100",
             "",
             "### Sub-scores",
-            f"| Metric | Score | Weight |",
-            f"|---|---|---|",
+            "| Metric | Score | Weight |",
+            "|---|---|---|",
             f"| Visual (structure similarity) | {f.visual}/100 | 25% |",
             f"| Structural (HTML tags) | {f.structural}/100 | 30% |",
             f"| Text (visible content) | {f.text}/100 | 30% |",

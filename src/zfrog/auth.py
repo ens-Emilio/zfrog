@@ -29,10 +29,11 @@ import logging
 import os
 import secrets
 import tempfile
+from collections.abc import Callable, Mapping
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Mapping
+from typing import TYPE_CHECKING
 
 from zfrog.config import settings
 
@@ -129,7 +130,7 @@ class Identity:
 
 def _now() -> str:
     """Return the current UTC time as an ISO-8601 string."""
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def extract_credential(headers: Mapping[str, str] | None) -> str | None:
@@ -450,7 +451,8 @@ def require(action: str) -> Callable[[Request], AuthDecision]:
     the action. FastAPI is imported lazily so this module works without it
     installed.
     """
-    from fastapi import HTTPException, Request as FastAPIRequest
+    from fastapi import HTTPException
+    from fastapi import Request as FastAPIRequest
 
     def dependency(request: Request) -> AuthDecision:
         decision = authorize_request(request.headers, request.cookies, action)

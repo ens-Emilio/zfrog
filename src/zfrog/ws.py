@@ -3,12 +3,11 @@
 import asyncio
 import json
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import WebSocket, WebSocketDisconnect
-from zfrog.config import settings
-from zfrog.storage.redis_client import get_async_client
 
+from zfrog.storage.redis_client import get_async_client
 
 #: Application close code for a rejected handshake (4401: unauthorised).
 _WS_UNAUTHORISED = 4401
@@ -134,7 +133,7 @@ async def job_progress_ws(websocket: WebSocket, job_id: str):
         await websocket.send_json({
             "type": "connected",
             "job_id": job_id,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         })
         
         last_ping = time.monotonic()
@@ -150,7 +149,7 @@ async def job_progress_ws(websocket: WebSocket, job_id: str):
                 try:
                     await websocket.send_json({
                         "type": "ping",
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "timestamp": datetime.now(UTC).isoformat(),
                     })
                 except Exception:
                     break
@@ -166,14 +165,14 @@ async def job_progress_ws(websocket: WebSocket, job_id: str):
                     ),
                     timeout=min(remaining, 0.5),
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 # No message within timeout, check heartbeat
                 elapsed = time.monotonic() - last_ping
                 if elapsed >= ping_interval:
                     try:
                         await websocket.send_json({
                             "type": "ping",
-                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                            "timestamp": datetime.now(UTC).isoformat(),
                         })
                         last_ping = time.monotonic()
                     except Exception:
@@ -187,7 +186,7 @@ async def job_progress_ws(websocket: WebSocket, job_id: str):
                     try:
                         await websocket.send_json({
                             "type": "ping",
-                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                            "timestamp": datetime.now(UTC).isoformat(),
                         })
                         last_ping = time.monotonic()
                     except Exception:
@@ -210,7 +209,7 @@ async def job_progress_ws(websocket: WebSocket, job_id: str):
                 if "type" not in event:
                     event["type"] = "unknown"
                 if "timestamp" not in event:
-                    event["timestamp"] = datetime.now(timezone.utc).isoformat()
+                    event["timestamp"] = datetime.now(UTC).isoformat()
                 
                 # Send to WebSocket client
                 await websocket.send_json(event)

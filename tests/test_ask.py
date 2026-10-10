@@ -7,7 +7,6 @@ retrieval quality (which `test_multisite.py` covers).
 """
 
 import json
-from pathlib import Path
 
 import pytest
 
@@ -43,7 +42,6 @@ async def test_ask_basic(static_page_url, tmp_path):
 async def test_ask_indexes_the_page_and_returns_citations(static_page_url, tmp_path, monkeypatch):
     """The page is indexed and the answer carries citations from the index."""
     from zfrog.ai import multisite as multisite_mod
-    from zfrog.ai.client import is_available as real_is_available
 
     monkeypatch.setattr(multisite_mod, "is_available", lambda: False)
     monkeypatch.setattr(multisite_mod, "complete", _fake_complete)

@@ -87,3 +87,14 @@ exclude_lines = [
 ]
 
 [tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+ignore = ["E501"]
+
+[tool.ruff.lint.pycodestyle]
+max-doc-length = 88
+
+[tool.ruff.lint.isort]
+known-first-party = ["zfrog"]

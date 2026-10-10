@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router"
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useMemo, useState } from "react"
 import { api, Job, JobStatus } from "@/lib/api"
@@ -61,8 +61,16 @@ const VERBS: Partial<Record<string, string>> = {
 function RunsPage() {
   const t = useT()
   const toast = useToast()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { q: urlQuery } = Route.useSearch()
+  const { q: urlQuery, view } = Route.useSearch()
+
+  useEffect(() => {
+    if (!urlQuery && !view) {
+      navigate({ to: "/chat", replace: true }).catch(() => {})
+    }
+  }, [urlQuery, view, navigate])
+
   const [filter, setFilter] = useState<FilterKey>("todas")
   const [query, setQuery] = useState(urlQuery ?? "")
   const [sel, setSel] = useState(-1)
@@ -255,7 +263,7 @@ function RunsPage() {
             </p>
             <div style={{ margin: "12px 0 16px 0", display: "flex", flexDirection: "column", gap: "6px", fontSize: 13 }}>
               <div>
-                <span style={{ color: "var(--accent)" }}>•</span> {t("home.emptyHint1")} <code style={{ color: "var(--fg)", background: "var(--bg-panel)", padding: "1px 4px", border: "1px solid var(--border)" }}>jump https://exemplo.com</code>)
+                <span style={{ color: "var(--accent)" }}>•</span> {t("home.emptyHint1")} <code style={{ color: "var(--fg)", background: "var(--bg-raised)", padding: "1px 4px", border: "1px solid var(--line)" }}>jump https://exemplo.com</code>)
               </div>
               <div>
                 <span style={{ color: "var(--accent)" }}>•</span> {t("home.emptyHint2")}
@@ -275,7 +283,7 @@ function RunsPage() {
                 {t("home.emptyGuide")}
               </Link>
             </div>
-            <div style={{ color: "var(--border)", marginTop: "12px" }}>
+            <div style={{ color: "var(--line)", marginTop: "12px" }}>
               └─────────────────────────────────────────────────────────────
             </div>
           </div>
@@ -367,7 +375,9 @@ function RunsPage() {
 }
 
 export const Route = createFileRoute("/")({
-  validateSearch: (search: Record<string, unknown>): { q?: string } =>
-    "q" in search && typeof search.q === "string" ? { q: search.q } : {},
+  validateSearch: (search: Record<string, unknown>): { q?: string; view?: string } => ({
+    q: "q" in search && typeof search.q === "string" ? search.q : undefined,
+    view: "view" in search && typeof search.view === "string" ? search.view : undefined,
+  }),
   component: RunsPage,
 })

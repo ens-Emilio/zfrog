@@ -8,7 +8,6 @@ import base64
 from pathlib import Path
 from urllib.parse import urljoin
 
-import httpx
 from bs4 import BeautifulSoup
 
 from zfrog.engines.base import EngineAdapter, EngineResult

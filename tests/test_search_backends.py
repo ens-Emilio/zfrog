@@ -254,13 +254,13 @@ async def test_elasticsearch_index_sends_ndjson_bulk_body():
     request = route.calls[0].request
     assert request.headers["content-type"] == "application/x-ndjson"
     expected = (
-        '{"index": {"_index": "zfrog", "_id": "%s"}}\n'
-        '{"path": "docs/a.html", "url": "https://site.test/a.html", "title": "Alfa", '
-        '"text": "alfa bravo no parque", "site": "site.test"}\n'
-        '{"index": {"_index": "zfrog", "_id": "%s"}}\n'
-        '{"path": "docs/b.html", "url": "https://site.test/b.html", "title": "Bravo", '
-        '"text": "charlie delta na cidade", "site": "site.test"}\n'
-    ) % (page_id("docs/a.html"), page_id("docs/b.html"))
+        f'{{\"index\": {{\"_index\": \"zfrog\", \"_id\": \"{page_id("docs/a.html")}\"}}}}\n'
+        '{\"path\": \"docs/a.html\", \"url\": \"https://site.test/a.html\", \"title\": \"Alfa\", '
+        '\"text\": \"alfa bravo no parque\", \"site\": \"site.test\"}\n'
+        f'{{\"index\": {{\"_index\": \"zfrog\", \"_id\": \"{page_id("docs/b.html")}\"}}}}\n'
+        '{\"path\": \"docs/b.html\", \"url\": \"https://site.test/b.html\", \"title\": \"Bravo\", '
+        '\"text\": \"charlie delta na cidade\", \"site\": \"site.test\"}\n'
+    )
     assert request.content.decode("utf-8") == expected
 
 async def test_elasticsearch_index_reports_rejected_documents(caplog):

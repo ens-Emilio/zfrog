@@ -206,7 +206,7 @@ Forma recomendada — sobe API e dashboard juntos:
 ```bash
 zfrog dev
 # API:       http://127.0.0.1:8000
-# Dashboard: http://localhost:3000
+# Dashboard: http://localhost:3067
 ```
 
 Manualmente (dois terminais):

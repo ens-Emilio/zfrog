@@ -259,7 +259,7 @@ export function TuiCombobox({
 
       {open && (
         <div className="tui-combobox-menu">
-          <div style={{ padding: "0.25lh 1ch", borderBottom: "1px solid var(--border)" }}>
+          <div style={{ padding: "0.25lh 1ch", borderBottom: "1px solid var(--line)" }}>
             <input
               type="text"
               className="tui-input"

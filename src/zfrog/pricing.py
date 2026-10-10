@@ -28,7 +28,7 @@ import os
 import re
 import sys
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from bs4 import BeautifulSoup
@@ -459,7 +459,7 @@ def extract_from_html(html: str, currency_hint: str = "") -> list[Price]:
 
 def _now() -> str:
     """Return the current UTC timestamp in ISO-8601 (sortable as text)."""
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _normalize_label(label: str) -> str:

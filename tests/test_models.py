@@ -1,14 +1,15 @@
 """Tests for core models."""
 
-import pytest
 from datetime import datetime
+
+import pytest
 from pydantic import ValidationError
 
 from zfrog.models import (
+    Job,
     JobCreate,
     JobResult,
     JobStatus,
-    Job,
     ProbeResult,
 )
 

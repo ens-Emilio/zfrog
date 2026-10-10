@@ -90,8 +90,8 @@ function DatasetsPage() {
     >
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 text-xs mt-3">
         {/* Configuration panel */}
-        <div className="border border-[var(--border)] bg-[var(--bg-panel)] p-4 flex flex-col gap-4">
-          <div className="font-bold border-b border-[var(--border)] pb-1 uppercase tracking-wide">
+        <div className="border border-[var(--line)] bg-[var(--bg-raised)] p-4 flex flex-col gap-4">
+          <div className="font-bold border-b border-[var(--line)] pb-1 uppercase tracking-wide">
             {t("datasets.step1")}
           </div>
 
@@ -119,7 +119,7 @@ function DatasetsPage() {
             />
           </div>
 
-          <div className="font-bold border-b border-[var(--border)] pb-1 pt-2 uppercase tracking-wide">
+          <div className="font-bold border-b border-[var(--line)] pb-1 pt-2 uppercase tracking-wide">
             {t("datasets.step2")}
           </div>
 
@@ -141,7 +141,7 @@ function DatasetsPage() {
                 desc: t("datasets.kind.text.desc"),
               },
             ] as const).map((k) => (
-              <label key={k.id} className="flex items-start gap-2 cursor-pointer p-1.5 hover:bg-[var(--bg-raised)] border border-transparent hover:border-[var(--border)]">
+              <label key={k.id} className="flex items-start gap-2 cursor-pointer p-1.5 hover:bg-[var(--bg-raised)] border border-transparent hover:border-[var(--line)]">
                 <input
                   type="radio"
                   name="dataset-kind"
@@ -168,8 +168,8 @@ function DatasetsPage() {
         </div>
 
         {/* Center panel: format & stats */}
-        <div className="border border-[var(--border)] bg-[var(--bg-panel)] p-4 flex flex-col gap-4 lg:col-span-2">
-          <div className="font-bold border-b border-[var(--border)] pb-1 flex justify-between items-baseline uppercase tracking-wide">
+        <div className="border border-[var(--line)] bg-[var(--bg-raised)] p-4 flex flex-col gap-4 lg:col-span-2">
+          <div className="font-bold border-b border-[var(--line)] pb-1 flex justify-between items-baseline uppercase tracking-wide">
             <span>{t("datasets.step3")}</span>
             {buildStats && (
               <span className="text-[var(--accent)] font-mono">{buildStats.added} {t("datasets.pairsProcessed")}</span>
@@ -184,7 +184,7 @@ function DatasetsPage() {
                 className={`p-2.5 text-left border ${
                   format === f.id
                     ? "border-[var(--accent)] bg-[var(--bg-raised)] font-semibold"
-                    : "border-[var(--border)] hover:border-[var(--border-subtle)]"
+                    : "border-[var(--line)] hover:border-[var(--line)]"
                 }`}
                 onClick={() => setFormat(f.id)}
               >
@@ -198,7 +198,7 @@ function DatasetsPage() {
           </div>
 
           {/* Example of the selected format's structure */}
-          <div className="border border-[var(--border)] p-3 bg-[var(--bg-raised)]">
+          <div className="border border-[var(--line)] p-3 bg-[var(--bg-raised)]">
             <div className="text-[10px] font-bold uppercase text-[var(--fg-dim)] mb-1">
               {t("datasets.structurePreview").replace("{{format}}", format)}
             </div>
@@ -216,7 +216,7 @@ function DatasetsPage() {
             )}
           </div>
 
-          <div className="flex flex-wrap items-center justify-between pt-2 border-t border-[var(--border)] mt-auto gap-2">
+          <div className="flex flex-wrap items-center justify-between pt-2 border-t border-[var(--line)] mt-auto gap-2">
             <span className="text-[var(--fg-dim)] text-[11px]">
               {t("datasets.jsonlNote")}
             </span>

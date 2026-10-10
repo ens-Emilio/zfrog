@@ -17,8 +17,8 @@ import hashlib
 import json
 import logging
 import re
-from dataclasses import dataclass, asdict, field
-from datetime import datetime, timezone
+from dataclasses import asdict, dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -247,7 +247,7 @@ def capture_snapshot(output_dir: Path, url: str, engine: str) -> tuple[Path, Pat
             }
         )
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     snapshot = {
         "url": url,
         "captured_at": now.strftime("%Y-%m-%dT%H:%M:%SZ"),

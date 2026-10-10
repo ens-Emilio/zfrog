@@ -7,7 +7,7 @@ import json
 import os
 import socket
 import stat
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -39,7 +39,7 @@ def _registry_file(tmp_path: Path) -> Path:
 
 def _stale() -> str:
     """A ``last_seen`` one hour in the past."""
-    return (datetime.now(timezone.utc) - timedelta(seconds=3600)).isoformat()
+    return (datetime.now(UTC) - timedelta(seconds=3600)).isoformat()
 
 
 def _patch(tmp_path: Path, worker_id: str, **fields: object) -> None:

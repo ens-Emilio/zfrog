@@ -10,8 +10,8 @@ The tests use a real Redis when one is reachable and skip otherwise, so this fil
 is honest about what it actually verified.
 """
 
-import os
 import uuid
+from datetime import UTC
 
 import pytest
 
@@ -180,7 +180,7 @@ def test_sso_state_cannot_be_replayed_across_processes(shared_redis):
 # ── job records ─────────────────────────────────────────────────────────────
 
 def _job(job_id: str, status=None):
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     from zfrog.models import Job, JobStatus
 
@@ -190,8 +190,8 @@ def _job(job_id: str, status=None):
         mode="scrape",
         max_depth=1,
         status=status or JobStatus.PENDING,
-        created_at=datetime.now(timezone.utc),
-        updated_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
     )
 
 @requires_redis

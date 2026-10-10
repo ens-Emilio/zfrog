@@ -2,8 +2,13 @@
 
 from __future__ import annotations
 
-from zfrog.ai.client import complete_structured, complete, is_available
-from zfrog.ai.schemas import ExtractionResult, ExtractedItem, PageAnalysis, SelectorSuggestion
+from zfrog.ai.client import complete, complete_structured, is_available
+from zfrog.ai.schemas import (
+    ExtractedItem,
+    ExtractionResult,
+    PageAnalysis,
+    SelectorSuggestion,
+)
 
 
 async def extract_from_text(

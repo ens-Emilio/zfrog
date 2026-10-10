@@ -174,7 +174,7 @@ function CompararPage() {
                 </div>
               ))}
 
-              <div className="flex items-center gap-3 mt-2 pt-2 border-t border-[var(--border)]">
+              <div className="flex items-center gap-3 mt-2 pt-2 border-t border-[var(--line)]">
                 {siteInputs.length < 5 && (
                   <button type="button" className="tui-btn text-xs" onClick={addSiteField}>
                     {t("comparar.addSite")}
@@ -194,13 +194,13 @@ function CompararPage() {
 
           {compResult && (
             <div className="tui-panel p-4 flex flex-col gap-4 text-xs">
-              <div className="font-bold border-b border-[var(--border)] pb-1 flex justify-between">
+              <div className="font-bold border-b border-[var(--line)] pb-1 flex justify-between">
                 <span>{t("comparar.resultTitle")}</span>
                 <span className="text-[var(--fg-dim)]">{t("comparar.sitesAnalyzed").replace("{count}", String(Object.keys(compResult.sites).length))}</span>
               </div>
 
               {compResult.summary && (
-                <div className="p-3 bg-[var(--bg-panel)] border border-[var(--border)] leading-relaxed">
+                <div className="p-3 bg-[var(--bg-raised)] border border-[var(--line)] leading-relaxed">
                   <span className="font-bold block mb-1">{t("comparar.execSummary")}</span>
                   {compResult.summary}
                 </div>
@@ -209,8 +209,8 @@ function CompararPage() {
               {/* Side-by-side matrix */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {Object.entries(compResult.sites).map(([siteKey, details]) => (
-                  <div key={siteKey} className="border border-[var(--border)] p-3 rounded">
-                    <div className="font-bold text-sm text-[var(--accent)] border-b border-[var(--border)] pb-1 mb-2">
+                  <div key={siteKey} className="border border-[var(--line)] p-3 rounded">
+                    <div className="font-bold text-sm text-[var(--accent)] border-b border-[var(--line)] pb-1 mb-2">
                       {siteKey}
                     </div>
                     <div className="space-y-1.5">
@@ -232,7 +232,7 @@ function CompararPage() {
                         <div className="flex flex-wrap gap-1">
                           {details.technologies?.length ? (
                             details.technologies.map((tech) => (
-                              <span key={tech} className="px-1.5 py-0.5 bg-[var(--bg-panel)] border border-[var(--border)] text-[10px]">
+                              <span key={tech} className="px-1.5 py-0.5 bg-[var(--bg-raised)] border border-[var(--line)] text-[10px]">
                                 {tech}
                               </span>
                             ))
@@ -248,7 +248,7 @@ function CompararPage() {
                             {details.dominant_colors.map((c, i) => (
                               <span
                                 key={i}
-                                className="w-4 h-4 border border-[var(--border)] inline-block"
+                                className="w-4 h-4 border border-[var(--line)] inline-block"
                                 style={{ backgroundColor: c }}
                                 title={c}
                               />
@@ -267,7 +267,7 @@ function CompararPage() {
         /* Trends tab */
         <div className="flex flex-col gap-4">
           <div className="tui-panel p-4 text-xs">
-            <div className="font-bold border-b border-[var(--border)] pb-2 mb-3">
+            <div className="font-bold border-b border-[var(--line)] pb-2 mb-3">
               {t("comparar.trendsHeader")}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-3xl">
@@ -292,7 +292,7 @@ function CompararPage() {
                 />
               </div>
             </div>
-            <div className="mt-3 pt-2 border-t border-[var(--border)]">
+            <div className="mt-3 pt-2 border-t border-[var(--line)]">
               <button
                 type="button"
                 className="tui-btn accent text-xs"
@@ -306,13 +306,13 @@ function CompararPage() {
 
           {trendResult && (
             <div className="tui-panel p-4 flex flex-col gap-4 text-xs">
-              <div className="font-bold border-b border-[var(--border)] pb-1 flex justify-between">
+              <div className="font-bold border-b border-[var(--line)] pb-1 flex justify-between">
                 <span>{t("comparar.trendReport").replace("{url}", trendResult.url)}</span>
                 <span className="text-[var(--fg-dim)]">{t("comparar.termsAnalyzed").replace("{count}", String(trendResult.trends.length))}</span>
               </div>
 
               {trendResult.summary && (
-                <div className="p-3 bg-[var(--bg-panel)] border border-[var(--border)] leading-relaxed">
+                <div className="p-3 bg-[var(--bg-raised)] border border-[var(--line)] leading-relaxed">
                   <span className="font-bold block mb-1">{t("comparar.evolutionSummary")}</span>
                   {trendResult.summary}
                 </div>
@@ -320,12 +320,12 @@ function CompararPage() {
 
               <div className="flex flex-col gap-3">
                 {trendResult.trends.map((item) => (
-                  <div key={item.term} className="border border-[var(--border)] p-3">
+                  <div key={item.term} className="border border-[var(--line)] p-3">
                     <div className="flex items-center justify-between mb-2">
                       <span className="font-bold text-sm">
                         “{item.term}”
                       </span>
-                      <span className="px-2 py-0.5 border border-[var(--border)] text-[10px] uppercase font-semibold">
+                      <span className="px-2 py-0.5 border border-[var(--line)] text-[10px] uppercase font-semibold">
                         {t("comparar.trendLabel").replace("{trend}", item.trend)}
                       </span>
                     </div>

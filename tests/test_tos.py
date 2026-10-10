@@ -5,7 +5,13 @@ from __future__ import annotations
 import httpx
 import respx
 
-from zfrog.ai.tos import check_site, check_text, find_terms_url, robots_signals, terms_signals
+from zfrog.ai.tos import (
+    check_site,
+    check_text,
+    find_terms_url,
+    robots_signals,
+    terms_signals,
+)
 
 BASE = "https://example.com/"
 ROBOTS_URL = "https://example.com/robots.txt"

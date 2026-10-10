@@ -1,8 +1,7 @@
 """Core data models for Zfrog."""
 
-from datetime import datetime, timezone
-from enum import Enum
-from pathlib import Path
+from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Literal, get_args
 
 from pydantic import BaseModel, Field, HttpUrl
@@ -43,7 +42,7 @@ ENGINE_FOR_MODE: dict[str, str] = {
 DESIGN_MODES: frozenset[str] = frozenset({"auto", "mirror", "scrape", "singlepage", "delta"})
 
 
-class JobStatus(str, Enum):
+class JobStatus(StrEnum):
     """Job execution status."""
     PENDING = "pending"
     PROBING = "probing"
@@ -116,8 +115,8 @@ class Job(BaseModel):
     status: JobStatus = JobStatus.PENDING
     probe: ProbeResult | None = None
     output_path: str | None = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     error: str | None = None
     # Organization that owns this job's data, copied from the JobCreate that
     # started it. None means the shared area. The WebSocket reads it to refuse

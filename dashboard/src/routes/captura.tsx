@@ -308,7 +308,7 @@ function CapturaPage() {
         </div>
       }
     >
-      <div className="text-xs text-[var(--fg-dim)] border-b border-[var(--border)] pb-2 mb-3">
+      <div className="text-xs text-[var(--fg-dim)] border-b border-[var(--line)] pb-2 mb-3">
         {tab === "blocos" ? t("captura.blocksHint") : t("captura.totpHint")}
       </div>
 
@@ -433,8 +433,8 @@ function CapturaPage() {
                 style={{
                   width: "100%",
                   height: "460px",
-                  border: "1px solid var(--border)",
-                  background: "#fff",
+                  border: "1px solid var(--line)",
+                  background: "var(--bg)",
                   marginTop: "0.25lh",
                 }}
                 sandbox="allow-same-origin"
@@ -490,13 +490,13 @@ function CapturaPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 text-xs" style={{ marginTop: "0.5lh" }}>
           {/* Column 1: TOTP management */}
           <div className="tui-panel p-4 flex flex-col gap-4">
-            <div className="font-bold border-b border-[var(--border)] pb-1 flex justify-between">
+            <div className="font-bold border-b border-[var(--line)] pb-1 flex justify-between">
               <span>{t("captura.totpVaultTitle")}</span>
               <span className="text-[var(--fg-dim)]">{t("captura.accountsCount").replace("{count}", String(totpAccounts.length))}</span>
             </div>
 
             {/* New account registration */}
-            <div className="border border-[var(--border)] p-3 bg-[var(--bg-panel)] flex flex-col gap-2">
+            <div className="border border-[var(--line)] p-3 bg-[var(--bg-raised)] flex flex-col gap-2">
               <span className="font-bold text-[10px] uppercase text-[var(--fg-dim)]">{t("captura.addSecret")}</span>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <input
@@ -546,8 +546,8 @@ function CapturaPage() {
                     key={acc.name}
                     className={`p-2 border flex items-center justify-between ${
                       isSelected
-                        ? "border-[var(--accent)] bg-[var(--bg-panel)]"
-                        : "border-[var(--border-subtle)] hover:border-[var(--border)]"
+                        ? "border-[var(--accent)] bg-[var(--bg-raised)]"
+                        : "border-[var(--line)] hover:border-[var(--line)]"
                     }`}
                   >
                     <div>
@@ -583,7 +583,7 @@ function CapturaPage() {
 
             {/* Active code */}
             {selectedTotp && currentCode && (
-              <div className="border border-[var(--accent)] p-3 bg-[var(--bg-panel)] text-center">
+              <div className="border border-[var(--accent)] p-3 bg-[var(--bg-raised)] text-center">
                 <div className="text-[10px] text-[var(--fg-dim)] uppercase mb-1">
                   {t("captura.currentCode").split("<b>")[0]}
                   <b>{selectedTotp}</b>:
@@ -603,7 +603,7 @@ function CapturaPage() {
 
           {/* Column 2: saved login sessions */}
           <div className="tui-panel p-4 flex flex-col gap-4">
-            <div className="font-bold border-b border-[var(--border)] pb-1 flex justify-between">
+            <div className="font-bold border-b border-[var(--line)] pb-1 flex justify-between">
               <span>{t("captura.sessionsTitle")}</span>
               <span className="text-[var(--fg-dim)]">{t("captura.domainsCount").replace("{count}", String(sessions.length))}</span>
             </div>
@@ -624,7 +624,7 @@ function CapturaPage() {
               {sessions.map((s) => (
                 <div
                   key={s.domain}
-                  className="p-2 border border-[var(--border-subtle)] bg-[var(--bg-panel)] flex items-center justify-between"
+                  className="p-2 border border-[var(--line)] bg-[var(--bg-raised)] flex items-center justify-between"
                 >
                   <div className="truncate mr-2 font-mono">
                     <div className="font-bold">{s.domain}</div>

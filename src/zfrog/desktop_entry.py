@@ -137,6 +137,8 @@ def main() -> None:
             "http://tauri.localhost",
             "http://localhost:3000",
             "http://127.0.0.1:3000",
+            "http://localhost:3067",
+            "http://127.0.0.1:3067",
         ],
         allow_credentials=True,
         allow_methods=["*"],

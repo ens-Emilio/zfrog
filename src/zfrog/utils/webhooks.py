@@ -1,12 +1,14 @@
 """Webhook notification utilities."""
 
-import logging
 import asyncio
+import logging
 import uuid
-from typing import Callable, Any
+from typing import Any
+
 from pydantic import BaseModel, Field, HttpUrl
 
 from zfrog.models import JobResult
+
 logger = logging.getLogger(__name__)
 
 
@@ -102,10 +104,11 @@ async def notify_webhooks(event: str, data: dict[str, Any]):
         event: Event type (e.g., "job.completed").
         data: Event data.
     """
-    import httpx
-    import hmac
     import hashlib
+    import hmac
     import json
+
+    import httpx
     
     for webhook in _webhooks:
         if event not in webhook.events:

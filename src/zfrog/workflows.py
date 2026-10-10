@@ -33,14 +33,16 @@ import os
 import re
 import tempfile
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from zfrog.config import settings
 from zfrog.diff import capture_snapshot
 from zfrog.engines import get_engine
-from zfrog.models import ENGINE_FOR_MODE as _ENGINE_FOR_MODE, JobCreate, ProbeResult
+from zfrog.models import ENGINE_FOR_MODE as _ENGINE_FOR_MODE
+from zfrog.models import JobCreate, ProbeResult
 from zfrog.orchestrator import run_job
 from zfrog.probe import probe_url
 from zfrog.utils.http import create_client

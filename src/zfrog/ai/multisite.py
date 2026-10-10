@@ -16,9 +16,9 @@ import logging
 import math
 import re
 from collections import Counter
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
 
 from zfrog.ai.client import complete, embed, is_available
 from zfrog.config import settings
@@ -169,7 +169,7 @@ class MultiSiteIndex:
                     "path": path,
                     "text": chunk,
                     "chunk_id": hashlib.sha1(
-                        f"{site}{path}{index}".encode("utf-8")
+                        f"{site}{path}{index}".encode()
                     ).hexdigest()[:12],
                 }
             )

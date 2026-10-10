@@ -21,7 +21,8 @@ from __future__ import annotations
 
 import logging
 import secrets
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 from fastapi import Body, FastAPI, Header, HTTPException, Query
 

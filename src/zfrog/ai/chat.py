@@ -15,7 +15,7 @@ import os
 import tempfile
 import uuid
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from zfrog.ai.client import complete, is_available
@@ -45,7 +45,7 @@ SYSTEM_PROMPT = (
 
 def _now() -> str:
     """Current UTC timestamp in ISO 8601 form."""
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 def _new_id() -> str:
     """Short random conversation identifier."""

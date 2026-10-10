@@ -5,11 +5,17 @@ A fake browser/context pair stands in for Chromium so pool bookkeeping
 browser binary, no network, and no external services.
 """
 
-import asyncio
 
 from zfrog.config import settings
 from zfrog.engines.playwright import BrowserPool
-from zfrog.utils.stealth import LOCALE, USER_AGENT, VIEWPORT, locale, user_agent, viewport
+from zfrog.utils.stealth import (
+    LOCALE,
+    USER_AGENT,
+    VIEWPORT,
+    locale,
+    user_agent,
+    viewport,
+)
 
 
 class _FakeContext:

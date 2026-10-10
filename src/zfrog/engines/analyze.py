@@ -10,12 +10,11 @@ Runs multiple analysis tools and produces a unified report:
 
 from __future__ import annotations
 
-import asyncio
 import json
 import time
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
+from datetime import UTC
 from pathlib import Path
-from urllib.parse import urlparse
 
 import httpx
 
@@ -139,10 +138,10 @@ class AnalyzeEngine(EngineAdapter):
         score = self._compute_score(seo, a11y, perf, content)
 
         # 7. Build result
-        from datetime import datetime, timezone
+        from datetime import datetime
         result = AnalyzeResult(
             url=url,
-            analyzed_at=datetime.now(timezone.utc).isoformat(),
+            analyzed_at=datetime.now(UTC).isoformat(),
             content=content,
             seo=seo,
             accessibility=a11y,

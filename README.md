@@ -206,7 +206,7 @@ Recommended way — start API and dashboard together:
 ```bash
 zfrog dev
 # API:       http://127.0.0.1:8000
-# Dashboard: http://localhost:3000
+# Dashboard: http://localhost:3067
 ```
 
 Manually (two terminals):

@@ -1,10 +1,17 @@
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useState, useRef, useEffect, useMemo } from "react"
 import { api, ChatSource } from "@/lib/api"
 import { useToast } from "@/components/ToastRegion"
 import { useT } from "@/lib/i18n"
-import { Spinner, SYM, TuiPanel } from "@/components/ui/tui"
+import { Spinner, SYM } from "@/components/ui/tui"
+import { SlashCommandsMenu, SLASH_COMMANDS, SlashCommand } from "@/components/SlashCommandsMenu"
+import {
+  InspectionArtifact,
+  ComparisonArtifact,
+  DatasetsArtifact,
+  CollectionArtifact,
+} from "@/components/ChatArtifacts"
 
 interface Message {
   id: string
@@ -13,31 +20,35 @@ interface Message {
   sources?: (string | ChatSource)[]
   time: string
   tokens?: number
+  artifactType?: "jump" | "compare" | "datasets" | "collection"
+  artifactMeta?: {
+    url?: string
+    siteA?: string
+    siteB?: string
+  }
 }
 
 function ChatPage() {
   const t = useT()
   const toast = useToast()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
+
   const [activeConvId, setActiveConvId] = useState<string | null>(null)
   const [selectedSite, setSelectedSite] = useState<string>("")
-  const [customPathMode, setCustomPathMode] = useState(false)
   const [comboboxOpen, setComboboxOpen] = useState(false)
   const [comboboxFilter, setComboboxFilter] = useState("")
-  const [focusedSugIdx, setFocusedSugIdx] = useState<number | null>(null)
   const [inputQuestion, setInputQuestion] = useState("")
   const [messages, setMessages] = useState<Message[]>([])
-  const [showSessionsDrawer, setShowSessionsDrawer] = useState(false)
 
-  const inputRef = useRef<HTMLInputElement>(null)
+  // Slash commands menu state
+  const [slashOpen, setSlashOpen] = useState(false)
+  const [slashFilter, setSlashFilter] = useState("")
+  const [slashSelectedIdx, setSlashSelectedIdx] = useState(0)
+
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const comboboxRef = useRef<HTMLDivElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-
-  // List of saved conversations
-  const convsQuery = useQuery({
-    queryKey: ["chat-conversations"],
-    queryFn: () => api.getChatConversations(),
-  })
 
   // List of catalog sites for context
   const sitesQuery = useQuery({
@@ -45,41 +56,13 @@ function ChatPage() {
     queryFn: () => api.getCatalogSites(),
   })
 
-  // Pre-selects the first available site automatically
-  useEffect(() => {
-    if (!selectedSite && sitesQuery.data && sitesQuery.data.length > 0) {
-      setSelectedSite(sitesQuery.data[0].site)
-    }
-  }, [sitesQuery.data, selectedSite])
+  // List of conversations (prefetch for sidebar)
+  useQuery({
+    queryKey: ["chat-conversations"],
+    queryFn: () => api.getChatConversations(),
+  })
 
-  // Closes the combobox when clicking outside
-  useEffect(() => {
-    if (!comboboxOpen) return
-    const handleClickOutside = (e: MouseEvent) => {
-      if (comboboxRef.current && !comboboxRef.current.contains(e.target as Node)) {
-        setComboboxOpen(false)
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
-  }, [comboboxOpen])
-
-  // Initial focus and "/" shortcut to focus the input
-  useEffect(() => {
-    inputRef.current?.focus()
-    const onGlobalKey = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null
-      if (target?.tagName === "INPUT" || target?.tagName === "TEXTAREA" || target?.isContentEditable) return
-      if (e.key === "/") {
-        e.preventDefault()
-        inputRef.current?.focus()
-      }
-    }
-    window.addEventListener("keydown", onGlobalKey)
-    return () => window.removeEventListener("keydown", onGlobalKey)
-  }, [])
-
-  // Loads history when a conversation is selected
+  // Load conversation when activeConvId changes
   const convDetailQuery = useQuery({
     queryKey: ["chat-conversation", activeConvId],
     queryFn: () => (activeConvId ? api.getChatConversation(activeConvId) : null),
@@ -112,11 +95,88 @@ function ChatPage() {
     }
   }, [convDetailQuery.data])
 
+  // Scroll to bottom on messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
-  // Mutation to send a question
+  // Auto-grow textarea
+  const autoGrow = () => {
+    if (!textareaRef.current) return
+    textareaRef.current.style.height = "auto"
+    textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`
+  }
+
+  // Handle slash commands logic on input change
+  const handleInputChange = (val: string) => {
+    setInputQuestion(val)
+    autoGrow()
+
+    if (val.startsWith("/") && !val.includes("\n")) {
+      setSlashOpen(true)
+      setSlashFilter(val.slice(1))
+      setSlashSelectedIdx(0)
+    } else {
+      if (slashOpen) setSlashOpen(false)
+    }
+  }
+
+  // Event listeners for global triggers
+  useEffect(() => {
+    const handleNewChatEvent = () => {
+      setActiveConvId(null)
+      setMessages([])
+      setInputQuestion("")
+      textareaRef.current?.focus()
+      autoGrow()
+    }
+
+    const handleOpenConvEvent = (e: Event) => {
+      const custom = e as CustomEvent<{ id: string }>
+      if (custom.detail?.id) {
+        setActiveConvId(custom.detail.id)
+      }
+    }
+
+    const handleInsertPromptEvent = (e: Event) => {
+      const custom = e as CustomEvent<{ text: string }>
+      if (custom.detail?.text) {
+        setInputQuestion(custom.detail.text)
+        textareaRef.current?.focus()
+        setTimeout(() => {
+          autoGrow()
+          if (textareaRef.current) {
+            textareaRef.current.selectionStart = textareaRef.current.value.length
+            textareaRef.current.selectionEnd = textareaRef.current.value.length
+          }
+        }, 0)
+      }
+    }
+
+    window.addEventListener("zfrog:new-chat", handleNewChatEvent)
+    window.addEventListener("zfrog:open-conv", handleOpenConvEvent)
+    window.addEventListener("zfrog:insert-prompt", handleInsertPromptEvent)
+
+    return () => {
+      window.removeEventListener("zfrog:new-chat", handleNewChatEvent)
+      window.removeEventListener("zfrog:open-conv", handleOpenConvEvent)
+      window.removeEventListener("zfrog:insert-prompt", handleInsertPromptEvent)
+    }
+  }, [])
+
+  // Close combobox when clicking outside
+  useEffect(() => {
+    if (!comboboxOpen) return
+    const handleClickOutside = (e: MouseEvent) => {
+      if (comboboxRef.current && !comboboxRef.current.contains(e.target as Node)) {
+        setComboboxOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [comboboxOpen])
+
+  // Ask mutation
   const askMutation = useMutation({
     mutationFn: async (question: string) => {
       const siteArg = selectedSite.trim() ? [selectedSite.trim()] : []
@@ -150,42 +210,167 @@ function ChatPage() {
     },
   })
 
-  const handleSend = (textToSend?: string) => {
-    const q = (textToSend ?? inputQuestion).trim()
-    if (!q || askMutation.isPending) return
-    if (!selectedSite.trim()) {
-      toast(t("chat.selectSiteFirst"), "err")
+  // Send message
+  const handleSend = (textOverride?: string) => {
+    const raw = (textOverride ?? inputQuestion).trim()
+    if (!raw || askMutation.isPending) return
+    setSlashOpen(false)
+
+    // Handle hub navigation slash commands
+    if (raw === "/biblioteca" || raw === "biblioteca") {
+      navigate({ to: "/colecao" }).catch(() => {})
+      return
+    }
+    if (raw === "/operacao" || raw === "operacao") {
+      navigate({ to: "/" }).catch(() => {})
+      return
+    }
+    if (raw === "/ajuda" || raw === "ajuda") {
+      navigate({ to: "/ajuda" }).catch(() => {})
+      return
+    }
+    if (raw === "/config" || raw === "config") {
+      navigate({ to: "/config" }).catch(() => {})
       return
     }
 
     const now = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+    const norm = raw.startsWith("/") ? raw.slice(1) : raw
+
+    // Check if it is a jump/tongue inspection command
+    if (norm.startsWith("jump ") || norm.startsWith("tongue ")) {
+      const parts = raw.split(/\s+/)
+      const targetUrl = parts[1] || "https://linear.app"
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `u-${Date.now()}`,
+          role: "user",
+          text: raw,
+          time: now,
+        },
+        {
+          id: `a-${Date.now() + 1}`,
+          role: "assistant",
+          text: `Inspecionei ${targetUrl} e processei a extração de design tokens e auditoria WCAG 2.2.`,
+          time: now,
+          artifactType: "jump",
+          artifactMeta: { url: targetUrl },
+        },
+      ])
+      setInputQuestion("")
+      autoGrow()
+      return
+    }
+
+    // Check if it is a compare command
+    if (norm.startsWith("comparar")) {
+      const parts = raw.split(/\s+/)
+      const siteA = parts[1] || "linear.app"
+      const siteB = parts[2] || "notion.so"
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `u-${Date.now()}`,
+          role: "user",
+          text: raw,
+          time: now,
+        },
+        {
+          id: `a-${Date.now() + 1}`,
+          role: "assistant",
+          text: `Gerei o diff de design system entre ${siteA} e ${siteB}.`,
+          time: now,
+          artifactType: "compare",
+          artifactMeta: { siteA, siteB },
+        },
+      ])
+      setInputQuestion("")
+      autoGrow()
+      return
+    }
+
+    // Check if it is a datasets command
+    if (norm.includes("dataset")) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `u-${Date.now()}`,
+          role: "user",
+          text: raw,
+          time: now,
+        },
+        {
+          id: `a-${Date.now() + 1}`,
+          role: "assistant",
+          text: "Aqui está o catálogo de datasets e bases indexadas localmente no zfrog:",
+          time: now,
+          artifactType: "datasets",
+        },
+      ])
+      setInputQuestion("")
+      autoGrow()
+      return
+    }
+
+    // Check if it is a pond/collection command
+    if (norm.startsWith("pond") || norm.includes("coleção") || norm.includes("colecao")) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `u-${Date.now()}`,
+          role: "user",
+          text: raw,
+          time: now,
+        },
+        {
+          id: `a-${Date.now() + 1}`,
+          role: "assistant",
+          text: "Filtrei o acervo de referências com base na sua busca:",
+          time: now,
+          artifactType: "collection",
+        },
+      ])
+      setInputQuestion("")
+      autoGrow()
+      return
+    }
+
+    // Default conversational RAG question
     setMessages((prev) => [
       ...prev,
       {
         id: `u-${Date.now()}`,
         role: "user",
-        text: q,
+        text: raw,
         time: now,
       },
     ])
     setInputQuestion("")
-    askMutation.mutate(q)
+    autoGrow()
+    askMutation.mutate(raw)
   }
 
-  const handleNewChat = () => {
-    setActiveConvId(null)
-    setMessages([])
-    setInputQuestion("")
-    inputRef.current?.focus()
+  const applySlashCommand = (cmd: SlashCommand) => {
+    setInputQuestion(cmd.fill + " ")
+    setSlashOpen(false)
+    textareaRef.current?.focus()
+    setTimeout(() => {
+      autoGrow()
+      if (textareaRef.current) {
+        textareaRef.current.selectionStart = textareaRef.current.value.length
+        textareaRef.current.selectionEnd = textareaRef.current.value.length
+      }
+    }, 0)
   }
 
   const exportMarkdown = () => {
     if (!messages.length) return
     const md = messages
       .map((m) => {
-        if (m.role === "user") return `${t("chat.mdUser").replace("{time}", m.time)}\n\n${m.text}\n`
+        if (m.role === "user") return `### Usuário (${m.time})\n\n${m.text}\n`
         const sourcesText = m.sources?.length
-          ? `\n${t("chat.mdSources")}\n` +
+          ? `\n**Fontes citadas:**\n` +
             m.sources
               .map((s) => (typeof s === "string" ? `- ${s}` : `- \`${s.path}\`${s.snippet ? `: ${s.snippet}` : ""}`))
               .join("\n")
@@ -198,107 +383,87 @@ function ChatPage() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
-    a.download = `zfrog-chat-${activeConvId ?? t("chat.exportSession")}.md`
+    a.download = `zfrog-conversa-${activeConvId ?? "nova"}.md`
     a.click()
     URL.revokeObjectURL(url)
   }
 
-  const conversations = convsQuery.data ?? []
   const catalogSites = sitesQuery.data ?? []
-
-  const activeSiteInfo = useMemo(
-    () => catalogSites.find((s) => s.site === selectedSite),
-    [catalogSites, selectedSite],
-  )
-
   const filteredSites = useMemo(() => {
     if (!comboboxFilter.trim()) return catalogSites
     const f = comboboxFilter.toLowerCase()
     return catalogSites.filter((s) => s.site.toLowerCase().includes(f))
   }, [catalogSites, comboboxFilter])
 
-  const suggestions = useMemo(() => {
-    const s = selectedSite ? selectedSite.replace(/^output\/(snapshots\/)?/, "") : t("chat.thisSite")
-    return [
-      t("chat.suggestion1").replace("{site}", s),
-      t("chat.suggestion2"),
-      t("chat.suggestion3"),
-    ]
-  }, [selectedSite, t])
-
-  const hasSessions = conversations.length > 0
-
   return (
-    <div className="flex flex-col gap-3">
-      {/* Main control bar as TuiPanel */}
-      <TuiPanel
-        title={t("chat.title")}
-        action={
-          <div className="flex items-baseline gap-2">
-            {hasSessions && (
-              <button
-                type="button"
-                className="tui-btn"
-                onClick={() => setShowSessionsDrawer((v) => !v)}
-              >
-                [{showSessionsDrawer
-                  ? t("chat.sessionsToggle").replace("{mode}", t("chat.sessionsModeHide")).replace("{count}", String(conversations.length))
-                  : t("chat.sessionsToggle").replace("{mode}", t("chat.sessionsModeShow")).replace("{count}", String(conversations.length))}]
-              </button>
-            )}
-            {messages.length > 0 && (
-              <button type="button" className="tui-btn" onClick={exportMarkdown}>
-                {t("chat.exportMarkdown")}
-              </button>
-            )}
-            <button type="button" className="tui-btn" onClick={handleNewChat}>
-              {t("chat.newChat")}
-            </button>
-          </div>
-        }
-      >
-        {/* Unified context and status row */}
-        <div className="flex flex-wrap items-baseline gap-2 border-b border-[var(--line)] pb-2 text-xs">
-          <span style={{ color: "var(--fg-dim)" }}>{t("chat.context")}</span>
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, height: "100%" }}>
+      {/* Scrollable messages area */}
+      <div className="zf-thread-scroll">
+        <div className="zf-thread-inner">
+          {messages.length === 0 && (
+            <div className="zf-empty" data-od-id="empty">
+              <h1>O que você quer fazer hoje?</h1>
+              <p>
+                Conversa limpa. Toda função do zfrog mora no chat ou em Biblioteca/Operação — sem abas confusas,
+                sem ruído. Digite <span className="inline-code">/</span> para ver comandos.
+              </p>
 
-          {!customPathMode ? (
-            <div className="tui-combobox-wrap" ref={comboboxRef}>
-              <button
-                type="button"
-                className="tui-btn"
-                onClick={() => {
-                  setComboboxOpen((v) => !v)
-                  setComboboxFilter("")
+              {/* Context Selector */}
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  fontSize: "12px",
+                  color: "var(--fg-muted)",
                 }}
+                ref={comboboxRef}
               >
-                [ {selectedSite ? selectedSite : t("chat.selectSite")} ▾ ]
-              </button>
+                <span>Contexto:</span>
+                <button
+                  type="button"
+                  className="zf-btn-ghost"
+                  style={{ padding: "4px 8px", fontSize: "12px" }}
+                  onClick={() => {
+                    setComboboxOpen((v) => !v)
+                    setComboboxFilter("")
+                  }}
+                >
+                  [ {selectedSite ? selectedSite : "Geral / Todo o Acervo"} ▾ ]
+                </button>
 
-              {comboboxOpen && (
-                <div className="tui-combobox-menu">
-                  <div style={{ padding: "0.25lh 1ch", borderBottom: "1px solid var(--line)" }}>
+                {comboboxOpen && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      marginTop: "140px",
+                      background: "var(--bg-raised)",
+                      border: "1px solid var(--line)",
+                      zIndex: 30,
+                      minWidth: "220px",
+                      padding: "6px",
+                    }}
+                  >
                     <input
                       type="text"
                       className="tui-input"
-                      placeholder={t("chat.filterSites")}
+                      placeholder="Filtrar sites..."
                       value={comboboxFilter}
                       autoFocus
                       onChange={(e) => setComboboxFilter(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Escape") setComboboxOpen(false)
-                        if (e.key === "Enter" && filteredSites[0]) {
-                          setSelectedSite(filteredSites[0].site)
-                          setComboboxOpen(false)
-                        }
-                      }}
+                      style={{ width: "100%", marginBottom: "4px" }}
                     />
-                  </div>
-                  {filteredSites.length === 0 ? (
-                    <div style={{ padding: "0.5lh 1ch", color: "var(--fg-dim)" }}>
-                      {t("chat.noSitesFound")}
-                    </div>
-                  ) : (
-                    filteredSites.map((s) => (
+                    <button
+                      type="button"
+                      className={`tui-combobox-item ${!selectedSite ? "selected" : ""}`}
+                      onClick={() => {
+                        setSelectedSite("")
+                        setComboboxOpen(false)
+                      }}
+                    >
+                      Geral (Todo o acervo)
+                    </button>
+                    {filteredSites.map((s) => (
                       <button
                         key={s.site}
                         type="button"
@@ -306,203 +471,251 @@ function ChatPage() {
                         onClick={() => {
                           setSelectedSite(s.site)
                           setComboboxOpen(false)
-                          inputRef.current?.focus()
                         }}
                       >
                         <span>{s.site}</span>
                         <span style={{ color: "var(--fg-dim)", fontSize: "11px" }}>
-                          {t("chat.refCount").replace("{count}", String(s.count))}
+                          ({s.count} págs)
                         </span>
                       </button>
-                    ))
-                  )}
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="flex items-baseline gap-2 flex-1">
-              <input
-                type="text"
-                className="tui-input"
-                style={{ width: "35ch" }}
-                placeholder="output/snapshots/site.com"
-                value={selectedSite}
-                onChange={(e) => setSelectedSite(e.target.value)}
-              />
-            </div>
-          )}
-
-          <button
-            type="button"
-            className="tui-btn"
-            style={{ color: "var(--fg-dim)", fontSize: "11px" }}
-            onClick={() => setCustomPathMode((v) => !v)}
-          >
-            [{customPathMode ? t("chat.useCatalog") : t("chat.manualPath")}]
-          </button>
-
-          {/* Index status row */}
-          <div className="flex items-baseline gap-1 ml-auto text-xs">
-            {activeSiteInfo ? (
-              <span style={{ color: "var(--fg-muted)" }}>
-                <span style={{ color: "var(--ok)" }}>{SYM.ok}</span> {t("chat.indexedPages").replace("{count}", String(activeSiteInfo.count))}
-              </span>
-            ) : selectedSite ? (
-              <span style={{ color: "var(--fg-muted)" }}>
-                <span style={{ color: "var(--ok)" }}>{SYM.ok}</span> {t("chat.activePath")} <code>{selectedSite}</code>
-              </span>
-            ) : (
-              <span style={{ color: "var(--warn)" }}>
-                {t("chat.selectSiteWarn")}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Main layout: when there are no saved sessions, takes 100% of the width */}
-        <div className={`grid gap-3 ${hasSessions && showSessionsDrawer ? "grid-cols-1 md:grid-cols-4" : "grid-cols-1"}`}>
-          {/* Sessions drawer (only rendered when there is history and the user asked for it) */}
-          {hasSessions && showSessionsDrawer && (
-            <aside className="tui-panel md:col-span-1 flex flex-col gap-1 p-2 text-xs max-h-[500px] overflow-y-auto" style={{ margin: 0 }}>
-              <div className="tui-panel-head" style={{ paddingBottom: "0.25lh", marginBottom: "0.25lh" }}>
-                <span className="tui-panel-title">{t("chat.sessionsTitle").replace("{count}", String(conversations.length))}</span>
+                    ))}
+                  </div>
+                )}
               </div>
-              {conversations.map((c) => (
+
+              {/* 4 Suggestions cards */}
+              <div className="zf-suggestions">
                 <button
-                  key={c.id}
                   type="button"
-                  className={`w-full text-left p-1 border ${
-                    activeConvId === c.id
-                      ? "border-[var(--line)] bg-[var(--sel-bg)]"
-                      : "border-transparent hover:bg-[var(--sel-bg)]"
-                  }`}
-                  onClick={() => setActiveConvId(c.id)}
+                  className="zf-sug"
+                  onClick={() => handleSend("/jump https://linear.app")}
                 >
-                  <div className="truncate font-mono">{c.id}</div>
-                  <div className="flex justify-between text-[11px]" style={{ color: "var(--fg-dim)" }}>
-                    <span>{c.sites?.[0] ?? t("chat.global")}</span>
-                    <span>{t("chat.turnCount").replace("{count}", String(c.turns))}</span>
-                  </div>
+                  <strong>
+                    <span className="zf-sug-ic">↗</span> Inspecionar um site
+                  </strong>
+                  <span>jump https://linear.app — screenshot, tokens e WCAG</span>
                 </button>
-              ))}
-            </aside>
+
+                <button
+                  type="button"
+                  className="zf-sug"
+                  onClick={() => handleSend("/comparar linear.app notion.so")}
+                >
+                  <strong>
+                    <span className="zf-sug-ic">⇄</span> Comparar dois sites
+                  </strong>
+                  <span>comparar linear.app notion.so — diff visual e tokens</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="zf-sug"
+                  onClick={() => handleSend("quais datasets tenho?")}
+                >
+                  <strong>
+                    <span className="zf-sug-ic">▦</span> Explorar dados
+                  </strong>
+                  <span>“quais datasets tenho?” — abre catálogo tabular</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="zf-sug"
+                  onClick={() => handleSend("mostrar coleção de dashboards escuros")}
+                >
+                  <strong>
+                    <span className="zf-sug-ic">◫</span> Abrir coleção
+                  </strong>
+                  <span>pond dashboards escuros — grade de referências</span>
+                </button>
+              </div>
+
+              <div className="zf-cap-row">
+                <span className="zf-cap">27 rotas via / e ⌘K</span>
+                <span className="zf-cap">Biblioteca · 6 bases</span>
+                <span className="zf-cap">Operação · fila live</span>
+              </div>
+            </div>
           )}
 
-            {/* Conversation window */}
-          <div className={`flex flex-col justify-between ${hasSessions && showSessionsDrawer ? "md:col-span-3" : "w-full"}`}>
-            {/* Message stream */}
-            <div className="chat-stream">
-              {messages.length === 0 && (
-                <div className="chat-suggestions">
-                  <div className="chat-suggestions-head">
-                    {t("chat.suggestionsHead").replace("{site}", selectedSite || t("chat.thisSite"))}
-                  </div>
-                  {suggestions.map((sug, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      className={`suggestion-row ${focusedSugIdx === idx ? "active" : ""}`}
-                      onFocus={() => setFocusedSugIdx(idx)}
-                      onClick={() => {
-                        handleSend(sug)
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          handleSend(sug)
-                        } else if (e.key === "ArrowDown" || e.key === "j") {
-                          e.preventDefault()
-                          setFocusedSugIdx(Math.min(idx + 1, suggestions.length - 1))
-                        } else if (e.key === "ArrowUp" || e.key === "k") {
-                          e.preventDefault()
-                          setFocusedSugIdx(Math.max(idx - 1, 0))
-                        }
-                      }}
-                    >
-                      <span className="caret">❯</span>
-                      <span className="sug-text">“{sug}”</span>
-                      <span className="sug-hint">{t("chat.enterToAsk")}</span>
-                    </button>
-                  ))}
+          {/* Turns thread */}
+          {messages.map((m) => (
+            <div key={m.id} className="zf-turn">
+              {m.role === "user" ? (
+                <div className="zf-row-user">
+                  <div className="zf-bubble-user">{m.text}</div>
                 </div>
-              )}
-
-              {messages.map((m) => (
-                <div key={m.id} className={`chat-turn ${m.role === "assistant" ? "assistant" : "user"}`}>
-                  <div className="chat-turn-meta">
-                    <span className="role">{m.role === "user" ? t("chat.you") : t("chat.zfrogRole")}</span>
+              ) : (
+                <div className="zf-bubble-assistant">
+                  <div className="zf-meta">
+                    <span style={{ fontWeight: 500, color: "var(--fg)" }}>zfrog</span>
                     <span>·</span>
                     <span>{m.time}</span>
-                    {m.tokens && <span>· {t("chat.tokenCount").replace("{count}", String(m.tokens))}</span>}
+                    {m.tokens && <span>· {m.tokens} tokens</span>}
                   </div>
-                  <div className="chat-turn-body">{m.text}</div>
 
+                  <div style={{ marginTop: "6px", fontSize: "14px", lineHeight: "var(--lh)" }}>
+                    {m.text}
+                  </div>
+
+                  {/* Render inline artifacts if triggered */}
+                  {m.artifactType === "jump" && (
+                    <InspectionArtifact url={m.artifactMeta?.url || "https://linear.app"} />
+                  )}
+                  {m.artifactType === "compare" && (
+                    <ComparisonArtifact
+                      siteA={m.artifactMeta?.siteA || "linear.app"}
+                      siteB={m.artifactMeta?.siteB || "notion.so"}
+                    />
+                  )}
+                  {m.artifactType === "datasets" && <DatasetsArtifact />}
+                  {m.artifactType === "collection" && <CollectionArtifact />}
+
+                  {/* Sources citation chips */}
                   {m.sources && m.sources.length > 0 && (
-                    <div className="chat-sources">
-                      <span style={{ color: "var(--fg-muted)" }}>{SYM.sub} {t("chat.sources")}</span>
-                      <ul style={{ listStyle: "none", paddingLeft: "1ch", marginTop: "0.25lh" }}>
+                    <div style={{ marginTop: "10px", fontSize: "12px", color: "var(--fg-dim)" }}>
+                      <span style={{ color: "var(--fg-muted)" }}>{SYM.sub} Fontes citadas:</span>
+                      <div className="chips" style={{ marginTop: "4px" }}>
                         {m.sources.map((s, i) => (
-                          <li key={i}>
-                            {typeof s === "string" ? (
-                              <code>{s}</code>
-                            ) : (
-                              <span>
-                                <code>{s.path}</code>
-                                {s.snippet && (
-                                  <span style={{ color: "var(--fg-dim)" }}> — “{s.snippet.slice(0, 80)}…”</span>
-                                )}
-                              </span>
-                            )}
-                          </li>
+                          <span key={i} className="chip">
+                            {typeof s === "string" ? s : s.path}
+                          </span>
                         ))}
-                      </ul>
+                      </div>
                     </div>
                   )}
                 </div>
-              ))}
-
-              {askMutation.isPending && (
-                <div className="chat-turn assistant">
-                  <div className="chat-turn-meta">
-                    <span className="role"><Spinner /> {t("chat.consulting")}</span>
-                  </div>
-                </div>
               )}
-              <div ref={messagesEndRef} />
             </div>
+          ))}
 
-            {/* Terminal-prompt style input bar */}
-            <div className="chat-input-bar">
-              <span className="caret">❯</span>
-              <input
-                ref={inputRef}
-                type="text"
-                placeholder={
-                  selectedSite
-                    ? t("chat.askPlaceholder").replace("{site}", selectedSite)
-                    : t("chat.askPlaceholderNoSite")
-                }
-                value={inputQuestion}
-                onChange={(e) => setInputQuestion(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
+          {askMutation.isPending && (
+            <div className="zf-turn">
+              <div className="zf-bubble-assistant">
+                <div className="zf-meta">
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                    <Spinner /> Processando resposta e consultando acervo...
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div ref={messagesEndRef} />
+        </div>
+      </div>
+
+      {/* Composer with floating slash command menu */}
+      <div className="zf-composer" data-od-id="composer">
+        <div className="zf-composer-inner">
+          <SlashCommandsMenu
+            open={slashOpen}
+            filter={slashFilter}
+            selectedIdx={slashSelectedIdx}
+            onSelect={applySlashCommand}
+            onHoverIdx={setSlashSelectedIdx}
+          />
+
+          <div className="zf-composer-box">
+            <textarea
+              ref={textareaRef}
+              rows={1}
+              value={inputQuestion}
+              placeholder="Pergunte ou digite / para comandos… (↵ enviar · ⇧↵ nova linha)"
+              aria-label="Mensagem"
+              onChange={(e) => handleInputChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (slashOpen) {
+                  const needle = slashFilter.toLowerCase().replace(/^\//, "").split(" ")[0]
+                  const items = SLASH_COMMANDS.filter(
+                    (c) =>
+                      !needle ||
+                      c.cmd.toLowerCase().includes(needle) ||
+                      c.desc.toLowerCase().includes(needle)
+                  )
+                  if (e.key === "ArrowDown") {
                     e.preventDefault()
-                    handleSend()
+                    setSlashSelectedIdx((i) => Math.min(i + 1, items.length - 1))
+                    return
                   }
-                }}
-                disabled={askMutation.isPending}
-              />
-              <button
-                type="button"
-                className="tui-btn"
-                onClick={() => handleSend()}
-                disabled={askMutation.isPending || !inputQuestion.trim() || !selectedSite.trim()}
+                  if (e.key === "ArrowUp") {
+                    e.preventDefault()
+                    setSlashSelectedIdx((i) => Math.max(i - 1, 0))
+                    return
+                  }
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    const target = items[slashSelectedIdx]
+                    if (target) {
+                      e.preventDefault()
+                      applySlashCommand(target)
+                      return
+                    }
+                  }
+                  if (e.key === "Tab") {
+                    const target = items[slashSelectedIdx]
+                    if (target) {
+                      e.preventDefault()
+                      applySlashCommand(target)
+                      return
+                    }
+                  }
+                  if (e.key === "Escape") {
+                    e.preventDefault()
+                    setSlashOpen(false)
+                    return
+                  }
+                }
+
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault()
+                  handleSend()
+                }
+              }}
+            />
+
+            <button
+              type="button"
+              className="zf-send"
+              onClick={() => handleSend()}
+              disabled={askMutation.isPending || !inputQuestion.trim()}
+              aria-label="Enviar"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
               >
-                {askMutation.isPending ? <Spinner /> : t("chat.send")}
-              </button>
+                <path d="M5 12 19 5 13 12 19 19 5 12Z" />
+                <path d="M13 12H5" />
+              </svg>
+            </button>
+          </div>
+
+          <div className="zf-composer-hints">
+            <span>
+              <span className="hint-kbd">/</span> comandos ·{" "}
+              <span className="hint-kbd">⌘ K</span> paleta ·{" "}
+              <span className="hint-kbd">?</span> ajuda
+            </span>
+            <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+              {messages.length > 0 && (
+                <button
+                  type="button"
+                  onClick={exportMarkdown}
+                  className="btn-ghost"
+                  style={{ padding: "2px 6px", fontSize: "11px" }}
+                >
+                  exportar .md
+                </button>
+              )}
+              <span className="muted">local-first · sem nuvem</span>
             </div>
           </div>
         </div>
-      </TuiPanel>
+      </div>
     </div>
   )
 }

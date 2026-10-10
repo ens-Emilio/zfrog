@@ -26,7 +26,7 @@ import os
 import socket
 import tempfile
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from zfrog.config import settings
@@ -77,7 +77,7 @@ class Assignment:
 
 def _now() -> str:
     """Current instant as an ISO-8601 UTC string."""
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _parse_time(value: object) -> datetime | None:
@@ -92,8 +92,8 @@ def _parse_time(value: object) -> datetime | None:
     except ValueError:
         return None
     if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
+        return parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
 
 
 def _as_int(value: object, default: int) -> int:
@@ -422,7 +422,7 @@ class WorkerRegistry:
             logger.warning("Worker %s has invalid last_seen (%r); considered expired", worker.id, worker.last_seen)
             return False
         ttl = max(0, int(settings.workers_heartbeat_ttl_s))
-        return (datetime.now(timezone.utc) - seen).total_seconds() <= ttl
+        return (datetime.now(UTC) - seen).total_seconds() <= ttl
 
 
 def ready_workers_for(region: str, registry: WorkerRegistry | None = None) -> list[Worker]:

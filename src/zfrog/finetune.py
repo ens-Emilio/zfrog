@@ -38,10 +38,11 @@ import os
 import re
 import tempfile
 import threading
+from collections.abc import Awaitable, Callable
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Awaitable, Callable
+from typing import Any
 
 from zfrog.ai.client import is_available
 from zfrog.config import settings
@@ -722,7 +723,7 @@ class DatasetBuilder:
         """Persist the built examples at ``root/examples.json`` (atomic, mode 0600)."""
         payload = {
             "version": 1,
-            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(UTC).isoformat(),
             "examples": [asdict(example) for example in self._examples],
         }
         _write_json_atomic(self.root / EXAMPLES_FILE, payload)

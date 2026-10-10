@@ -5,5 +5,11 @@ import tailwindcss from "@tailwindcss/vite"
 import tsconfigPaths from "vite-tsconfig-paths"
 
 export default defineConfig({
+  server: {
+    port: 3067,
+  },
+  preview: {
+    port: 3067,
+  },
   plugins: [TanStackRouterVite({ target: "react", autoCodeSplitting: true }), react(), tailwindcss(), tsconfigPaths()],
 })

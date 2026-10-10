@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Link, Outlet, useLocation, useNavigate, createRootRoute } from "@tanstack/react-router"
+import { useCallback, useEffect, useState } from "react"
+import { Outlet, useLocation, createRootRoute } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
 import { QueryClientProvider } from "@tanstack/react-query"
 import "@fontsource/iosevka/400.css"
@@ -12,24 +12,12 @@ import { API_URL, api } from "@/lib/api"
 import { effectiveApiUrl, desktopHeaders, isDesktop, resolveDesktopConfig } from "@/lib/desktop"
 import { check as checkUpdate } from "@tauri-apps/plugin-updater"
 import { useTheme } from "@/lib/prefs"
-import { getLang, initLang, setLang, useT, type I18nKey } from "@/lib/i18n"
-import { LANG_LABEL, LANG_ORDER } from "@/lib/lang"
-import { Spinner, SYM } from "@/components/ui/tui"
-/* Tabs of the header. Hidden routes stay reachable from the palette (DESIGN.md §12). */
-const TABS: { to: string; key: I18nKey }[] = [
-  { to: "/", key: "nav.runs" },
-  { to: "/colecao", key: "nav.collection" },
-  { to: "/busca", key: "nav.search" },
-  { to: "/probe", key: "nav.extract" },
-  { to: "/chat", key: "nav.chat" },
-  { to: "/comparar", key: "nav.compare" },
-  { to: "/datasets", key: "nav.datasets" },
-  { to: "/grafo", key: "nav.graph" },
-  { to: "/precos", key: "nav.prices" },
-  { to: "/graphql", key: "nav.graphql" },
-  { to: "/config", key: "nav.config" },
-]
-
+import { initLang, useT } from "@/lib/i18n"
+import { Spinner } from "@/components/ui/tui"
+import { ShellHeader } from "@/components/ShellHeader"
+import { ShellSidebar } from "@/components/ShellSidebar"
+import { HubSubNav } from "@/components/HubSubNav"
+import { CommandPalette } from "@/components/CommandPalette"
 type Health = "checking" | "ok" | "degraded" | "offline"
 
 function useServerHealth(): { api: Health; redis: Health; worker: Health } {
@@ -70,13 +58,6 @@ function useServerHealth(): { api: Health; redis: Health; worker: Health } {
   }
 }
 
-function Dot({ on, label }: { on: boolean; label: string }) {
-  return (
-    <span>
-      <span className={on ? "dot-on" : "dot-off"}>{on ? SYM.on : SYM.off}</span> {label}
-    </span>
-  )
-}
 
 // Desktop-only: shown when Playwright cannot launch a browser on first run.
 // Polls once per page load; dismiss leaves an auto-recheck at 30s.
@@ -131,152 +112,37 @@ function UpdaterBanner() {
     try {
       const update = await checkUpdate()
       if (!update) { setState("idle"); return }
-      let dl = 0
-      await update.downloadAndInstall((ev: any) => {
-        if (ev.event === "Started") dl = 0
-        else if (ev.event === "Progress") { dl += ev.data?.chunkLength ?? 0; setProgress((v) => Math.min(99, v + 1)) }
+      await update.downloadAndInstall((ev: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+        if (ev.event === "Progress") { setProgress((v) => Math.min(99, v + 1)) }
       })
       setState("ready")
     } catch { setState("idle") }
   }, [])
   useEffect(() => { check() }, [check])
   if (state === "idle") return null
-  if (state === "ready") return <div style={{ padding: "8px 16px", borderBottom: "1px solid var(--border)", background: "var(--surface)" }}><span className="tui-hint">Atualiza\u00E7\u00E3o v{version} instalada \u2014 reinicie o app.</span></div>
-  if (state === "downloading") return <div style={{ padding: "8px 16px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12, background: "var(--surface)" }}><Spinner /><span className="tui-hint">Baixando v{version}\u2026 {progress}%</span></div>
-  return <div style={{ padding: "8px 16px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12, background: "var(--surface)" }}><span className="tui-hint">Nova vers\u00E3o v{version} dispon\u00EDvel.</span><button className="tui-btn" onClick={install} style={{ fontSize: 12, padding: "4px 10px" }}>Atualizar agora</button><button className="tui-btn" onClick={() => setState("idle")} style={{ fontSize: 12, padding: "4px 10px" }}>Depois</button></div>
-}
-
-function Palette({
-  open,
-  onClose,
-  onTheme,
-}: {
-  open: boolean
-  onClose: () => void
-  onTheme: () => void
-}) {
-  const t = useT()
-  const navigate = useNavigate()
-  const [q, setQ] = useState("")
-  const [idx, setIdx] = useState(0)
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  const items = useMemo(
-    () => [
-      { cmd: t("palette.theme"), desc: t("palette.themeDesc"), run: onTheme },
-      { cmd: t("palette.home"), desc: t("palette.homeDesc"), to: "/" },
-      { cmd: t("palette.colecao"), desc: t("palette.colecaoDesc"), to: "/colecao" },
-      { cmd: t("palette.busca"), desc: t("palette.buscaDesc"), to: "/busca" },
-      { cmd: t("palette.probe"), desc: t("palette.probeDesc"), to: "/probe" },
-      { cmd: t("palette.chat"), desc: t("palette.chatDesc"), to: "/chat" },
-      { cmd: t("palette.comparar"), desc: t("palette.compararDesc"), to: "/comparar" },
-      { cmd: t("palette.datasets"), desc: t("palette.datasetsDesc"), to: "/datasets" },
-      { cmd: t("palette.grafo"), desc: t("palette.grafoDesc"), to: "/grafo" },
-      { cmd: t("palette.precos"), desc: t("palette.precosDesc"), to: "/precos" },
-      { cmd: t("palette.captura"), desc: t("palette.capturaDesc"), to: "/captura" },
-      { cmd: t("palette.qualidade"), desc: t("palette.qualidadeDesc"), to: "/qualidade" },
-      { cmd: t("palette.workers"), desc: t("palette.workersDesc"), to: "/workers" },
-      { cmd: t("palette.graphql"), desc: t("palette.graphqlDesc"), to: "/graphql" },
-      { cmd: t("palette.config"), desc: t("palette.configDesc"), to: "/config" },
-      { cmd: t("palette.fluxos"), desc: t("palette.fluxosDesc"), to: "/fluxos" },
-      { cmd: t("palette.snapshots"), desc: t("palette.snapshotsDesc"), to: "/snapshots" },
-      { cmd: t("palette.timeline"), desc: t("palette.timelineDesc"), to: "/timeline" },
-      { cmd: t("palette.revisao"), desc: t("palette.revisaoDesc"), to: "/revisao" },
-      { cmd: t("palette.stats"), desc: t("palette.statsDesc"), to: "/stats" },
-      { cmd: t("palette.analytics"), desc: t("palette.analyticsDesc"), to: "/analytics" },
-      { cmd: t("palette.roi"), desc: t("palette.roiDesc"), to: "/roi" },
-      { cmd: t("palette.webhooks"), desc: t("palette.webhooksDesc"), to: "/webhooks" },
-      { cmd: t("palette.equipe"), desc: t("palette.equipeDesc"), to: "/equipe" },
-      { cmd: t("palette.marketplace"), desc: t("palette.marketplaceDesc"), to: "/marketplace" },
-      { cmd: t("palette.ajuda"), desc: t("palette.ajudaDesc"), to: "/ajuda" },
-      { cmd: t("palette.design"), desc: t("palette.designDesc"), to: "/design" },
-    ],
-    [onTheme, t],
-  )
-
-  const filtered = useMemo(() => {
-    const needle = q.trim().toLowerCase()
-    return needle ? items.filter((c) => c.cmd.toLowerCase().includes(needle)) : items
-  }, [q, items])
-
-  useEffect(() => {
-    if (open) {
-      setQ("")
-      setIdx(0)
-      requestAnimationFrame(() => inputRef.current?.focus())
-    }
-  }, [open])
-
-  if (!open) return null
-  const run = (i: number) => {
-    const item = filtered[i]
-    if (!item) return
-    if (item.to) navigate({ to: item.to })
-    else item.run?.()
-    onClose()
-  }
-
-  return (
-    <div className="palette open" role="dialog" aria-label={t("palette.label")} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="box">
-        <input
-          ref={inputRef}
-          type="text"
-          value={q}
-          autoComplete="off"
-          spellCheck={false}
-          placeholder={t("palette.commandPlaceholder")}
-          aria-label={t("palette.searchLabel")}
-          onChange={(e) => { setQ(e.target.value); setIdx(0) }}
-          onKeyDown={(e) => {
-            if (e.key === "ArrowDown") { e.preventDefault(); setIdx((i) => Math.min(i + 1, filtered.length - 1)) }
-            else if (e.key === "ArrowUp") { e.preventDefault(); setIdx((i) => Math.max(i - 1, 0)) }
-            else if (e.key === "Enter") run(idx)
-            else if (e.key === "Escape") onClose()
-          }}
-        />
-        <div className="plist">
-          {filtered.map((c, i) => (
-            <div
-              key={c.cmd}
-              className={`pitem${i === idx ? " hi" : ""}`}
-              onMouseDown={(e) => { e.preventDefault(); run(i) }}
-              onMouseEnter={() => setIdx(i)}
-            >
-              <span className="pcmd">{c.cmd}</span>
-              <span className="pdesc">{c.desc}</span>
-            </div>
-          ))}
-          {!filtered.length && <div className="pitem"><span className="pdesc">{t("palette.empty")}</span></div>}
-        </div>
-      </div>
-    </div>
-  )
+  if (state === "ready") return <div style={{ padding: "8px 16px", borderBottom: "1px solid var(--line)", background: "var(--bg-raised)" }}><span className="tui-hint">Atualização v{version} instalada — reinicie o app.</span></div>
+  if (state === "downloading") return <div style={{ padding: "8px 16px", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "center", gap: 12, background: "var(--bg-raised)" }}><Spinner /><span className="tui-hint">Baixando v{version}… {progress}%</span></div>
+  return <div style={{ padding: "8px 16px", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "center", gap: 12, background: "var(--bg-raised)" }}><span className="tui-hint">Nova versão v{version} disponível.</span><button className="tui-btn" onClick={install} style={{ fontSize: 12, padding: "4px 10px" }}>Atualizar agora</button><button className="tui-btn" onClick={() => setState("idle")} style={{ fontSize: 12, padding: "4px 10px" }}>Depois</button></div>
 }
 
 function Shell() {
-  const t = useT()
   const pathname = useLocation({ select: (l) => l.pathname })
   const [theme, toggleTheme] = useTheme()
   const [paletteOpen, setPaletteOpen] = useState(false)
-  const [helpOpen, setHelpOpen] = useState(false)
   const health = useServerHealth()
 
   useEffect(() => {
     initLang()
   }, [])
 
-  // ctrl+k palette, from any screen, outside inputs.
+  // ctrl+k / cmd+k palette shortcut
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault()
         setPaletteOpen((v) => !v)
-      } else if (e.key === "?" && !(e.target instanceof HTMLInputElement)) {
-        setHelpOpen((v) => !v)
       } else if (e.key === "Escape") {
         setPaletteOpen(false)
-        setHelpOpen(false)
       }
     }
     document.addEventListener("keydown", onKey)
@@ -286,170 +152,56 @@ function Shell() {
   const closePalette = useCallback(() => setPaletteOpen(false), [])
 
   return (
-    <div className="tui" style={{ minHeight: "100vh", display: "grid", gridTemplateRows: "auto minmax(0, 1fr) auto auto" }}>
-      <header className="tui-header">
-        <span className="brand">zfrog</span>
-        <nav className="tabs" aria-label={t("a11y.sections")}>
-          {TABS.map((tab) => (
-            <Link key={tab.to} to={tab.to} className="tab" aria-current={pathname === tab.to || (tab.to !== "/" && pathname.startsWith(tab.to)) ? "page" : undefined}>
-              {t(tab.key)}
-            </Link>
-          ))}
-        </nav>
-        <span className="spring" />
-        <button className="tab" onClick={() => setPaletteOpen(true)} style={{ color: "var(--fg-dim)" }}>
-          ctrl+k
-        </button>
-      </header>
-      <div className="tui-col" style={{ padding: "0 1lh" }}><BrowsersBanner /></div>
-      <div className="tui-col" style={{ padding: "0 1lh" }}><UpdaterBanner /></div>
+    <div style={{ height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <ShellHeader
+        apiOk={health.api === "ok"}
+        workerOk={health.worker === "ok"}
+        redisOk={health.redis === "ok"}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        onOpenPalette={() => setPaletteOpen(true)}
+      />
 
-      <main className="tui-main" id="conteudo">
-        <div className="tui-col">
-          <AuthGate>
-            <Outlet />
-          </AuthGate>
-        </div>
-      </main>
+      <BrowsersBanner />
+      <UpdaterBanner />
 
-      {helpOpen && (
-        <div className="tui-help">{t("help.bar")}</div>
-      )}
+      <div className="zf-shell">
+        <ShellSidebar
+          theme={theme}
+          onOpenPalette={() => setPaletteOpen(true)}
+        />
 
-      <div className="promptbox">
-        <PromptGlobal onPalette={() => setPaletteOpen(true)} />
+        <main className="zf-main-area" id="conteudo">
+          <HubSubNav />
+          <div
+            style={{
+              flex: 1,
+              minHeight: 0,
+              overflow: "auto",
+              display: "flex",
+              flexDirection: "column",
+              padding: pathname === "/chat" ? 0 : "16px 24px",
+            }}
+          >
+            <AuthGate>
+              <Outlet />
+            </AuthGate>
+          </div>
+        </main>
       </div>
 
-      <footer className="statusbar">
-        <Dot on={health.api === "ok"} label="api" />
-        <Dot on={health.redis === "ok"} label="redis" />
-        <Dot on={health.worker === "ok"} label="worker" />
-        <span className="spring" />
-        <span role="group" aria-label="language / idioma">
-          {LANG_ORDER.map((l) => (
-            <button
-              key={l}
-              className="pendbtn"
-              onClick={() => setLang(l)}
-              aria-pressed={getLang() === l}
-              style={getLang() === l ? { color: "var(--fg)" } : undefined}
-            >
-              {LANG_LABEL[l]}
-            </button>
-          ))}
-        </span>
-        <button className="pendbtn" onClick={toggleTheme}>{t("nav.theme")}: {theme}</button>
-        <button className="pendbtn" onClick={() => setHelpOpen((v) => !v)}>{t("nav.help")}</button>
-      </footer>
-
-      <Palette open={paletteOpen} onClose={closePalette} onTheme={toggleTheme} />
-    </div>
-  )
-}
-
-/** The bottom prompt: `❯ jump <url>` runs, `❯ <palavra>` filters the current screen. */
-function PromptGlobal({ onPalette }: { onPalette: () => void }) {
-  const t = useT()
-  const navigate = useNavigate()
-  const [value, setValue] = useState("")
-
-  const run = (raw: string) => {
-    const v = raw.trim()
-    setValue("")
-    if (!v) return
-    const [name, ...rest] = v.split(/\s+/)
-    const cmd = name.toLowerCase()
-    const arg = rest.join(" ")
-
-    if ((cmd === "jump" || cmd === "tongue") && arg) {
-      navigate({ to: "/probe", search: { url: arg } }).catch(() => {})
-      return
-    }
-    if (cmd === "jump" || cmd === "tongue" || cmd === "probe") {
-      navigate({ to: "/probe" })
-      return
-    }
-    if (cmd === "chat" || cmd === "ask") {
-      navigate({ to: "/chat" })
-      return
-    }
-    if (cmd === "comparar" || cmd === "compare" || cmd === "trends") {
-      navigate({ to: "/comparar" })
-      return
-    }
-    if (cmd === "datasets" || cmd === "dataset") {
-      navigate({ to: "/datasets" })
-      return
-    }
-    if (cmd === "grafo" || cmd === "graph") {
-      navigate({ to: "/grafo" })
-      return
-    }
-    if (cmd === "precos" || cmd === "preco" || cmd === "prices" || cmd === "price") {
-      navigate({ to: "/precos" })
-      return
-    }
-    if (cmd === "graphql" || cmd === "gql") {
-      navigate({ to: "/graphql" })
-      return
-    }
-    if (cmd === "colecao" || cmd === "pond" || cmd === "cards") {
-      navigate({ to: "/colecao" })
-      return
-    }
-    if (cmd === "busca" || cmd === "search") {
-      navigate({ to: "/busca", search: arg ? { q: arg } : undefined }).catch(() => {})
-      return
-    }
-    if (cmd === "captura") {
-      navigate({ to: "/captura" })
-      return
-    }
-    if (cmd === "qualidade" || cmd === "arweave" || cmd === "ipfs") {
-      navigate({ to: "/qualidade" })
-      return
-    }
-    if (cmd === "workers" || cmd === "dispatch") {
-      navigate({ to: "/workers" })
-      return
-    }
-    if (cmd === "ajuda" || cmd === "help" || cmd === "?") {
-      navigate({ to: "/ajuda" })
-      return
-    }
-    if (cmd === "config") {
-      navigate({ to: "/config" })
-      return
-    }
-
-    // Any other text: treat as a text filter on the runs screen
-    navigate({ to: "/", search: { q: v } }).catch(() => {})
-  }
-
-  return (
-    <div className="tui-prompt">
-      <span className="caret">❯</span>
-      <input
-        type="text"
-        value={value}
-        autoComplete="off"
-        spellCheck={false}
-        placeholder={t("prompt.placeholder")}
-        aria-label={t("prompt.aria")}
-        onChange={(e) => setValue(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") run(value)
-          else if (e.key === "Escape") { setValue(""); onPalette() }
-        }}
+      <CommandPalette
+        open={paletteOpen}
+        onClose={closePalette}
+        onTheme={toggleTheme}
       />
     </div>
   )
 }
 
-export const Route = createRootRoute({
-  component: () => {
-    const t = useT()
-    return (
+function RootComponent() {
+  const t = useT()
+  return (
     <QueryClientProvider client={queryClient}>
       <ToastRegion>
         <a className="skip-link" href="#conteudo">
@@ -460,6 +212,9 @@ export const Route = createRootRoute({
         </AuthGate>
       </ToastRegion>
     </QueryClientProvider>
-    )
-  },
+  )
+}
+
+export const Route = createRootRoute({
+  component: RootComponent,
 })

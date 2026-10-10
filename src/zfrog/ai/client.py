@@ -22,8 +22,6 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from zfrog.config import settings
-
 
 def _litellm():
     """Import LiteLLM, with its provider banner turned off.
