@@ -44,7 +44,7 @@
     "externalBin": [
       "binaries/zfrog-api"
     ],
-    "createUpdaterArtifacts": "v1Compatible"
+    "createUpdaterArtifacts": false
   },
   "plugins": {
     "shell": {
