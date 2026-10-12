@@ -5,6 +5,7 @@ import { QueryClientProvider } from "@tanstack/react-query"
 import "@fontsource/iosevka/400.css"
 import "@fontsource/iosevka/500.css"
 import "../styles/tui.css"
+import "../styles/zfrog.css"
 import { queryClient } from "@/lib/query-client"
 import { AuthGate } from "@/components/AuthGate"
 import { ToastRegion } from "@/components/ToastRegion"
@@ -34,16 +35,15 @@ function useServerHealth(): { api: Health; redis: Health; worker: Health } {
       const base = effectiveApiUrl(API_URL)
       try {
         const r = await fetch(`${base}/health`, { headers: { ...desktopHeaders() } })
-        let body: { checks?: Record<string, { ok?: boolean }> } | null = null
-        try {
-          body = (await r.json()) as { checks?: Record<string, { ok?: boolean }> }
-        } catch {
-          return { api: false as const, redis: false as const }
+        const raw = (await r.json()) as unknown
+        if (raw !== null && typeof raw === "object" && "checks" in raw) {
+          const body = raw as { checks?: Record<string, { ok?: boolean }> }
+          return {
+            api: true as const,
+            redis: body.checks?.redis?.ok === true,
+          }
         }
-        return {
-          api: true as const,
-          redis: body?.checks?.redis?.ok === true,
-        }
+        return { api: false as const, redis: false as const }
       } catch {
         return { api: false as const, redis: false as const }
       }
@@ -81,15 +81,15 @@ function BrowsersBanner() {
   }
   const msg = s.has_system_channel ? t("browsers.hasSystem") : busy ? t("browsers.downloading") : t("browsers.missing")
   return (
-    <div className="tui-panel" style={{ borderColor: s.has_system_channel ? "var(--muted)" : "var(--warning, var(--accent))", margin: "0.5lh 0", display: "flex", gap: "1ch", alignItems: "center", flexWrap: "wrap" }}>
-      <span style={{ color: "var(--fg-dim)" }}>{msg}</span>
+    <div className="zf-panel" style={{ borderColor: s.has_system_channel ? "var(--border)" : "var(--warn)", margin: "var(--s2) 0", display: "flex", gap: "var(--s2)", alignItems: "center", flexWrap: "wrap", padding: "var(--s3) var(--s4)" }}>
+      <span style={{ color: "var(--muted)" }}>{msg}</span>
       {!s.has_system_channel && (
-        <button className="tui-btn accent" onClick={onInstall} disabled={busy} style={{ marginLeft: "auto" }}>
+        <button className="zf-btn zf-btn--primary" onClick={onInstall} disabled={busy} style={{ marginLeft: "auto" }}>
           {busy ? <Spinner /> : null} {t("browsers.install")}
         </button>
       )}
-      <button className="tui-btn" onClick={() => api.getBrowsersStatus().then(setS).catch(() => {})} disabled={busy}>{t("browsers.retry")}</button>
-      <button className="tui-btn" onClick={() => setDismissed(true)}>{t("browsers.dismiss")}</button>
+      <button className="zf-btn" onClick={() => api.getBrowsersStatus().then(setS).catch(() => {})} disabled={busy}>{t("browsers.retry")}</button>
+      <button className="zf-btn" onClick={() => setDismissed(true)}>{t("browsers.dismiss")}</button>
     </div>
   )
 }
@@ -107,52 +107,82 @@ function UpdaterBanner() {
       if (update) { setVersion(update.version || ""); setState("available") }
     } catch { /* offline or no updater config */ }
   }, [])
+  useEffect(() => { void check() }, [check])
   const install = useCallback(async () => {
     setState("downloading")
     try {
       const update = await checkUpdate()
       if (!update) { setState("idle"); return }
-      await update.downloadAndInstall((ev: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-        if (ev.event === "Progress") { setProgress((v) => Math.min(99, v + 1)) }
+      await update.downloadAndInstall((ev: unknown) => {
+        if (ev !== null && typeof ev === "object" && "event" in ev && ev.event === "Progress") { setProgress((v) => Math.min(99, v + 1)) }
       })
       setState("ready")
     } catch { setState("idle") }
   }, [])
-  useEffect(() => { check() }, [check])
   if (state === "idle") return null
-  if (state === "ready") return <div style={{ padding: "8px 16px", borderBottom: "1px solid var(--line)", background: "var(--bg-raised)" }}><span className="tui-hint">Atualização v{version} instalada — reinicie o app.</span></div>
-  if (state === "downloading") return <div style={{ padding: "8px 16px", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "center", gap: 12, background: "var(--bg-raised)" }}><Spinner /><span className="tui-hint">Baixando v{version}… {progress}%</span></div>
-  return <div style={{ padding: "8px 16px", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "center", gap: 12, background: "var(--bg-raised)" }}><span className="tui-hint">Nova versão v{version} disponível.</span><button className="tui-btn" onClick={install} style={{ fontSize: 12, padding: "4px 10px" }}>Atualizar agora</button><button className="tui-btn" onClick={() => setState("idle")} style={{ fontSize: 12, padding: "4px 10px" }}>Depois</button></div>
+  if (state === "ready") return <div style={{ padding: "var(--s2) var(--s4)", borderBottom: "1px solid var(--border)", background: "var(--surface)" }}><span className="zf-meta">Atualização v{version} instalada — reinicie o app.</span></div>
+  if (state === "downloading") return <div style={{ padding: "var(--s2) var(--s4)", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: "var(--s3)", background: "var(--surface)" }}><Spinner /><span className="zf-meta">Baixando v{version}… {progress}%</span></div>
+  return <div style={{ padding: "var(--s2) var(--s4)", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: "var(--s3)", background: "var(--surface)" }}><span className="zf-meta">Nova versão v{version} disponível.</span><button className="zf-btn" onClick={install} style={{ fontSize: "12px", padding: "4px 10px" }}>Atualizar agora</button><button className="zf-btn" onClick={() => setState("idle")} style={{ fontSize: "12px", padding: "4px 10px" }}>Depois</button></div>
 }
+
+const RAIL_COLLAPSE_KEY = "zfrog-sidebar-collapsed"
 
 function Shell() {
   const pathname = useLocation({ select: (l) => l.pathname })
   const [theme, toggleTheme] = useTheme()
   const [paletteOpen, setPaletteOpen] = useState(false)
   const health = useServerHealth()
+  const [railCollapsed, setRailCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(RAIL_COLLAPSE_KEY) === "1"
+    } catch {
+      return false
+    }
+  })
+
+  const toggleRail = useCallback(() => {
+    setRailCollapsed((prev) => {
+      const next = !prev
+      try {
+        localStorage.setItem(RAIL_COLLAPSE_KEY, next ? "1" : "0")
+      } catch {
+        /* ignore */
+      }
+      return next
+    })
+  }, [])
 
   useEffect(() => {
     initLang()
   }, [])
 
-  // ctrl+k / cmd+k palette shortcut
+  // ctrl+k / cmd+k palette shortcut + "[" rail toggle
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null
+      const isInput =
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        target?.tagName === "SELECT" ||
+        Boolean(target?.isContentEditable)
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault()
         setPaletteOpen((v) => !v)
+      } else if (e.key === "[" && !e.metaKey && !e.ctrlKey && !e.altKey && !isInput) {
+        e.preventDefault()
+        toggleRail()
       } else if (e.key === "Escape") {
         setPaletteOpen(false)
       }
     }
     document.addEventListener("keydown", onKey)
     return () => document.removeEventListener("keydown", onKey)
-  }, [])
+  }, [toggleRail])
 
   const closePalette = useCallback(() => setPaletteOpen(false), [])
 
   return (
-    <div style={{ height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <>
       <ShellHeader
         apiOk={health.api === "ok"}
         workerOk={health.worker === "ok"}
@@ -165,29 +195,21 @@ function Shell() {
       <BrowsersBanner />
       <UpdaterBanner />
 
-      <div className="zf-shell">
+      <div className="zf-body" data-rail={railCollapsed ? "collapsed" : "open"} id="shell">
         <ShellSidebar
-          theme={theme}
+          collapsed={railCollapsed}
+          onToggleCollapsed={toggleRail}
           onOpenPalette={() => setPaletteOpen(true)}
         />
 
-        <main className="zf-main-area" id="conteudo">
+        <div className="zf-main">
           <HubSubNav />
-          <div
-            style={{
-              flex: 1,
-              minHeight: 0,
-              overflow: "auto",
-              display: "flex",
-              flexDirection: "column",
-              padding: pathname === "/chat" ? 0 : "16px 24px",
-            }}
-          >
+          <div className={pathname === "/chat" ? "zf-view zf-view--full" : "zf-view"} id="conteudo">
             <AuthGate>
               <Outlet />
             </AuthGate>
           </div>
-        </main>
+        </div>
       </div>
 
       <CommandPalette
@@ -195,7 +217,7 @@ function Shell() {
         onClose={closePalette}
         onTheme={toggleTheme}
       />
-    </div>
+    </>
   )
 }
 
