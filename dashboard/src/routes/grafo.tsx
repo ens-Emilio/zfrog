@@ -4,7 +4,7 @@ import { useState } from "react"
 import { api, GraphResponse, GraphNode } from "@/lib/api"
 import { useT } from "@/lib/i18n"
 import { useToast } from "@/components/ToastRegion"
-import { SYM, Spinner, TuiPanel, TuiCombobox } from "@/components/ui/tui"
+import { Spinner } from "@/components/ui/tui"
 
 type NodeFilter = "all" | "page" | "entity" | "external" | "asset"
 
@@ -16,11 +16,6 @@ const FILTER_KEYS = {
   asset: "grafo.filterAsset",
 } as const
 
-/** Fill {name} placeholders in a translated string. */
-function fmt(s: string, vars: Record<string, string | number>): string {
-  return s.replace(/\{(\w+)\}/g, (_, k) => String(vars[k] ?? ""))
-}
-
 function GrafoPage() {
   const t = useT()
   const toast = useToast()
@@ -31,7 +26,6 @@ function GrafoPage() {
   const [graphData, setGraphData] = useState<GraphResponse | null>(null)
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null)
 
-  // Catalog sites for quick filling
   const catalogQuery = useQuery({
     queryKey: ["catalog-sites"],
     queryFn: () => api.getCatalogSites(),
@@ -43,7 +37,6 @@ function GrafoPage() {
     detail: `${s.count} ${t("grafo.catalogRefs")}`,
   }))
 
-  // Graph mutation
   const graphMutation = useMutation({
     mutationFn: async () => {
       const dir = selectedDir.trim()
@@ -55,13 +48,13 @@ function GrafoPage() {
       setGraphData(data)
       setSelectedNode(null)
       toast(
-        fmt(t("grafo.success"), { nodes: data.nodes.length, edges: data.edges.length }),
+        t("grafo.success").replace("{nodes}", String(data.nodes.length)).replace("{edges}", String(data.edges.length)),
         "ok",
       )
     },
     onError: (err: unknown) => {
       const msg = err instanceof Error ? err.message : String(err)
-      toast(fmt(t("grafo.mapError"), { msg }), "err")
+      toast(t("grafo.mapError").replace("{msg}", msg), "err")
     },
   })
 
@@ -85,106 +78,109 @@ function GrafoPage() {
   }
 
   return (
-    <TuiPanel
-      title={t("grafo.title")}
-      action={
-        <div className="flex items-center gap-2">
-          {graphData && (
-            <button type="button" className="tui-btn text-xs" onClick={exportJSON}>
-              {t("grafo.exportMap")}
-            </button>
-          )}
-        </div>
-      }
-    >
-      <div className="text-xs text-[var(--fg-dim)] border-b border-[var(--line)] pb-2 mb-3">
-        {t("grafo.description")}
+    <>
+      <div className="zf-head">
+        <h1 className="zf-title">{t("grafo.title")}</h1>
+        <span className="zf-meta">{t("grafo.description")}</span>
+        <span style={{ flex: 1 }} />
+        {graphData && (
+          <button type="button" className="zf-btn" onClick={exportJSON}>
+            {t("grafo.exportMap")}
+          </button>
+        )}
       </div>
 
-      {/* Top configuration panel */}
-      <div className="border border-[var(--line)] bg-[var(--bg-raised)] p-4 mb-4 text-xs">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
-          <div className="md:col-span-2">
-            <label className="text-[var(--fg-dim)] block mb-1.5">{t("grafo.siteDirLabel")}</label>
-            <div className="flex flex-wrap items-center gap-2">
-              <input
-                type="text"
-                className="tui-input flex-1 min-w-[200px]"
-                placeholder={t("grafo.dirPlaceholder")}
-                value={selectedDir}
-                onChange={(e) => setSelectedDir(e.target.value)}
-              />
-              {catalogOptions.length > 0 && (
-                <TuiCombobox
-                  value={selectedDir.replace(/^output\//, "")}
-                  onChange={(val) => setSelectedDir(val ? `output/${val}` : "")}
-                  options={catalogOptions}
-                  placeholder={t("grafo.pickFromCollection")}
-                  emptyLabel={t("tui.noOptions")}
+      <div className="zf-panel" style={{ marginBottom: "var(--s5)" }}>
+        <div className="zf-panel-bd">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "var(--s4)", alignItems: "end" }}>
+            <div className="zf-field" style={{ gridColumn: "span 2" }}>
+              <label className="zf-label" htmlFor="grafo-dir">{t("grafo.siteDirLabel")}</label>
+              <div style={{ display: "flex", gap: "var(--s2)", flexWrap: "wrap" }}>
+                <input
+                  id="grafo-dir"
+                  type="text"
+                  className="zf-input"
+                  style={{ flex: 1, minWidth: 200 }}
+                  placeholder={t("grafo.dirPlaceholder")}
+                  value={selectedDir}
+                  onChange={(e) => setSelectedDir(e.target.value)}
                 />
-              )}
+                {catalogOptions.length > 0 && (
+                  <select
+                    className="zf-select"
+                    value={selectedDir.replace(/^output\//, "")}
+                    onChange={(e) => setSelectedDir(e.target.value ? `output/${e.target.value}` : "")}
+                    aria-label={t("grafo.pickFromCollection")}
+                    style={{ minWidth: 160 }}
+                  >
+                    <option value="">{t("grafo.pickFromCollection")}</option>
+                    {catalogOptions.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label} — {o.detail}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
             </div>
-          </div>
 
-          <div>
-            <label className="text-[var(--fg-dim)] block mb-1">
-              {t("grafo.depthLabel")}
-            </label>
-            <div className="flex items-center gap-2">
-              {[1, 2, 3].map((d) => (
-                <button
-                  key={d}
-                  type="button"
-                  className={`tgl px-2 py-0.5 ${maxDepth === d ? "font-bold" : ""}`}
-                  aria-pressed={maxDepth === d}
-                  onClick={() => setMaxDepth(d)}
-                >
-                  {d} {d === 1 ? t("grafo.levelOne") : t("grafo.levelMany")}
-                </button>
-              ))}
+            <div className="zf-field">
+              <span className="zf-label">{t("grafo.depthLabel")}</span>
+              <div style={{ display: "flex", gap: "var(--s1)" }}>
+                {[1, 2, 3].map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    className="zf-pill"
+                    aria-pressed={maxDepth === d}
+                    onClick={() => setMaxDepth(d)}
+                  >
+                    {d} {d === 1 ? t("grafo.levelOne") : t("grafo.levelMany")}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
 
-          <div className="flex flex-col gap-2">
-            <label className="flex items-center gap-1.5 cursor-pointer text-[11px]">
-              <input
-                type="checkbox"
-                checked={extractEntities}
-                onChange={(e) => setExtractEntities(e.target.checked)}
-              />
-              <span>{t("grafo.extractEntities")}</span>
-            </label>
-            <button
-              type="button"
-              className="tui-btn accent text-xs w-full"
-              onClick={() => graphMutation.mutate()}
-              disabled={graphMutation.isPending}
-            >
-              {graphMutation.isPending ? <Spinner /> : SYM.ok} {t("grafo.mapConnections")}
-            </button>
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--s2)" }}>
+              <label className="zf-check">
+                <input
+                  type="checkbox"
+                  checked={extractEntities}
+                  onChange={(e) => setExtractEntities(e.target.checked)}
+                />
+                <span>{t("grafo.extractEntities")}</span>
+              </label>
+              <button
+                type="button"
+                className="zf-btn zf-btn--primary"
+                style={{ width: "100%" }}
+                onClick={() => graphMutation.mutate()}
+                disabled={graphMutation.isPending}
+              >
+                {graphMutation.isPending ? <Spinner /> : "✓"} {t("grafo.mapConnections")}
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
       {graphData && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 text-xs">
-          {/* Columns 1 and 2: nodes and TUI visualization */}
-          <div className="tui-panel lg:col-span-2 p-4 flex flex-col gap-3">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--line)] pb-2">
-              <div className="font-bold flex items-center gap-3">
-                <span className="uppercase tracking-wide">
-                  {fmt(t("grafo.mappedElements"), { count: filteredNodes.length })}
-                </span>
-                <span className="text-[var(--fg-dim)]">
-                  {fmt(t("grafo.totalConnections"), { count: edges.length })}
-                </span>
-              </div>
-              <div className="toggles text-[10px]" role="group" aria-label={t("grafo.nodeFilterAria")}>
+        <div className="zf-split" style={{ gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1fr)" }}>
+          <div className="zf-panel">
+            <div className="zf-panel-hd">
+              <span className="zf-micro">
+                {t("grafo.mappedElements").replace("{count}", String(filteredNodes.length))}
+              </span>
+              <span className="zf-micro" style={{ color: "var(--muted)" }}>
+                {t("grafo.totalConnections").replace("{count}", String(edges.length))}
+              </span>
+              <span style={{ flex: 1 }} />
+              <div role="group" aria-label={t("grafo.nodeFilterAria")} style={{ display: "flex", gap: "var(--s1)", flexWrap: "wrap" }}>
                 {(["all", "page", "entity", "external", "asset"] as NodeFilter[]).map((f) => (
                   <button
                     key={f}
                     type="button"
-                    className="tgl"
+                    className="zf-pill"
                     aria-pressed={nodeFilter === f}
                     onClick={() => setNodeFilter(f)}
                   >
@@ -193,11 +189,9 @@ function GrafoPage() {
                 ))}
               </div>
             </div>
-
-            {/* Matrix / node list with centrality */}
-            <div className="overflow-y-auto max-h-[460px] space-y-1 pr-1 font-mono text-[11px]">
+            <div style={{ maxHeight: 460, overflowY: "auto", display: "flex", flexDirection: "column", gap: 1, padding: "var(--s2)" }}>
               {filteredNodes.length === 0 && (
-                <p className="text-[var(--fg-dim)] py-4">{t("grafo.noNodesMatch")}</p>
+                <div className="zf-empty" style={{ margin: "var(--s4) 0" }}>{t("grafo.noNodesMatch")}</div>
               )}
               {filteredNodes.map((n) => {
                 const incomingEdges = edges.filter((e) => e.target === n.id).length
@@ -208,98 +202,97 @@ function GrafoPage() {
                   <button
                     key={n.id}
                     type="button"
-                    className={`w-full text-left p-1.5 border flex items-center justify-between gap-2 ${
-                      isSelected
-                        ? "border-[var(--accent)] bg-[var(--bg-raised)] font-bold"
-                        : "border-[var(--line)] hover:border-[var(--line)]"
-                    }`}
                     onClick={() => setSelectedNode(n)}
+                    style={{
+                      width: "100%",
+                      textAlign: "left",
+                      padding: "var(--s2) var(--s3)",
+                      border: "1px solid var(--border)",
+                      borderRadius: "var(--radius)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: "var(--s3)",
+                      background: isSelected ? "var(--sel-bg)" : "var(--surface)",
+                      borderColor: isSelected ? "var(--accent)" : "var(--border)",
+                      fontWeight: isSelected ? 600 : 400,
+                    }}
                   >
-                    <div className="flex items-center gap-2 truncate">
-                      <span className="text-[var(--accent)]">
+                    <span style={{ display: "flex", alignItems: "center", gap: "var(--s2)", minWidth: 0 }}>
+                      <span style={{ color: "var(--accent)", fontSize: "var(--fs-meta)" }}>
                         {n.type === "page" ? "📄" : n.type === "entity" ? "🏷️" : "🔗"}
                       </span>
-                      <span className="truncate">{n.label || n.id}</span>
-                      <span className="text-[10px] text-[var(--fg-dim)] uppercase">
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "var(--font-mono)", fontSize: "var(--fs-meta)" }}>{n.label || n.id}</span>
+                      <span className="zf-micro" style={{ textTransform: "uppercase" }}>
                         [{n.type in FILTER_KEYS ? t(FILTER_KEYS[n.type as NodeFilter]) : n.type}]
                       </span>
-                    </div>
-                    <div className="text-[10px] text-[var(--fg-dim)] shrink-0 flex gap-2">
-                      <span>{fmt(t("grafo.receives"), { count: incomingEdges })}</span>
-                      <span>{fmt(t("grafo.points"), { count: outgoingEdges })}</span>
-                    </div>
+                    </span>
+                    <span className="zf-micro" style={{ display: "flex", gap: "var(--s3)", flexShrink: 0, textTransform: "none", letterSpacing: 0 }}>
+                      <span>{t("grafo.receives").replace("{count}", String(incomingEdges))}</span>
+                      <span>{t("grafo.points").replace("{count}", String(outgoingEdges))}</span>
+                    </span>
                   </button>
                 )
               })}
             </div>
           </div>
 
-          {/* Column 3: selected node details */}
-          <div className="tui-panel lg:col-span-1 p-4 flex flex-col gap-3">
-            <div className="font-bold border-b border-[var(--line)] pb-1 uppercase tracking-wide">
-              {t("grafo.selectionDetails")}
+          <div className="zf-panel">
+            <div className="zf-panel-hd">
+              <span className="zf-micro">{t("grafo.selectionDetails")}</span>
             </div>
+            <div className="zf-panel-bd">
+              {selectedNode ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: "var(--s4)" }}>
+                  <div className="zf-field">
+                    <span className="zf-label">{t("grafo.addressId")}</span>
+                    <div className="zf-num" style={{ fontSize: "var(--fs-meta)", wordBreak: "break-all", fontWeight: 600 }}>{selectedNode.id}</div>
+                  </div>
+                  <div className="zf-field">
+                    <span className="zf-label">{t("grafo.category")}</span>
+                    <span className="zf-pill" style={{ alignSelf: "flex-start", cursor: "default" }}>
+                      {selectedNode.type in FILTER_KEYS ? t(FILTER_KEYS[selectedNode.type as NodeFilter]) : selectedNode.type}
+                    </span>
+                  </div>
 
-            {selectedNode ? (
-              <div className="space-y-3">
-                <div>
-                  <span className="text-[var(--fg-dim)] block text-[10px]">{t("grafo.addressId")}</span>
-                  <div className="font-mono break-all font-semibold">{selectedNode.id}</div>
-                </div>
-                <div>
-                  <span className="text-[var(--fg-dim)] block text-[10px]">{t("grafo.category")}</span>
-                  <span className="px-1.5 py-0.5 border border-[var(--line)] font-mono uppercase text-[10px]">
-                    {selectedNode.type in FILTER_KEYS
-                      ? t(FILTER_KEYS[selectedNode.type as NodeFilter])
-                      : selectedNode.type}
-                  </span>
-                </div>
+                  <div style={{ borderTop: "1px solid var(--border)", paddingTop: "var(--s3)" }}>
+                    <span className="zf-micro" style={{ display: "block", marginBottom: "var(--s2)", textTransform: "none", letterSpacing: 0, fontWeight: 600 }}>
+                      {t("grafo.outgoing").replace("{count}", String(edges.filter((e) => e.source === selectedNode.id).length))}
+                    </span>
+                    <div style={{ maxHeight: 144, overflowY: "auto", display: "flex", flexDirection: "column", gap: "var(--s1)" }}>
+                      {edges
+                        .filter((e) => e.source === selectedNode.id)
+                        .map((e, i) => (
+                          <div key={i} className="zf-pre" style={{ padding: "var(--s2)", fontSize: "var(--fs-micro)" }}>
+                            ➔ {e.target} <span style={{ color: "var(--muted)" }}>({e.type})</span>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
 
-                {/* Outgoing connections */}
-                <div className="border-t border-[var(--line)] pt-2">
-                  <span className="text-[var(--fg-dim)] block font-semibold mb-1">
-                    {fmt(t("grafo.outgoing"), {
-                      count: edges.filter((e) => e.source === selectedNode.id).length,
-                    })}
-                  </span>
-                  <div className="max-h-36 overflow-y-auto space-y-1 font-mono text-[10px]">
-                    {edges
-                      .filter((e) => e.source === selectedNode.id)
-                      .map((e, i) => (
-                        <div key={i} className="truncate p-1 bg-[var(--bg-raised)] border border-[var(--line)]">
-                          ➔ {e.target} <span className="text-[var(--fg-dim)]">({e.type})</span>
-                        </div>
-                      ))}
+                  <div style={{ borderTop: "1px solid var(--border)", paddingTop: "var(--s3)" }}>
+                    <span className="zf-micro" style={{ display: "block", marginBottom: "var(--s2)", textTransform: "none", letterSpacing: 0, fontWeight: 600 }}>
+                      {t("grafo.incoming").replace("{count}", String(edges.filter((e) => e.target === selectedNode.id).length))}
+                    </span>
+                    <div style={{ maxHeight: 144, overflowY: "auto", display: "flex", flexDirection: "column", gap: "var(--s1)" }}>
+                      {edges
+                        .filter((e) => e.target === selectedNode.id)
+                        .map((e, i) => (
+                          <div key={i} className="zf-pre" style={{ padding: "var(--s2)", fontSize: "var(--fs-micro)" }}>
+                            ⬅ {e.source}
+                          </div>
+                        ))}
+                    </div>
                   </div>
                 </div>
-
-                {/* Incoming connections */}
-                <div className="border-t border-[var(--line)] pt-2">
-                  <span className="text-[var(--fg-dim)] block font-semibold mb-1">
-                    {fmt(t("grafo.incoming"), {
-                      count: edges.filter((e) => e.target === selectedNode.id).length,
-                    })}
-                  </span>
-                  <div className="max-h-36 overflow-y-auto space-y-1 font-mono text-[10px]">
-                    {edges
-                      .filter((e) => e.target === selectedNode.id)
-                      .map((e, i) => (
-                        <div key={i} className="truncate p-1 bg-[var(--bg-raised)] border border-[var(--line)]">
-                          ⬅ {e.source}
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="text-[var(--fg-dim)] py-8 text-center">
-                {t("grafo.selectToInspect")}
-              </div>
-            )}
+              ) : (
+                <div className="zf-empty">{t("grafo.selectToInspect")}</div>
+              )}
+            </div>
           </div>
         </div>
       )}
-    </TuiPanel>
+    </>
   )
 }
 

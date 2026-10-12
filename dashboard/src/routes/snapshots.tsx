@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { api, DiffReport, SnapshotEntry } from "@/lib/api"
 import { formatStamp } from "@/lib/utils"
-import { Spinner, SYM } from "@/components/ui/tui"
+import { Spinner } from "@/components/ui/tui"
 import { useT } from "@/lib/i18n"
 
 const MAX_ROWS = 200
@@ -66,31 +66,31 @@ function SnapshotsPage() {
 
   return (
     <>
-      <div className="flex items-baseline justify-between">
-        <h1>{t("snapshots.title")}</h1>
-        <span className="text-[12px]" style={{ color: "var(--fg-dim)" }}>
+      <div className="zf-head">
+        <h1 className="zf-title">{t("snapshots.title")}</h1>
+        <span className="zf-meta">
           {snapshots.length} {t("snapshots.snapshotsWord")} {t("snapshots.inWord")} {slugs.length} {t("snapshots.sitesWord")}
         </span>
+        <span style={{ flex: 1 }} />
       </div>
 
       {error && (
-        <div className="tui-panel" style={{ borderColor: "var(--error)" }}>
-          <p style={{ color: "var(--error)" }}>{SYM.fail} {t("snapshots.loadError")}{error}</p>
+        <div className="zf-panel" style={{ borderColor: "var(--error)", padding: "var(--s4)", marginBottom: "var(--s4)" }}>
+          <p style={{ color: "var(--error)", margin: 0 }}>✗ {t("snapshots.loadError")}{error}</p>
         </div>
       )}
 
-      {/* Site selector and actions */}
-      <div className="filters flex-wrap" style={{ gap: "1ch 1.5ch", marginTop: "0.5lh" }}>
+      <div className="zf-filters" style={{ marginBottom: "var(--s5)" }}>
         {slugs.length > 0 && (
           <select
-            className="tui-select"
+            className="zf-select"
             value={slug}
             onChange={(e) => {
               setSlug(e.target.value)
               setSelected([])
               setReport(null)
             }}
-            style={{ width: "auto", padding: "0.1lh 0.75ch" }}
+            style={{ width: "auto", minWidth: 180 }}
             aria-label={t("snapshots.selectSiteAria")}
           >
             {slugs.map((s) => (
@@ -103,7 +103,7 @@ function SnapshotsPage() {
 
         <button
           type="button"
-          className="tui-btn accent"
+          className="zf-btn zf-btn--primary"
           disabled={selected.length !== 2 || comparing}
           onClick={() => void runCompare()}
         >
@@ -113,7 +113,7 @@ function SnapshotsPage() {
         {selected.length > 0 && (
           <button
             type="button"
-            className="tui-btn"
+            className="zf-btn"
             onClick={() => {
               setSelected([])
               setReport(null)
@@ -124,77 +124,101 @@ function SnapshotsPage() {
         )}
       </div>
 
-      {/* Snapshot list for the site */}
       {loading ? (
-        <p className="empty"><Spinner /> {t("snapshots.loading")}</p>
+        <div className="zf-empty"><Spinner /> {t("snapshots.loading")}</div>
       ) : items.length === 0 ? (
-        <p className="empty">{t("snapshots.empty")}</p>
+        <div className="zf-empty">{t("snapshots.empty")}</div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: report ? "1fr 1fr" : "1fr", gap: "2ch", marginTop: "0.5lh" }}>
-          <div>
-            <span className="tui-label">{t("snapshots.savedListLabel")}</span>
-            <div className="rows" style={{ marginTop: "0.25lh" }}>
+        <div className="zf-split zf-split--2">
+          <div className="zf-panel">
+            <div className="zf-panel-hd">
+              <span className="zf-micro">{t("snapshots.savedListLabel")}</span>
+              <span style={{ flex: 1 }} />
+              <span className="zf-micro">{items.length} {t("snapshots.versions")}</span>
+            </div>
+            <div className="zf-list">
               {items.map((snap) => {
                 const isChecked = selected.includes(snap.file)
                 return (
-                  <div
+                  <button
                     key={snap.file}
-                    className={`runrow${isChecked ? " sel" : ""}`}
+                    type="button"
                     onClick={() => toggleSelect(snap.file)}
-                    style={{ cursor: "pointer", gridTemplateColumns: "2ch 16ch 1fr auto" }}
+                    aria-pressed={isChecked}
+                    className={isChecked ? "sel" : undefined}
+                    style={{
+                      textAlign: "left",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "var(--s3)",
+                      width: "100%",
+                      border: "none",
+                      background: isChecked ? "var(--sel-bg)" : "transparent",
+                      boxShadow: isChecked ? "inset 2px 0 0 var(--accent)" : "none",
+                      padding: "var(--s2) var(--s4)",
+                      borderBottom: "1px solid var(--border)",
+                      fontFamily: "var(--font-mono)",
+                      fontSize: "var(--fs-meta)",
+                    }}
                   >
-                    <span>{isChecked ? "[x]" : "[ ]"}</span>
-                    <span>{formatStamp(snap.captured_at)}</span>
-                    <span style={{ color: "var(--fg-dim)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <span style={{ color: isChecked ? "var(--accent)" : "var(--muted)", flexShrink: 0 }}>{isChecked ? "☑" : "☐"}</span>
+                    <span style={{ flexShrink: 0 }}>{formatStamp(snap.captured_at)}</span>
+                    <span style={{ color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
                       {snap.file}
                     </span>
-                    <span style={{ color: "var(--fg-dim)" }}>
+                    <span className="zf-micro" style={{ flexShrink: 0, textTransform: "none", letterSpacing: 0 }}>
                       {snap.pages} {t("snapshots.pagesSuffix")}
                     </span>
-                  </div>
+                  </button>
                 )
               })}
             </div>
           </div>
 
-          {/* Diff report */}
-          {report && (
-            <div className="tui-panel" style={{ marginTop: 0 }}>
-              <div className="tui-panel-head">
-                <span className="tui-label">{t("snapshots.reportTitle")}</span>
-                <span style={{ fontSize: 11, color: "var(--fg-dim)" }}>
+          {report ? (
+            <div className="zf-panel">
+              <div className="zf-panel-hd">
+                <span className="zf-micro">{t("snapshots.reportTitle")}</span>
+                <span style={{ flex: 1 }} />
+                <span className="zf-micro" style={{ textTransform: "none", letterSpacing: 0 }}>
                   {report.added.length} {t("snapshots.added")} · {report.removed.length} {t("snapshots.removed")} · {report.changed.length} {t("snapshots.changed")}
                 </span>
               </div>
+              <div className="zf-panel-bd">
+                <dl className="zf-kv">
+                  <dt>{t("snapshots.addedPlus")}</dt>
+                  <dd style={{ color: "var(--ok)" }}>{report.added.length}</dd>
+                  <dt>{t("snapshots.removedMinus")}</dt>
+                  <dd style={{ color: "var(--error)" }}>{report.removed.length}</dd>
+                  <dt>{t("snapshots.changedTilde")}</dt>
+                  <dd style={{ color: "var(--warn)" }}>{report.changed.length}</dd>
+                  <dt>{t("snapshots.unchanged")}</dt>
+                  <dd>{report.unchanged.length}</dd>
+                </dl>
 
-              <dl className="tui-kv">
-                <dt>{t("snapshots.addedPlus")}</dt>
-                <dd style={{ color: "var(--ok)" }}>{report.added.length}</dd>
-                <dt>{t("snapshots.removedMinus")}</dt>
-                <dd style={{ color: "var(--error)" }}>{report.removed.length}</dd>
-                <dt>{t("snapshots.changedTilde")}</dt>
-                <dd style={{ color: "var(--warn)" }}>{report.changed.length}</dd>
-                <dt>{t("snapshots.unchanged")}</dt>
-                <dd>{report.unchanged.length}</dd>
-              </dl>
-
-              <div style={{ maxHeight: "320px", overflowY: "auto", fontFamily: "inherit", fontSize: 12 }}>
-                {report.added.slice(0, MAX_ROWS).map((p) => (
-                  <div key={p} style={{ color: "var(--ok)" }}>+ {p}</div>
-                ))}
-                {report.removed.slice(0, MAX_ROWS).map((p) => (
-                  <div key={p} style={{ color: "var(--error)" }}>- {p}</div>
-                ))}
-                {report.changed.slice(0, MAX_ROWS).map((p) => (
-                  <div key={p} style={{ color: "var(--warn)" }}>~ {p}</div>
-                ))}
+                <div style={{ maxHeight: 320, overflowY: "auto", fontFamily: "var(--font-mono)", fontSize: "var(--fs-meta)", display: "flex", flexDirection: "column", gap: 2 }}>
+                  {report.added.slice(0, MAX_ROWS).map((p) => (
+                    <div key={p} style={{ color: "var(--ok)" }}>+ {p}</div>
+                  ))}
+                  {report.removed.slice(0, MAX_ROWS).map((p) => (
+                    <div key={p} style={{ color: "var(--error)" }}>- {p}</div>
+                  ))}
+                  {report.changed.slice(0, MAX_ROWS).map((p) => (
+                    <div key={p} style={{ color: "var(--warn)" }}>~ {p}</div>
+                  ))}
+                </div>
               </div>
             </div>
-          )}
-
-          {compareError && (
-            <div className="tui-panel" style={{ borderColor: "var(--error)" }}>
-              <p style={{ color: "var(--error)" }}>{SYM.fail} {t("snapshots.diffFailed")}{compareError}</p>
+          ) : compareError ? (
+            <div className="zf-panel" style={{ borderColor: "var(--error)", padding: "var(--s4)" }}>
+              <p style={{ color: "var(--error)", margin: 0 }}>✗ {t("snapshots.diffFailed")}{compareError}</p>
+            </div>
+          ) : (
+            <div className="zf-panel">
+              <div className="zf-panel-bd">
+                <div className="zf-empty" style={{ margin: 0 }}>{t("snapshots.empty")}</div>
+              </div>
             </div>
           )}
         </div>

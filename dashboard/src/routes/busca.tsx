@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { useCallback, useMemo, useState } from "react"
 import { api, SearchHit, SearchResponse } from "@/lib/api"
-import { Spinner, SYM } from "@/components/ui/tui"
+import { Spinner } from "@/components/ui/tui"
 import { useT } from "@/lib/i18n"
 
 type SearchMode = "fulltext" | "semantic"
@@ -9,9 +9,9 @@ type SearchMode = "fulltext" | "semantic"
 function hostOf(hit: SearchHit) {
   if (hit.url) {
     try {
-      return new URL(hit.url).host
+      return new URL(hit.url).hostname
     } catch {
-      // relative or malformed
+      return hit.url
     }
   }
   return hit.path
@@ -62,29 +62,32 @@ function BuscaPage() {
 
   return (
     <>
-      <div className="flex items-baseline justify-between">
-        <h1>{t("busca.title")}</h1>
-        <span className="text-[12px]" style={{ color: "var(--fg-dim)" }}>
+      <div className="zf-head">
+        <h1 className="zf-title">{t("busca.title")}</h1>
+        <span className="zf-meta">{t("busca.subtitle")}</span>
+        <span className="spacer" style={{ flex: 1 }} />
+        <span className="zf-micro">
           {loading ? (
-            <span><Spinner /> {t("busca.searching")}</span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <Spinner /> {t("busca.searching")}
+            </span>
           ) : result ? (
             `${hits.length} ${t("busca.resultsCount")}`
           ) : (
-            t("busca.subtitle")
+            "—"
           )}
         </span>
       </div>
 
       {error && (
-        <div className="tui-panel" style={{ borderColor: "var(--error)" }}>
-          <p style={{ color: "var(--error)" }}>{SYM.fail} {t("busca.error")} {error}</p>
+        <div className="zf-panel" style={{ borderColor: "var(--error)", padding: "var(--s4)", marginBottom: "var(--s4)" }}>
+          <p style={{ color: "var(--error)", margin: 0 }}>✗ {t("busca.error")} {error}</p>
         </div>
       )}
 
-      {/* TUI search bar */}
-      <div className="filters flex-wrap" style={{ gap: "1ch 1.5ch", marginTop: "0.5lh" }}>
-        <span className="searchline">
-          <span className="slash">/</span>
+      <div className="zf-filters" style={{ marginBottom: "var(--s5)" }}>
+        <div className="zf-prompt" style={{ flex: 1, minWidth: 220 }}>
+          <span className="zf-meta">⌕</span>
           <input
             type="text"
             value={query}
@@ -94,24 +97,23 @@ function BuscaPage() {
             onKeyDown={(e) => {
               if (e.key === "Enter") void runSearch()
             }}
-            style={{ width: "32ch" }}
             autoFocus
           />
-        </span>
+        </div>
 
         <button
           type="button"
-          className="tui-btn accent"
+          className="zf-btn zf-btn--primary"
           onClick={() => void runSearch()}
           disabled={loading || !query.trim()}
         >
           {t("busca.submit")}
         </button>
 
-        <div className="toggles" role="group" aria-label={t("busca.modeAria")}>
+        <div role="group" aria-label={t("busca.modeAria")} style={{ display: "flex", gap: "var(--s1)", flexWrap: "wrap" }}>
           <button
             type="button"
-            className="tgl"
+            className="zf-pill"
             aria-pressed={mode === "fulltext"}
             onClick={() => {
               setMode("fulltext")
@@ -122,7 +124,7 @@ function BuscaPage() {
           </button>
           <button
             type="button"
-            className="tgl"
+            className="zf-pill"
             aria-pressed={mode === "semantic"}
             onClick={() => {
               setMode("semantic")
@@ -133,7 +135,7 @@ function BuscaPage() {
           </button>
           <button
             type="button"
-            className="tgl"
+            className="zf-pill"
             aria-pressed={titlesOnly}
             onClick={() => setTitlesOnly((v) => !v)}
           >
@@ -143,72 +145,71 @@ function BuscaPage() {
 
         <input
           type="text"
-          className="tui-input"
+          className="zf-input"
           value={dir}
           placeholder={t("busca.dirPlaceholder")}
           aria-label={t("busca.dirAria")}
           onChange={(e) => setDir(e.target.value)}
-          style={{ width: "20ch", padding: "0.1lh 0.75ch", fontSize: 12 }}
+          style={{ width: "22ch" }}
         />
       </div>
 
-      {/* Results */}
       {loading ? (
-        <p className="empty"><Spinner /> {t("busca.scanning")}</p>
+        <div className="zf-empty">
+          <Spinner /> {t("busca.scanning")}
+        </div>
       ) : !result ? (
-        <div className="tui-panel" style={{ marginTop: "1lh", color: "var(--fg-dim)", padding: "12px 16px" }}>
-          <p style={{ margin: 0 }}>
-            {t("busca.emptyIntro")}
-          </p>
+        <div className="zf-panel">
+          <div className="zf-panel-bd">
+            <p className="zf-meta" style={{ margin: 0 }}>
+              {t("busca.emptyIntro")}
+            </p>
+          </div>
         </div>
       ) : result && hits.length === 0 ? (
-        <div className="tui-panel">
-          <p style={{ color: "var(--fg-muted)" }}>
-            {t("busca.noResults")} <b>“{result.query}”</b>.
-          </p>
-          {result.mode === "semantic" && (
-            <p className="tui-hint" style={{ marginTop: "0.25lh" }}>
-              {t("busca.semanticNote")}
+        <div className="zf-panel">
+          <div className="zf-panel-bd">
+            <p style={{ color: "var(--muted)", margin: 0 }}>
+              {t("busca.noResults")} <b>“{result.query}”</b>.
             </p>
-          )}
+            {result.mode === "semantic" && <p className="zf-hint">{t("busca.semanticNote")}</p>}
+          </div>
         </div>
       ) : hits.length > 0 ? (
-        <div className="rows" style={{ marginTop: "0.5lh" }}>
+        <div className="zf-list" style={{ border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--surface)", overflow: "hidden" }}>
           {hits.map((hit, i) => {
             const host = hostOf(hit)
             return (
               <div
                 key={hit.path + i}
                 style={{
-                  borderBottom: "1px solid var(--line)",
-                  padding: "0.5lh 0",
+                  padding: "var(--s3) var(--s4)",
                   display: "flex",
                   flexDirection: "column",
-                  gap: "0.25lh",
+                  gap: "var(--s2)",
+                  borderBottom: i < hits.length - 1 ? "1px solid var(--border)" : "none",
                 }}
               >
-                <div className="flex items-baseline justify-between">
-                  <div className="flex items-baseline gap-2">
-                    <span style={{ fontWeight: 500, color: "var(--fg)" }}>
-                      {hit.title || host}
-                    </span>
-                    <span style={{ color: "var(--fg-dim)", fontSize: 12 }}>
+                <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "var(--s3)", flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: "var(--s2)", minWidth: 0 }}>
+                    <span style={{ fontWeight: 550, color: "var(--fg)", fontSize: "var(--fs-body)" }}>{hit.title || host}</span>
+                    <span className="zf-meta" style={{ fontSize: "var(--fs-micro)" }}>
                       {hit.path}
                     </span>
                   </div>
-                  <span style={{ color: "var(--fg-dim)", fontSize: 12 }}>
-                    {t("busca.score")} {formatScore(hit.score)}
+                  <span className="zf-micro" style={{ whiteSpace: "nowrap" }}>
+                    {t("busca.score")} <span className="zf-num">{formatScore(hit.score)}</span>
                   </span>
                 </div>
 
                 {hit.snippet && (
                   <p
                     style={{
-                      color: "var(--fg-muted)",
-                      fontSize: 12,
-                      paddingLeft: "1ch",
-                      borderLeft: "2px solid var(--line)",
-                      margin: "0.25lh 0",
+                      color: "var(--muted)",
+                      fontSize: "var(--fs-meta)",
+                      paddingLeft: "var(--s3)",
+                      borderLeft: "2px solid var(--border)",
+                      margin: 0,
                     }}
                   >
                     {hit.snippet}
@@ -221,9 +222,9 @@ function BuscaPage() {
                       href={hit.url}
                       target="_blank"
                       rel="noreferrer"
-                      style={{ color: "var(--accent)", fontSize: 12, textDecoration: "none" }}
+                      style={{ color: "var(--accent)", fontSize: "var(--fs-meta)", textDecoration: "none" }}
                     >
-                      {SYM.sub} {hit.url}
+                      ⎿ {hit.url}
                     </a>
                   </div>
                 )}
@@ -232,9 +233,7 @@ function BuscaPage() {
           })}
         </div>
       ) : (
-        <p className="empty">
-          {t("busca.emptyHint")}
-        </p>
+        <div className="zf-empty">{t("busca.emptyHint")}</div>
       )}
     </>
   )

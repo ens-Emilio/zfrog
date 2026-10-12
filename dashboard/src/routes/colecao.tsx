@@ -4,12 +4,12 @@ import { api, CatalogCard } from "@/lib/api"
 import { useToast } from "@/components/ToastRegion"
 import { useT } from "@/lib/i18n"
 import { formatNumber } from "@/lib/utils"
-import { CodeBlock, Gut, Spinner, Swatch, SYM, TuiModal } from "@/components/ui/tui"
+import { Spinner } from "@/components/ui/tui"
 
 /**
- * Collection in TUI: mono grid of references with real screenshots,
- * keyboard navigation shortcuts (j/k / enter), technical legend and
- * detailed token inspection with CSS export (DESIGN.md §6.2).
+ * Collection in zf: grid of references with screenshots,
+ * keyboard navigation j/k / enter, facet chips and detail tokens
+ * with CSS export.
  */
 function CollectionPage() {
   const t = useT()
@@ -153,186 +153,220 @@ function CollectionPage() {
     return () => document.removeEventListener("keydown", onKey)
   }, [cards, sel, selected, confirming, hasFilters])
 
+  const headerCount = loading ? (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+      <Spinner /> {t("colecao.loading")}
+    </span>
+  ) : described ? (
+    t("colecao.resultsFor").replace("{count}", String(cards.length)).replace("{query}", described)
+  ) : hasFilters ? (
+    t("colecao.filteredCount").replace("{count}", String(cards.length)).replace("{total}", formatNumber(total))
+  ) : (
+    t("colecao.totalCount").replace("{total}", formatNumber(total))
+  )
+
   return (
     <>
-      <div className="flex items-baseline justify-between">
-        <h1>{t("colecao.title")}</h1>
-        <span className="text-[12px]" style={{ color: "var(--fg-dim)" }}>
-          {loading ? (
-            <span>
-              <Spinner /> {t("colecao.loading")}
-            </span>
-          ) : described ? (
-            t("colecao.resultsFor").replace("{count}", String(cards.length)).replace("{query}", described)
-          ) : hasFilters ? (
-            t("colecao.filteredCount").replace("{count}", String(cards.length)).replace("{total}", formatNumber(total))
-          ) : (
-            t("colecao.totalCount").replace("{total}", formatNumber(total))
-          )}
+      <div className="zf-head">
+        <h1 className="zf-title">{t("colecao.title")}</h1>
+        <span className="zf-meta">
+          grid · busca + facetas · <kbd>j</kbd> <kbd>k</kbd> · <kbd>↵</kbd> abrir · <kbd>/</kbd> buscar
         </span>
+        <span className="spacer" style={{ flex: 1 }} />
+        <span className="zf-micro">{headerCount}</span>
       </div>
 
       {error && (
-        <div className="tui-panel" style={{ borderColor: "var(--error)" }}>
-          <p style={{ color: "var(--error)" }}>{SYM.fail} {t("colecao.apiError").replace("{error}", error)}</p>
-          <div>
-            <button type="button" className="tui-btn" onClick={() => void load()}>
+        <div className="zf-panel" style={{ borderColor: "var(--error)", padding: "var(--s4)" }}>
+          <p style={{ color: "var(--error)", margin: 0 }}>✗ {t("colecao.apiError").replace("{error}", error)}</p>
+          <div style={{ marginTop: "var(--s2)" }}>
+            <button type="button" className="zf-btn" onClick={() => void load()}>
               {t("colecao.retry")}
             </button>
           </div>
         </div>
       )}
 
-      {/* Monospace filter bar */}
-      <div className="filters flex-wrap" style={{ gap: "1ch 1.5ch" }}>
-        <span className="searchline">
-          <span className="slash">/</span>
-          <input
-            ref={searchInputRef}
-            type="text"
-            value={text}
-            placeholder={t("colecao.searchPlaceholder")}
-            aria-label={t("colecao.searchAria")}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") void runDescriptive()
-            }}
-            style={{ width: "28ch" }}
-          />
-        </span>
+      <div
+        className="zf-panel"
+        style={{
+          padding: "var(--s3) var(--s4)",
+          display: "flex",
+          flexDirection: "column",
+          gap: "var(--s3)",
+          marginBottom: "var(--s4)",
+        }}
+      >
+        <div style={{ display: "flex", gap: "var(--s3)", alignItems: "center", flexWrap: "wrap" }}>
+          <div className="zf-prompt" style={{ flex: 1, minWidth: 220 }}>
+            <span className="zf-meta">⌕</span>
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={text}
+              placeholder={t("colecao.searchPlaceholder")}
+              aria-label={t("colecao.searchAria")}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void runDescriptive()
+              }}
+            />
+            {described && (
+              <span className="zf-micro" style={{ whiteSpace: "nowrap" }}>
+                {cards.length} hit{cards.length === 1 ? "" : "s"}
+              </span>
+            )}
+          </div>
 
-        <button type="button" className="tui-btn accent" onClick={() => void runDescriptive()}>
-          {t("colecao.searchByDescription")}
-        </button>
+          <button type="button" className="zf-btn zf-btn--primary" onClick={() => void runDescriptive()}>
+            {t("colecao.searchByDescription")}
+          </button>
 
-        {sites.length > 0 && (
-          <select
-            className="tui-select"
-            value={site ?? ""}
-            onChange={(e) => setSite(e.target.value || null)}
-            style={{ width: "auto", padding: "0.1lh 0.75ch" }}
-            aria-label={t("colecao.filterBySite")}
-          >
-            <option value="">{t("colecao.allSites").replace("{count}", String(sites.length))}</option>
-            {sites.map((s) => (
-              <option key={s.site} value={s.site}>
-                {s.site} ({s.count})
-              </option>
+          {sites.length > 0 && (
+            <select
+              className="zf-select"
+              value={site ?? ""}
+              onChange={(e) => setSite(e.target.value || null)}
+              style={{ width: 160 }}
+              aria-label={t("colecao.filterBySite")}
+            >
+              <option value="">{t("colecao.allSites").replace("{count}", String(sites.length))}</option>
+              {sites.map((s) => (
+                <option key={s.site} value={s.site}>
+                  {s.site} ({s.count})
+                </option>
+              ))}
+            </select>
+          )}
+
+          {hasFilters && (
+            <button type="button" className="zf-btn zf-btn--ghost" onClick={clearFilters}>
+              {t("colecao.clearFilters")}
+            </button>
+          )}
+        </div>
+
+        {tags.length > 0 && (
+          <div style={{ display: "flex", gap: "var(--s2)", flexWrap: "wrap", alignItems: "center" }}>
+            <span className="zf-micro" style={{ marginRight: 4 }}>
+              {t("colecao.tagsLabel")}
+            </span>
+            {tags.slice(0, 16).map((entry) => (
+              <button
+                key={entry.tag}
+                type="button"
+                className="zf-chip"
+                aria-pressed={tag === entry.tag}
+                onClick={() => setTag(tag === entry.tag ? null : entry.tag)}
+              >
+                {entry.tag} <span style={{ color: "var(--muted)" }}>{entry.count}</span>
+              </button>
             ))}
-          </select>
+          </div>
         )}
 
-        {hasFilters && (
-          <button type="button" className="tui-btn" onClick={clearFilters}>
-            {t("colecao.clearFilters")}
-          </button>
+        {colors.length > 0 && (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <span className="zf-micro">{t("colecao.colorsLabel")}</span>
+            {colors.slice(0, 16).map((entry) => (
+              <button
+                key={entry.hex}
+                type="button"
+                className="zf-chip"
+                aria-pressed={color === entry.hex}
+                onClick={() => setColor(color === entry.hex ? null : entry.hex)}
+                title={`${entry.hex} (${entry.count})`}
+                style={{ paddingLeft: 8 }}
+              >
+                <i
+                  style={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: "50%",
+                    background: entry.hex,
+                    border: "1px solid var(--border)",
+                  }}
+                />
+                {entry.hex}
+              </button>
+            ))}
+          </div>
         )}
       </div>
 
-      {/* Secondary rails: Tags and Colors in TUI */}
-      {(tags.length > 0 || colors.length > 0) && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.25lh", margin: "0.25lh 0 0.5lh" }}>
-          {tags.length > 0 && (
-            <div className="tui-tags" role="group" aria-label={t("colecao.tagsAria")}>
-              <span className="tui-label" style={{ marginRight: "0.5ch" }}>{t("colecao.tagsLabel")}</span>
-              {tags.slice(0, 16).map((entry) => (
-                <button
-                  key={entry.tag}
-                  type="button"
-                  className={`tui-tag${tag === entry.tag ? " active" : ""}`}
-                  onClick={() => setTag(tag === entry.tag ? null : entry.tag)}
-                >
-                  {entry.tag} <span style={{ color: "var(--fg-dim)" }}>{entry.count}</span>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {colors.length > 0 && (
-            <div className="tui-tags" role="group" aria-label={t("colecao.colorsAria")}>
-              <span className="tui-label" style={{ marginRight: "0.5ch" }}>{t("colecao.colorsLabel")}</span>
-              {colors.slice(0, 16).map((entry) => (
-                <button
-                  key={entry.hex}
-                  type="button"
-                  className={`tui-tag${color === entry.hex ? " active" : ""}`}
-                  onClick={() => setColor(color === entry.hex ? null : entry.hex)}
-                  title={`${entry.hex} (${entry.count})`}
-                >
-                  <span
-                    style={{
-                      display: "inline-block",
-                      width: 9,
-                      height: 9,
-                      background: entry.hex,
-                      outline: "1px solid var(--line)",
-                      outlineOffset: -1,
-                    }}
-                  />
-                  {entry.hex}
-                </button>
-              ))}
-            </div>
+      {loading && cards.length === 0 ? (
+        <div className="zf-empty">
+          <Spinner /> {t("colecao.loadingCatalog")}
+        </div>
+      ) : cards.length === 0 ? (
+        <div className="zf-empty">
+          {hasFilters ? (
+            <span style={{ display: "inline-flex", gap: "var(--s3)", alignItems: "center", flexWrap: "wrap" }}>
+              {t("colecao.noResults")}{" "}
+              <button type="button" className="zf-btn" onClick={clearFilters}>
+                {t("colecao.clearFilters")}
+              </button>
+            </span>
+          ) : (
+            <>{t("colecao.emptyCatalog")}</>
           )}
         </div>
-      )}
-
-      {/* Mono image grid */}
-      {loading && cards.length === 0 ? (
-        <p className="empty">
-          <Spinner /> {t("colecao.loadingCatalog")}
-        </p>
-      ) : cards.length === 0 ? (
-        <p className="empty">
-          {hasFilters ? (
-            <>
-              {t("colecao.noResults")} <button type="button" className="tui-btn" onClick={clearFilters}>{t("colecao.clearFilters")}</button>
-            </>
-          ) : (
-            <>
-              {t("colecao.emptyCatalog")}
-            </>
-          )}
-        </p>
       ) : (
-        <div className="tui-grid" role="list">
+        <div className="zf-grid" role="list">
           {cards.map((card, i) => {
             const isSel = i === sel
             const score = scores[card.id]
             return (
-              <div
+              <button
                 key={card.id}
                 role="listitem"
-                tabIndex={0}
-                className={`tui-card${isSel ? " sel" : ""}`}
+                type="button"
+                className="zf-card"
+                aria-label={card.title || card.site}
                 onClick={() => {
                   setSel(i)
                   setSelected(card)
                 }}
                 onMouseEnter={() => setSel(i)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") setSelected(card)
+                style={{
+                  textAlign: "left",
+                  outline: isSel ? "2px solid var(--accent)" : "none",
+                  outlineOffset: 1,
                 }}
               >
-                <div className="tui-card-img">
-                  <Gut active={isSel} />
+                <div className="zf-card-sw" aria-hidden="true">
+                  {card.palette.length > 0 ? (
+                    card.palette.slice(0, 3).map((hex, idx) => (
+                      <i key={idx} style={{ background: hex, flex: 1 }} />
+                    ))
+                  ) : (
+                    <>
+                      <i style={{ background: card.dominant || "var(--border)" }} />
+                      <i style={{ background: "var(--bg)" }} />
+                      <i style={{ background: "var(--surface)" }} />
+                    </>
+                  )}
                   <img
                     src={api.catalogScreenshotUrl(card.id)}
                     alt={t("colecao.screenshotAlt").replace("{site}", card.site)}
                     loading="lazy"
+                    style={{ display: "none" }}
                   />
                 </div>
-                <div className="tui-card-body">
-                  <div className="tui-card-head">
-                    <span className="tui-card-site">{card.site}</span>
+                <div className="zf-card-bd">
+                  <div className="zf-micro" style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <span>{card.site}</span>
+                    <span style={{ opacity: 0.4 }}>·</span>
+                    <span>{card.captured_at}</span>
+                    <span className="zf-spacer" style={{ flex: 1 }} />
                     {card.dominant && (
                       <span
                         style={{
                           width: 10,
                           height: 10,
+                          borderRadius: "50%",
                           background: card.dominant,
-                          outline: "1px solid var(--line)",
-                          outlineOffset: -1,
+                          border: "1px solid var(--border)",
                           flexShrink: 0,
                         }}
                         title={t("colecao.dominantTitle").replace("{hex}", card.dominant)}
@@ -340,38 +374,69 @@ function CollectionPage() {
                     )}
                   </div>
 
-                  <span className="tui-card-sub">{card.title || card.url}</span>
+                  <h3>{card.title || card.url}</h3>
 
                   {typeof score === "number" && (
-                    <span style={{ color: "var(--accent)", fontSize: 11 }}>
+                    <span style={{ color: "var(--accent)", fontSize: 11, fontFamily: "var(--font-mono)" }}>
                       {t("colecao.relevance").replace("{score}", score.toFixed(2))}
                     </span>
                   )}
 
-                  {card.palette.length > 0 && <Swatch colors={card.palette} n={6} />}
+                  {card.palette.length > 0 && (
+                    <div style={{ display: "flex", gap: 4 }}>
+                      {card.palette.slice(0, 6).map((hex) => (
+                        <span
+                          key={hex}
+                          style={{
+                            width: 14,
+                            height: 14,
+                            borderRadius: "50%",
+                            background: hex,
+                            border: "1px solid var(--border)",
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
 
-                  <div className="tui-card-meta">
-                    <span>{card.captured_at}</span>
-                    <span>{card.mode}</span>
+                  <div className="zf-meta" style={{ display: "flex", gap: 8, justifyContent: "space-between" }}>
+                    <span className="zf-num">{card.mode}</span>
                   </div>
 
                   {card.tags.length > 0 && (
-                    <div className="tui-tags" style={{ marginTop: "0.125lh" }}>
-                      {card.tags.map((t) => (
-                        <span key={t} className="tui-tag" style={{ cursor: "default" }}>
-                          {t}
+                    <div className="zf-chips">
+                      {card.tags.map((tg) => (
+                        <span key={tg} className="zf-chip" style={{ cursor: "default" }}>
+                          {tg}
                         </span>
                       ))}
                     </div>
                   )}
                 </div>
-              </div>
+              </button>
             )
           })}
         </div>
       )}
 
-      {/* Reference detail and tokens modal */}
+      {cards.length > 0 && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "var(--s3)",
+            justifyContent: "center",
+            marginTop: "var(--s5)",
+          }}
+        >
+          <span className="zf-meta">
+            <span className="zf-num">
+              {cards.length} / {formatNumber(total)}
+            </span>
+          </span>
+        </div>
+      )}
+
       {selected && (
         <ReferenceDetailModal
           card={selected}
@@ -384,28 +449,42 @@ function CollectionPage() {
         />
       )}
 
-      {/* Delete confirmation */}
       {confirming && (
-        <TuiModal
-          open={true}
-          title={t("colecao.removeTitle")}
+        <dialog
+          open
+          className="zf-modal"
+          aria-label={t("colecao.removeTitle")}
           onClose={() => setConfirming(null)}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setConfirming(null)
+          }}
         >
-          <p>
-            {t("colecao.removeBody")
-              .split("{site}")
-              .map((part, i, arr) => (i < arr.length - 1 ? [part, <b key={i}>{confirming.site}</b>] : [part]))
-              .flat()}
-          </p>
-          <div className="flex gap-2 justify-end" style={{ marginTop: "0.5lh" }}>
-            <button type="button" className="tui-btn danger" onClick={() => void removeCard(confirming)}>
-              {t("colecao.confirmRemoval")}
-            </button>
-            <button type="button" className="tui-btn" onClick={() => setConfirming(null)}>
-              {t("colecao.cancel")}
+          <div className="zf-modal-hd">
+            <span className="zf-h2">{t("colecao.removeTitle")}</span>
+            <span className="zf-spacer" style={{ flex: 1 }} />
+            <button type="button" className="zf-icon-btn" onClick={() => setConfirming(null)} aria-label="Fechar">
+              ×
             </button>
           </div>
-        </TuiModal>
+          <div className="zf-modal-bd">
+            <p>
+              {t("colecao.removeBody")
+                .split("{site}")
+                .map((part, i, arr) =>
+                  i < arr.length - 1 ? [part, <b key={i}>{confirming.site}</b>] : [part],
+                )
+                .flat()}
+            </p>
+          </div>
+          <div className="zf-modal-ft">
+            <button type="button" className="zf-btn zf-btn--ghost" onClick={() => setConfirming(null)}>
+              {t("colecao.cancel")}
+            </button>
+            <button type="button" className="zf-btn zf-btn--danger" onClick={() => void removeCard(confirming)}>
+              {t("colecao.confirmRemoval")}
+            </button>
+          </div>
+        </dialog>
       )}
     </>
   )
@@ -426,6 +505,25 @@ function ReferenceDetailModal({
   const toast = useToast()
   const [tagDraft, setTagDraft] = useState("")
   const [note, setNote] = useState(card.note)
+  const dialogRef = useRef<HTMLDialogElement>(null)
+
+  useEffect(() => {
+    const d = dialogRef.current
+    if (!d) return
+    if (!d.open) {
+      try {
+        d.showModal()
+      } catch {
+        // already open
+      }
+    }
+    const onCancel = (e: Event) => {
+      e.preventDefault()
+      onClose()
+    }
+    d.addEventListener("cancel", onCancel)
+    return () => d.removeEventListener("cancel", onCancel)
+  }, [onClose])
 
   const tokens = card.tokens ?? {}
 
@@ -459,145 +557,168 @@ function ReferenceDetailModal({
   }, [card])
 
   return (
-    <TuiModal open={true} title={t("colecao.detailTitle").replace("{site}", card.site)} onClose={onClose}>
-      <div style={{ maxHeight: "360px", overflow: "hidden", border: "1px solid var(--line)" }}>
-        <img
-          src={api.catalogScreenshotUrl(card.id)}
-          alt={t("colecao.fullCaptureAlt").replace("{site}", card.site)}
-          style={{ width: "100%", display: "block" }}
-        />
-      </div>
-
-      <dl className="tui-kv">
-        <dt>url</dt>
-        <dd>
-          <a
-            href={card.url}
-            target="_blank"
-            rel="noreferrer"
-            style={{ color: "var(--accent)", textDecoration: "none" }}
-          >
-            {card.url}
-          </a>
-        </dd>
-        <dt>{t("colecao.capture")}</dt>
-        <dd>{card.captured_at} · {t("colecao.mode").replace("{mode}", card.mode).replace("{engine}", card.engine)}</dd>
-        <dt>{t("colecao.elements")}</dt>
-        <dd>{t("colecao.elementCount").replace("{count}", formatNumber(tokens.element_count ?? 0))}</dd>
-        <dt>{t("colecao.size")}</dt>
-        <dd>{formatNumber(card.bytes)} bytes</dd>
-      </dl>
-
-      {/* Extracted palette & tokens */}
-      {(tokens.palette?.length ?? 0) > 0 && (
-        <div>
-          <span className="tui-label">{t("colecao.paletteLabel").replace("{count}", String(tokens.palette?.length ?? 0))}</span>
-          <div className="tui-tags" style={{ marginTop: "0.25lh" }}>
-            {tokens.palette?.slice(0, 16).map((entry) => (
-              <span key={entry.hex} className="tui-tag" style={{ cursor: "default" }}>
-                <span
-                  style={{
-                    display: "inline-block",
-                    width: 9,
-                    height: 9,
-                    background: entry.hex,
-                    outline: "1px solid var(--line)",
-                    outlineOffset: -1,
-                  }}
-                />
-                {entry.hex}
-                <span style={{ color: "var(--fg-dim)" }}>×{entry.count}</span>
-                {entry.role && <span style={{ color: "var(--accent)" }}>[{entry.role}]</span>}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Exportable CSS block */}
-      {cssTokens.length > 0 && (
-        <div>
-          <span className="tui-label">{t("colecao.cssTokens")}</span>
-          <CodeBlock code={cssTokens} />
-        </div>
-      )}
-
-      {/* Typography */}
-      {(tokens.fonts?.length ?? 0) > 0 && (
-        <div>
-          <span className="tui-label">{t("colecao.typography")}</span>
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.25lh", marginTop: "0.25lh" }}>
-            {tokens.fonts?.slice(0, 6).map((font) => (
-              <div key={font.family} className="flex justify-between text-[12px]">
-                <span style={{ color: "var(--fg)" }}>{font.family}</span>
-                <span style={{ color: "var(--fg-dim)" }}>
-                  {Object.keys(font.sizes ?? {}).slice(0, 5).join(" · ") || "—"}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Tags */}
-      <div>
-        <span className="tui-label">{t("colecao.tags")}</span>
-        <div className="tui-tags" style={{ margin: "0.25lh 0" }}>
-          {card.tags.length > 0 ? (
-            card.tags.map((t) => (
-              <span key={t} className="tui-tag" style={{ cursor: "default" }}>
-                {t}
-              </span>
-            ))
-          ) : (
-            <span style={{ color: "var(--fg-dim)", fontSize: 12 }}>{t("colecao.noTags")}</span>
-          )}
-        </div>
-        <div className="flex gap-2" style={{ marginTop: "0.25lh" }}>
-          <input
-            className="tui-input"
-            value={tagDraft}
-            placeholder={t("colecao.newTagPlaceholder")}
-            aria-label={t("colecao.newTagAria")}
-            onChange={(e) => setTagDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") void addTag()
-            }}
-            style={{ maxWidth: "24ch" }}
-          />
-          <button type="button" className="tui-btn" onClick={() => void addTag()} disabled={!tagDraft.trim()}>
-            {t("colecao.add")}
-          </button>
-        </div>
-      </div>
-
-      {/* Note */}
-      <div className="tui-field">
-        <label className="tui-label" htmlFor="card-note">{t("colecao.note")}</label>
-        <textarea
-          id="card-note"
-          className="tui-textarea"
-          value={note}
-          placeholder={t("colecao.notePlaceholder")}
-          onChange={(e) => setNote(e.target.value)}
-          rows={3}
-        />
-        <div>
-          <button type="button" className="tui-btn" onClick={() => void saveNote()}>
-            {t("colecao.saveNote")}
-          </button>
-        </div>
-      </div>
-
-      <div className="flex justify-between" style={{ marginTop: "0.5lh", borderTop: "1px solid var(--line)", paddingTop: "0.5lh" }}>
-        <button type="button" className="tui-btn danger" onClick={onDelete}>
-          {SYM.fail} {t("colecao.remove")}
+    <dialog
+      ref={dialogRef}
+      className="zf-modal"
+      aria-label={t("colecao.detailTitle").replace("{site}", card.site)}
+      onClose={onClose}
+      onClick={(e) => {
+        if (e.target === dialogRef.current) onClose()
+      }}
+    >
+      <div className="zf-modal-hd">
+        <span className="zf-h2">{card.title || card.site}</span>
+        <span className="zf-spacer" style={{ flex: 1 }} />
+        <span className="zf-micro">{card.site}</span>
+        <button type="button" className="zf-icon-btn" onClick={onClose} aria-label="Fechar">
+          ×
         </button>
-        <button type="button" className="tui-btn" onClick={onClose}>
+      </div>
+      <div className="zf-modal-bd">
+        <div
+          style={{
+            maxHeight: 360,
+            overflow: "hidden",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius)",
+          }}
+        >
+          <img
+            src={api.catalogScreenshotUrl(card.id)}
+            alt={t("colecao.fullCaptureAlt").replace("{site}", card.site)}
+            style={{ width: "100%", display: "block" }}
+          />
+        </div>
+
+        <dl className="zf-kv">
+          <dt>url</dt>
+          <dd>
+            <a href={card.url} target="_blank" rel="noreferrer" style={{ color: "var(--accent)" }}>
+              {card.url}
+            </a>
+          </dd>
+          <dt>{t("colecao.capture")}</dt>
+          <dd>
+            {card.captured_at} · {t("colecao.mode").replace("{mode}", card.mode).replace("{engine}", card.engine)}
+          </dd>
+          <dt>{t("colecao.elements")}</dt>
+          <dd>{t("colecao.elementCount").replace("{count}", formatNumber(tokens.element_count ?? 0))}</dd>
+          <dt>{t("colecao.size")}</dt>
+          <dd>{formatNumber(card.bytes)} bytes</dd>
+        </dl>
+
+        {(tokens.palette?.length ?? 0) > 0 && (
+          <div>
+            <span className="zf-micro">
+              {t("colecao.paletteLabel").replace("{count}", String(tokens.palette?.length ?? 0))}
+            </span>
+            <div className="zf-chips" style={{ marginTop: "var(--s2)" }}>
+              {tokens.palette?.slice(0, 16).map((entry) => (
+                <span key={entry.hex} className="zf-chip" style={{ cursor: "default", paddingLeft: 8 }}>
+                  <span
+                    style={{
+                      display: "inline-block",
+                      width: 9,
+                      height: 9,
+                      borderRadius: "50%",
+                      background: entry.hex,
+                      border: "1px solid var(--border)",
+                    }}
+                  />
+                  {entry.hex}
+                  <span style={{ color: "var(--muted)" }}>×{entry.count}</span>
+                  {entry.role && <span style={{ color: "var(--accent)" }}>[{entry.role}]</span>}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {cssTokens.length > 0 && (
+          <div>
+            <div className="zf-micro" style={{ marginBottom: 6 }}>
+              {t("colecao.cssTokens")}
+            </div>
+            <pre className="zf-pre">{cssTokens.join("\n")}</pre>
+          </div>
+        )}
+
+        {(tokens.fonts?.length ?? 0) > 0 && (
+          <div>
+            <span className="zf-micro">{t("colecao.typography")}</span>
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--s1)", marginTop: "var(--s2)" }}>
+              {tokens.fonts?.slice(0, 6).map((font) => (
+                <div key={font.family} style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                  <span style={{ color: "var(--fg)" }}>{font.family}</span>
+                  <span style={{ color: "var(--muted)" }}>
+                    {Object.keys(font.sizes ?? {}).slice(0, 5).join(" · ") || "—"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div>
+          <span className="zf-micro">{t("colecao.tags")}</span>
+          <div className="zf-chips" style={{ margin: "var(--s2) 0" }}>
+            {card.tags.length > 0 ? (
+              card.tags.map((tg) => (
+                <span key={tg} className="zf-chip" style={{ cursor: "default" }}>
+                  {tg}
+                </span>
+              ))
+            ) : (
+              <span style={{ color: "var(--muted)", fontSize: 12 }}>{t("colecao.noTags")}</span>
+            )}
+          </div>
+          <div style={{ display: "flex", gap: "var(--s2)", marginTop: "var(--s2)" }}>
+            <input
+              className="zf-input"
+              value={tagDraft}
+              placeholder={t("colecao.newTagPlaceholder")}
+              aria-label={t("colecao.newTagAria")}
+              onChange={(e) => setTagDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void addTag()
+              }}
+              style={{ maxWidth: "24ch" }}
+            />
+            <button type="button" className="zf-btn" onClick={() => void addTag()} disabled={!tagDraft.trim()}>
+              {t("colecao.add")}
+            </button>
+          </div>
+        </div>
+
+        <div className="zf-field">
+          <label className="zf-label" htmlFor="card-note">
+            {t("colecao.note")}
+          </label>
+          <textarea
+            id="card-note"
+            className="zf-textarea"
+            value={note}
+            placeholder={t("colecao.notePlaceholder")}
+            onChange={(e) => setNote(e.target.value)}
+            rows={3}
+          />
+          <div>
+            <button type="button" className="zf-btn" onClick={() => void saveNote()}>
+              {t("colecao.saveNote")}
+            </button>
+          </div>
+        </div>
+      </div>
+      <div className="zf-modal-ft">
+        <button type="button" className="zf-btn zf-btn--danger" onClick={onDelete}>
+          ✗ {t("colecao.remove")}
+        </button>
+        <span style={{ flex: 1 }} />
+        <button type="button" className="zf-btn zf-btn--ghost" onClick={onClose}>
           {t("colecao.close")}
         </button>
       </div>
-    </TuiModal>
+    </dialog>
   )
 }
 

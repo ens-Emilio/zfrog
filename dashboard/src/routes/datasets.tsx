@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query"
 import { useState } from "react"
 import { api, DatasetStats, DatasetExportResponse } from "@/lib/api"
 import { useToast } from "@/components/ToastRegion"
-import { SYM, Spinner, CodeBlock, TuiPanel, TuiCombobox } from "@/components/ui/tui"
+import { Spinner } from "@/components/ui/tui"
 import { useT, type I18nKey } from "@/lib/i18n"
 
 const FORMATS: { id: string; name: I18nKey; desc: I18nKey }[] = [
@@ -80,169 +80,166 @@ function DatasetsPage() {
   })
 
   return (
-    <TuiPanel
-      title={t("datasets.title")}
-      action={
-        <span style={{ color: "var(--fg-dim)", fontSize: "11px" }}>
-          {t("datasets.subtitle")}
-        </span>
-      }
-    >
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 text-xs mt-3">
+    <>
+      <div className="zf-head">
+        <h1 className="zf-title">{t("datasets.title")}</h1>
+        <span className="zf-meta">{t("datasets.subtitle")}</span>
+        <span style={{ flex: 1 }} />
+        {buildStats && <span className="zf-micro">{buildStats.added} {t("datasets.pairsProcessed")}</span>}
+      </div>
+
+      <div className="zf-split zf-split--form">
         {/* Configuration panel */}
-        <div className="border border-[var(--line)] bg-[var(--bg-raised)] p-4 flex flex-col gap-4">
-          <div className="font-bold border-b border-[var(--line)] pb-1 uppercase tracking-wide">
-            {t("datasets.step1")}
+        <div className="zf-panel">
+          <div className="zf-panel-hd">
+            <span className="zf-micro">{t("datasets.step1")}</span>
           </div>
-
-          <div>
-            <label className="text-[var(--fg-dim)] block mb-1.5">{t("datasets.chooseSite")}</label>
-            <TuiCombobox
-              value={selectedSite}
-              onChange={setSelectedSite}
-              options={siteOptions}
-              placeholder={t("datasets.sitePlaceholder")}
-              emptyLabel={t("tui.noOptions")}
-              className="w-full"
-            />
-          </div>
-
-          <div>
-            <label className="text-[var(--fg-dim)] block mb-1">
-              {t("datasets.orFiles")}
-            </label>
-            <textarea
-              className="tui-input w-full font-mono text-[11px] h-24 p-2"
-              placeholder="output/exemplo.com/index.html&#10;output/exemplo.com/artigo.html"
-              value={pagesInput}
-              onChange={(e) => setPagesInput(e.target.value)}
-            />
-          </div>
-
-          <div className="font-bold border-b border-[var(--line)] pb-1 pt-2 uppercase tracking-wide">
-            {t("datasets.step2")}
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            {([
-              {
-                id: "qa",
-                label: t("datasets.kind.qa.label"),
-                desc: t("datasets.kind.qa.desc"),
-              },
-              {
-                id: "summary",
-                label: t("datasets.kind.summary.label"),
-                desc: t("datasets.kind.summary.desc"),
-              },
-              {
-                id: "text",
-                label: t("datasets.kind.text.label"),
-                desc: t("datasets.kind.text.desc"),
-              },
-            ] as const).map((k) => (
-              <label key={k.id} className="flex items-start gap-2 cursor-pointer p-1.5 hover:bg-[var(--bg-raised)] border border-transparent hover:border-[var(--line)]">
-                <input
-                  type="radio"
-                  name="dataset-kind"
-                  checked={kind === k.id}
-                  onChange={() => setKind(k.id)}
-                  className="mt-0.5"
-                />
-                <div>
-                  <div className="font-semibold">{k.label}</div>
-                  <div className="text-[10px] text-[var(--fg-dim)] mt-0.5">{k.desc}</div>
-                </div>
-              </label>
-            ))}
-          </div>
-
-          <button
-            type="button"
-            className="tui-btn accent w-full mt-2"
-            onClick={() => buildMutation.mutate()}
-            disabled={buildMutation.isPending}
-          >
-            {buildMutation.isPending ? <Spinner /> : SYM.ok} {t("datasets.buildBtn")}
-          </button>
-        </div>
-
-        {/* Center panel: format & stats */}
-        <div className="border border-[var(--line)] bg-[var(--bg-raised)] p-4 flex flex-col gap-4 lg:col-span-2">
-          <div className="font-bold border-b border-[var(--line)] pb-1 flex justify-between items-baseline uppercase tracking-wide">
-            <span>{t("datasets.step3")}</span>
-            {buildStats && (
-              <span className="text-[var(--accent)] font-mono">{buildStats.added} {t("datasets.pairsProcessed")}</span>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {FORMATS.map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                className={`p-2.5 text-left border ${
-                  format === f.id
-                    ? "border-[var(--accent)] bg-[var(--bg-raised)] font-semibold"
-                    : "border-[var(--line)] hover:border-[var(--line)]"
-                }`}
-                onClick={() => setFormat(f.id)}
+          <div className="zf-panel-bd">
+            <div className="zf-field">
+              <label className="zf-label" htmlFor="ds-site">{t("datasets.chooseSite")}</label>
+              <select
+                id="ds-site"
+                className="zf-select"
+                value={selectedSite}
+                onChange={(e) => setSelectedSite(e.target.value)}
+                aria-label={t("datasets.chooseSite")}
               >
-                <div className="flex items-center justify-between mb-1">
-                  <span>{t(f.name)}</span>
-                  {format === f.id && <span className="text-[var(--accent)]">●</span>}
-                </div>
-                <div className="text-[10px] text-[var(--fg-dim)]">{t(f.desc)}</div>
-              </button>
-            ))}
-          </div>
-
-          {/* Example of the selected format's structure */}
-          <div className="border border-[var(--line)] p-3 bg-[var(--bg-raised)]">
-            <div className="text-[10px] font-bold uppercase text-[var(--fg-dim)] mb-1">
-              {t("datasets.structurePreview").replace("{{format}}", format)}
+                <option value="">{t("datasets.sitePlaceholder")}</option>
+                {siteOptions.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label} — {o.detail}
+                  </option>
+                ))}
+              </select>
             </div>
-            {format === "chat" && (
-              <CodeBlock code={[`{"messages": [`, `  {"role": "user", "content": "${t("datasets.example.chat.q")}"},`, `  {"role": "assistant", "content": "${t("datasets.example.chat.a")}"}`, `]}`]} />
-            )}
-            {format === "sharegpt" && (
-              <CodeBlock code={[`{"conversations": [`, `  {"from": "human", "value": "${t("datasets.example.sharegpt.q")}"},`, `  {"from": "gpt", "value": "${t("datasets.example.sharegpt.a")}"}`, `]}`]} />
-            )}
-            {format === "alpaca" && (
-              <CodeBlock code={[`{`, `  "instruction": "${t("datasets.example.alpaca.instruction")}",`, `  "input": "${t("datasets.example.alpaca.input")}",`, `  "output": "${t("datasets.example.alpaca.output")}"`, `}`]} />
-            )}
-            {format === "raw" && (
-              <CodeBlock code={[`{`, `  "text": "${t("datasets.example.raw.text")}",`, `  "metadata": {"url": "https://exemplo.com/termos", "tokens": 420}`, `}`]} />
-            )}
-          </div>
 
-          <div className="flex flex-wrap items-center justify-between pt-2 border-t border-[var(--line)] mt-auto gap-2">
-            <span className="text-[var(--fg-dim)] text-[11px]">
-              {t("datasets.jsonlNote")}
-            </span>
+            <div className="zf-field">
+              <label className="zf-label" htmlFor="ds-files">{t("datasets.orFiles")}</label>
+              <textarea
+                id="ds-files"
+                className="zf-textarea"
+                placeholder="output/exemplo.com/index.html&#10;output/exemplo.com/artigo.html"
+                value={pagesInput}
+                onChange={(e) => setPagesInput(e.target.value)}
+                rows={5}
+              />
+            </div>
+
+            <div className="zf-label" style={{ marginTop: "var(--s2)" }}>{t("datasets.step2")}</div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--s2)" }}>
+              {([
+                {
+                  id: "qa",
+                  label: t("datasets.kind.qa.label"),
+                  desc: t("datasets.kind.qa.desc"),
+                },
+                {
+                  id: "summary",
+                  label: t("datasets.kind.summary.label"),
+                  desc: t("datasets.kind.summary.desc"),
+                },
+                {
+                  id: "text",
+                  label: t("datasets.kind.text.label"),
+                  desc: t("datasets.kind.text.desc"),
+                },
+              ] as const).map((k) => (
+                <label key={k.id} className="zf-check" style={{ alignItems: "flex-start", padding: "var(--s2)", border: "1px solid var(--border)", borderRadius: "var(--radius)", background: kind === k.id ? "var(--sel-bg)" : "transparent" }}>
+                  <input
+                    type="radio"
+                    name="dataset-kind"
+                    checked={kind === k.id}
+                    onChange={() => setKind(k.id)}
+                  />
+                  <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                    <span style={{ fontWeight: 550, fontSize: "var(--fs-body)" }}>{k.label}</span>
+                    <span className="zf-micro" style={{ textTransform: "none", letterSpacing: 0 }}>{k.desc}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+
             <button
               type="button"
-              className="tui-btn accent"
-              onClick={() => exportMutation.mutate()}
-              disabled={exportMutation.isPending}
+              className="zf-btn zf-btn--primary"
+              style={{ width: "100%", marginTop: "var(--s2)" }}
+              onClick={() => buildMutation.mutate()}
+              disabled={buildMutation.isPending}
             >
-              {exportMutation.isPending ? <Spinner /> : SYM.ok} {t("datasets.exportBtn")}
+              {buildMutation.isPending ? <Spinner /> : "✓"} {t("datasets.buildBtn")}
             </button>
           </div>
+        </div>
 
-          {exportInfo && (
-            <div className="p-3 border border-[var(--accent)] bg-[var(--bg-raised)] mt-2">
-              <div className="font-bold text-[var(--accent)] mb-1">{t("datasets.exportSuccess")}</div>
-              <div className="font-mono text-[11px] mb-2 text-[var(--fg)]">{t("datasets.local")}: {exportInfo.path}</div>
-              <div className="text-[10px] text-[var(--fg-dim)]">
-                {t("datasets.pairs")}: {exportInfo.summary.pairs} · {t("datasets.format")}: {exportInfo.summary.format}
-                {exportInfo.summary.size_bytes && ` · ${t("datasets.size")}: ${(exportInfo.summary.size_bytes / 1024).toFixed(1)} KB`}
-              </div>
+        {/* Format & preview */}
+        <div className="zf-panel">
+          <div className="zf-panel-hd">
+            <span className="zf-micro">{t("datasets.step3")}</span>
+            <span style={{ flex: 1 }} />
+            {buildStats && <span className="zf-num" style={{ color: "var(--accent)", fontSize: "var(--fs-meta)" }}>{buildStats.added} {t("datasets.pairsProcessed")}</span>}
+          </div>
+          <div className="zf-panel-bd">
+            <div style={{ display: "flex", gap: "var(--s2)", flexWrap: "wrap" }}>
+              {FORMATS.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  className="zf-pill"
+                  aria-pressed={format === f.id}
+                  onClick={() => setFormat(f.id)}
+                  style={{ flexDirection: "column", alignItems: "flex-start", padding: "var(--s3) var(--s4)", height: "auto", borderRadius: "var(--radius)" }}
+                >
+                  <span style={{ fontWeight: 600, fontSize: "var(--fs-body)" }}>{t(f.name)}</span>
+                  <span className="zf-micro" style={{ textTransform: "none", letterSpacing: 0 }}>{t(f.desc)}</span>
+                </button>
+              ))}
             </div>
-          )}
+
+            <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "var(--s4)", background: "var(--bg)" }}>
+              <div className="zf-micro" style={{ marginBottom: "var(--s2)" }}>
+                {t("datasets.structurePreview").replace("{{format}}", format)}
+              </div>
+              {format === "chat" && (
+                <pre className="zf-pre">{`{"messages": [\n  {"role": "user", "content": "${t("datasets.example.chat.q")}"},\n  {"role": "assistant", "content": "${t("datasets.example.chat.a")}"}\n]}`}</pre>
+              )}
+              {format === "sharegpt" && (
+                <pre className="zf-pre">{`{"conversations": [\n  {"from": "human", "value": "${t("datasets.example.sharegpt.q")}"},\n  {"from": "gpt", "value": "${t("datasets.example.sharegpt.a")}"}\n]}`}</pre>
+              )}
+              {format === "alpaca" && (
+                <pre className="zf-pre">{`{\n  "instruction": "${t("datasets.example.alpaca.instruction")}",\n  "input": "${t("datasets.example.alpaca.input")}",\n  "output": "${t("datasets.example.alpaca.output")}"\n}`}</pre>
+              )}
+              {format === "raw" && (
+                <pre className="zf-pre">{`{\n  "text": "${t("datasets.example.raw.text")}",\n  "metadata": {"url": "https://exemplo.com/termos", "tokens": 420}\n}`}</pre>
+              )}
+            </div>
+
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "var(--s3)", paddingTop: "var(--s3)", borderTop: "1px solid var(--border)" }}>
+              <span className="zf-micro" style={{ textTransform: "none", letterSpacing: 0 }}>{t("datasets.jsonlNote")}</span>
+              <button
+                type="button"
+                className="zf-btn zf-btn--primary"
+                onClick={() => exportMutation.mutate()}
+                disabled={exportMutation.isPending}
+              >
+                {exportMutation.isPending ? <Spinner /> : "✓"} {t("datasets.exportBtn")}
+              </button>
+            </div>
+
+            {exportInfo && (
+              <div style={{ padding: "var(--s4)", border: "1px solid var(--accent)", borderRadius: "var(--radius)", background: "var(--accent-soft)" }}>
+                <div style={{ fontWeight: 600, color: "var(--accent)", marginBottom: "var(--s2)" }}>{t("datasets.exportSuccess")}</div>
+                <div className="zf-num" style={{ fontSize: "var(--fs-meta)", marginBottom: "var(--s2)" }}>{t("datasets.local")}: {exportInfo.path}</div>
+                <div className="zf-micro" style={{ textTransform: "none", letterSpacing: 0 }}>
+                  {t("datasets.pairs")}: {exportInfo.summary.pairs} · {t("datasets.format")}: {exportInfo.summary.format}
+                  {exportInfo.summary.size_bytes ? ` · ${t("datasets.size")}: ${(exportInfo.summary.size_bytes / 1024).toFixed(1)} KB` : null}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </TuiPanel>
+    </>
   )
 }
 
