@@ -13,7 +13,7 @@ interface ToastContextValue {
 
 const ToastContext = createContext<ToastContextValue>({ toast: () => {} })
 
-/** Toast queue, matching .tui-toast-region / .tui-toast */
+/** Toast queue — zf design */
 export function ToastRegion({ children }: { children?: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([])
 
@@ -29,7 +29,22 @@ export function ToastRegion({ children }: { children?: ReactNode }) {
   return (
     <ToastContext.Provider value={{ toast }}>
       {children}
-      <div className="tui-toast-region" aria-live="polite" aria-atomic="false">
+      <div
+        aria-live="polite"
+        aria-atomic="false"
+        style={{
+          position: "fixed",
+          right: "var(--s5)",
+          bottom: "var(--s5)",
+          zIndex: 80,
+          display: "flex",
+          flexDirection: "column",
+          gap: "var(--s3)",
+          maxWidth: "42ch",
+          width: "calc(100vw - var(--s5) * 2)",
+          pointerEvents: "none",
+        }}
+      >
         {toasts.map((item) => (
           <ToastItem key={item.id} toast={item} onDismiss={dismiss} />
         ))}
@@ -45,21 +60,37 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: number)
   }, [toast.id, onDismiss])
 
   return (
-    <div className={`tui-toast ${toast.kind}`} role="status">
-      <span className="tui-toast-sym">{toast.kind === "err" ? "✗" : "✓"}</span>
-      <span className="tui-toast-msg">{toast.message}</span>
+    <div
+      role="status"
+      style={{
+        pointerEvents: "auto",
+        display: "flex",
+        alignItems: "center",
+        gap: "var(--s3)",
+        padding: "10px var(--s4)",
+        background: "var(--surface)",
+        border: "1px solid var(--border)",
+        borderRadius: "var(--radius)",
+        boxShadow: "0 8px 24px oklch(0% 0 0 / .14)",
+        fontSize: "var(--fs-meta)",
+        color: "var(--fg)",
+      }}
+    >
+      <span style={{ color: toast.kind === "err" ? "var(--error)" : "var(--ok)", fontWeight: 600 }}>
+        {toast.kind === "err" ? "✗" : "✓"}
+      </span>
+      <span style={{ flex: 1, wordBreak: "break-word" }}>{toast.message}</span>
       <button
         type="button"
-        className="tui-toast-close"
         aria-label="Fechar aviso"
         onClick={() => onDismiss(toast.id)}
+        style={{ color: "var(--muted)", cursor: "pointer", background: "none", border: 0, font: "inherit", padding: 0 }}
       >
         [×]
       </button>
     </div>
   )
 }
-
 export function useToast() {
   return useContext(ToastContext).toast
 }

@@ -89,22 +89,25 @@ export function CommandPalette({ open, onClose, onTheme }: CommandPaletteProps) 
 
   return (
     <div
-      className="scrim open"
       role="dialog"
       aria-modal="true"
       aria-label={t("palette.label")}
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 50,
+        display: "flex",
+        alignItems: "flex-start",
+        justifyContent: "center",
+        paddingTop: "10vh",
+        background: "oklch(18% 0.01 250 / .38)",
+        backdropFilter: "blur(2px)",
+      }}
     >
-      <div className="palette">
-        <div className="palette-search">
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.7"
-          >
+      <div className="zf-panel" style={{ width: "min(640px, calc(100vw - 32px))", maxHeight: "min(70vh, 560px)", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" style={{ flex: "none", color: "var(--muted)" }}>
             <path d="M21 21 16 16" />
             <circle cx="11" cy="11" r="6" />
           </svg>
@@ -116,6 +119,8 @@ export function CommandPalette({ open, onClose, onTheme }: CommandPaletteProps) 
             spellCheck={false}
             placeholder={t("palette.commandPlaceholder")}
             aria-label={t("palette.searchLabel")}
+            className="zf-input"
+            style={{ flex: 1, border: 0, background: "transparent", padding: 0, height: "auto", boxShadow: "none" }}
             onChange={(e) => {
               setQ(e.target.value)
               setIdx(0)
@@ -136,35 +141,43 @@ export function CommandPalette({ open, onClose, onTheme }: CommandPaletteProps) 
               }
             }}
           />
-          <span className="p-kbd">ESC</span>
+          <kbd style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--muted)", border: "1px solid var(--border)", borderRadius: "4px", padding: "2px 6px" }}>ESC</kbd>
         </div>
 
-        <div className="palette-list" ref={listRef}>
+        <div ref={listRef} style={{ overflowY: "auto", padding: "8px" }}>
           {filtered.map((c, i) => (
             <button
               key={c.id}
               type="button"
-              className={`p-item ${i === idx ? "sel" : ""}`}
               onMouseDown={(e) => {
                 e.preventDefault()
                 runItem(i)
               }}
               onMouseEnter={() => setIdx(i)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+                width: "100%",
+                textAlign: "left",
+                padding: "8px 10px",
+                borderRadius: "var(--radius)",
+                border: "1px solid transparent",
+                background: i === idx ? "var(--sel-bg)" : "transparent",
+                boxShadow: i === idx ? "inset 2px 0 0 var(--accent)" : "none",
+              }}
             >
-              <span className="p-ic">›</span>
-              <span className="p-main">
-                <strong>{c.label}</strong>
-                <span>{c.desc}</span>
+              <span style={{ fontFamily: "var(--font-mono)", color: "var(--accent)", width: "14px", textAlign: "center" }}>›</span>
+              <span style={{ display: "flex", flexDirection: "column", gap: "2px", minWidth: 0, flex: 1 }}>
+                <strong style={{ fontSize: "14px", fontWeight: 550 }}>{c.label}</strong>
+                <span className="zf-micro zf-muted" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.desc}</span>
               </span>
-              <span className="p-kbd">{c.kbd}</span>
+              <kbd style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--muted)", border: "1px solid var(--border)", borderRadius: "4px", padding: "2px 6px", flex: "none" }}>{c.kbd}</kbd>
             </button>
           ))}
 
           {!filtered.length && (
-            <div
-              className="small"
-              style={{ padding: "12px", color: "var(--fg-dim)" }}
-            >
+            <div className="zf-micro zf-muted" style={{ padding: "12px" }}>
               {t("palette.empty")}
             </div>
           )}

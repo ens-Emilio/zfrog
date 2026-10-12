@@ -1,66 +1,22 @@
 import { useEffect, useRef, useState } from "react"
-import { useNavigate, useLocation } from "@tanstack/react-router"
+import { Link, useLocation, useNavigate } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
 import { api, ChatConversationSummary } from "@/lib/api"
 import { SideFlyout, FlyoutData } from "./SideFlyout"
 
-const COLLAPSE_KEY = "zfrog-sidebar-collapsed"
-
 interface ShellSidebarProps {
-  theme: "light" | "dark"
+  collapsed: boolean
+  onToggleCollapsed: () => void
   onOpenPalette: () => void
 }
 
-export function ShellSidebar({ theme, onOpenPalette }: ShellSidebarProps) {
+export function ShellSidebar({ collapsed, onToggleCollapsed, onOpenPalette }: ShellSidebarProps) {
   const navigate = useNavigate()
   const pathname = useLocation({ select: (l) => l.pathname })
-
-  const [collapsed, setCollapsed] = useState(() => {
-    try {
-      return localStorage.getItem(COLLAPSE_KEY) === "1"
-    } catch {
-      return false
-    }
-  })
 
   const [flyoutData, setFlyoutData] = useState<FlyoutData | null>(null)
   const hideTimerRef = useRef<number | null>(null)
 
-  // Toggle collapse and persist
-  const toggleCollapse = () => {
-    setCollapsed((prev) => {
-      const next = !prev
-      try {
-        localStorage.setItem(COLLAPSE_KEY, next ? "1" : "0")
-      } catch {
-        /* ignore */
-      }
-      return next
-    })
-    setFlyoutData(null)
-  }
-
-  // Keyboard shortcut "["
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null
-      const isInput =
-        target?.tagName === "INPUT" ||
-        target?.tagName === "TEXTAREA" ||
-        target?.tagName === "SELECT" ||
-        target?.isContentEditable
-      if (e.key === "[" && !e.metaKey && !e.ctrlKey && !e.altKey && !isInput) {
-        e.preventDefault()
-        toggleCollapse()
-      } else if (e.key === "Escape") {
-        setFlyoutData(null)
-      }
-    }
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [])
-
-  // Window resize cancels flyout
   useEffect(() => {
     const onResize = () => {
       if (window.innerWidth <= 700) setFlyoutData(null)
@@ -69,7 +25,6 @@ export function ShellSidebar({ theme, onOpenPalette }: ShellSidebarProps) {
     return () => window.removeEventListener("resize", onResize)
   }, [])
 
-  // Fetch real chat conversations
   const convsQuery = useQuery({
     queryKey: ["chat-conversations"],
     queryFn: () => api.getChatConversations(),
@@ -77,13 +32,12 @@ export function ShellSidebar({ theme, onOpenPalette }: ShellSidebarProps) {
 
   const conversations = convsQuery.data ?? []
 
-  // Handle flyout triggers
   const showFlyout = (
     el: HTMLElement,
     item: { label: string; title: string; sub?: string; kbd?: string; meta?: string }
   ) => {
     if (!collapsed || window.innerWidth <= 700) return
-    if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
+    clearTimeout(hideTimerRef.current as unknown as number)
     const rect = el.getBoundingClientRect()
     setFlyoutData({
       ...item,
@@ -92,14 +46,14 @@ export function ShellSidebar({ theme, onOpenPalette }: ShellSidebarProps) {
   }
 
   const scheduleHideFlyout = () => {
-    if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
+    clearTimeout(hideTimerRef.current as unknown as number)
     hideTimerRef.current = window.setTimeout(() => {
       setFlyoutData(null)
     }, 90)
   }
 
   const cancelHideFlyout = () => {
-    if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
+    clearTimeout(hideTimerRef.current as unknown as number)
   }
 
   const handleNewChat = () => {
@@ -127,259 +81,104 @@ export function ShellSidebar({ theme, onOpenPalette }: ShellSidebarProps) {
     }
   }
 
+  // keep references to preserve original handlers for flyout context
+  void conversations
+  void handleOpenConv
+  void handleQuickCommand
+  void handleNewChat
+  void onOpenPalette
+
+  const isActive = (to: string) => {
+    if (to === "/") return pathname === "/"
+    return pathname === to || pathname.startsWith(to + "/")
+  }
+
   return (
     <>
-      <aside
-        id="sidebar"
-        className={`zf-sidebar ${collapsed ? "collapsed" : ""}`}
-        aria-label="Barra lateral"
-      >
-        <div className="zf-side-scroll" id="sideScroll">
-          <div className="zf-collapse-row">
-            <span
-              className="zf-collapse-title"
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: "11px",
-                letterSpacing: ".06em",
-                textTransform: "uppercase",
-                color: "var(--fg-muted)",
-              }}
-            >
-              Navegação
-            </span>
-            <button
-              type="button"
-              className="zf-collapse-btn"
-              onClick={toggleCollapse}
-              aria-label={collapsed ? "Expandir barra lateral" : "Recolher barra lateral"}
-              aria-controls="sidebar"
-              aria-expanded={!collapsed}
-              title={collapsed ? "Expandir ( [ )" : "Recolher ( [ )"}
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.7"
-              >
-                {collapsed ? (
-                  <path d="M9 18 15 12 9 6" />
-                ) : (
-                  <path d="M15 18 9 12 15 6" />
-                )}
-              </svg>
-            </button>
-          </div>
-
+      <nav className="zf-rail" aria-label={pathname.startsWith("/chat") ? "Chat" : pathname === "/" || ["/probe","/captura","/workers","/fluxos","/qualidade","/revisao","/timeline","/jobs"].some(p=>pathname.startsWith(p)) ? "Operação" : "Navegação"}>
+        <div className="zf-rail-group">
           <button
             type="button"
-            className="zf-btn-primary"
-            onClick={handleNewChat}
-            title="Nova conversa"
+            className="zf-rail-item"
+            onClick={onToggleCollapsed}
+            aria-label={collapsed ? "Expandir barra lateral" : "Recolher barra lateral"}
+            aria-expanded={!collapsed}
+            title={collapsed ? "Expandir ( [ )" : "Recolher ( [ )"}
             onMouseEnter={(e) =>
               showFlyout(e.currentTarget, {
-                label: "Ação",
-                title: "Nova conversa",
-                sub: "Limpa o thread e inicia uma nova conversa. Histórico preservado.",
-                kbd: "+",
-                meta: "clique para criar",
+                label: "Barra lateral",
+                title: collapsed ? "Expandir" : "Recolher",
+                kbd: "[",
+                sub: collapsed ? "Mostrar rótulos da barra lateral." : "Recolher para ícones apenas.",
+                meta: "alternar →",
               })
             }
             onMouseLeave={scheduleHideFlyout}
           >
-            <span aria-hidden="true">+</span>
-            <span className="zf-btn-label">Nova conversa</span>
-          </button>
-
-          <div>
-            <div className="zf-side-label">
-              <span>Histórico</span>
-              <span
-                style={{
-                  color: "var(--fg-dim)",
-                  fontSize: "11px",
-                  textTransform: "none",
-                  letterSpacing: 0,
-                }}
-              >
-                {conversations.length} conversas
-              </span>
-            </div>
-
-            <div className="zf-side-list">
-              {conversations.slice(0, 8).map((c) => {
-                const siteLabel = c.sites?.[0] || "Geral"
-                const title = `Chat: ${siteLabel}`
-                return (
-                  <button
-                    key={c.id}
-                    type="button"
-                    className="zf-side-item"
-                    onClick={() => handleOpenConv(c)}
-                    title={title}
-                    onMouseEnter={(e) =>
-                      showFlyout(e.currentTarget, {
-                        label: "Histórico",
-                        title,
-                        sub: `${c.turns} turnos · ${siteLabel}`,
-                        meta: "abrir conversa →",
-                      })
-                    }
-                    onMouseLeave={scheduleHideFlyout}
-                  >
-                    <span className="zf-nav-dot" />
-                    <span className="zf-side-icon">◫</span>
-                    <span className="zf-t">{siteLabel}</span>
-                    <span className="zf-count">{c.turns}</span>
-                  </button>
-                )
-              })}
-
-              {!conversations.length && (
-                <div
-                  className="small"
-                  style={{
-                    color: "var(--fg-dim)",
-                    padding: "6px 8px",
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "11px",
-                  }}
-                >
-                  nenhuma salva
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="zf-divider" />
-
-          <div>
-            <div className="zf-side-label" style={{ marginTop: "2px" }}>
-              Atalhos — iniciar
-            </div>
-            <div className="zf-side-list">
-              <button
-                type="button"
-                className="zf-side-item"
-                onClick={() => handleQuickCommand("/jump https://")}
-                title="Inspecionar URL /jump"
-                onMouseEnter={(e) =>
-                  showFlyout(e.currentTarget, {
-                    label: "Atalho",
-                    title: "Inspecionar URL",
-                    kbd: "/jump",
-                    sub: "Screenshot + tokens + WCAG de qualquer URL.",
-                    meta: "inserir no chat →",
-                  })
-                }
-                onMouseLeave={scheduleHideFlyout}
-              >
-                <span className="zf-nav-dot" />
-                <span className="zf-side-icon">↗</span>
-                <span className="zf-t">Inspecionar URL</span>
-                <span className="zf-d">/jump</span>
-              </button>
-
-              <button
-                type="button"
-                className="zf-side-item"
-                onClick={() => handleQuickCommand("/comparar ")}
-                title="Comparar sites /cmp"
-                onMouseEnter={(e) =>
-                  showFlyout(e.currentTarget, {
-                    label: "Atalho",
-                    title: "Comparar sites",
-                    kbd: "/cmp",
-                    sub: "Diff visual e de tokens entre dois domínios.",
-                    meta: "inserir no chat →",
-                  })
-                }
-                onMouseLeave={scheduleHideFlyout}
-              >
-                <span className="zf-nav-dot" />
-                <span className="zf-side-icon">⇄</span>
-                <span className="zf-t">Comparar sites</span>
-                <span className="zf-d">/cmp</span>
-              </button>
-
-              <button
-                type="button"
-                className="zf-side-item"
-                onClick={() => handleQuickCommand("/busca ")}
-                title="Busca /busca"
-                onMouseEnter={(e) =>
-                  showFlyout(e.currentTarget, {
-                    label: "Atalho",
-                    title: "Busca semântica",
-                    kbd: "/busca",
-                    sub: "Busca fulltext e vetorial no acervo.",
-                    meta: "inserir no chat →",
-                  })
-                }
-                onMouseLeave={scheduleHideFlyout}
-              >
-                <span className="zf-nav-dot" />
-                <span className="zf-side-icon">⌕</span>
-                <span className="zf-t">Busca</span>
-                <span className="zf-d">/busca</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="zf-side-foot">
-          <div
-            className="zf-side-foot-meta row small"
-            style={{
-              justifyContent: "space-between",
-              fontFamily: "var(--font-mono)",
-              fontSize: "11px",
-              color: "var(--fg-dim)",
-            }}
-          >
-            <span>pt-BR</span>
-            <span>·</span>
-            <span>{theme === "dark" ? "escuro" : "claro"}</span>
-            <span>·</span>
-            <span>100% local</span>
-          </div>
-
-          <button
-            type="button"
-            className="zf-btn-ghost"
-            style={{ width: "100%" }}
-            onClick={onOpenPalette}
-            title="Paleta — 27 rotas (⌘K)"
-            aria-label="Paleta — 27 rotas (⌘K)"
-            onMouseEnter={(e) =>
-              showFlyout(e.currentTarget, {
-                label: "Paleta",
-                title: "Paleta — 27 rotas",
-                kbd: "⌘ K",
-                sub: "Busca global por rota ou comando.",
-                meta: "abrir paleta →",
-              })
-            }
-            onMouseLeave={scheduleHideFlyout}
-          >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.6"
-            >
-              <path d="M21 21 16 16" />
-              <circle cx="11" cy="11" r="6" />
-            </svg>
-            <span className="zf-btn-ghost-label">Paleta — 27 rotas</span>
+            <span className="zf-glyph">{collapsed ? "›" : "‹"}</span>
+            <span>{collapsed ? "Expandir" : "Recolher"} [</span>
           </button>
         </div>
-      </aside>
+
+        <div className="zf-rail-group">
+          <div className="zf-micro zf-rail-label">Operação</div>
+          <Link to="/" className="zf-rail-item" aria-current={isActive("/") ? "page" : undefined} onMouseEnter={(e)=>showFlyout(e.currentTarget,{label:"Operação",title:"Jobs",kbd:"▣",sub:"Fila e histórico de execuções.",meta:"abrir →"})} onMouseLeave={scheduleHideFlyout}>
+            <span className="zf-glyph">▣</span><span>Jobs</span>
+          </Link>
+          <Link to="/probe" className="zf-rail-item" aria-current={isActive("/probe") ? "page" : undefined} onMouseEnter={(e)=>showFlyout(e.currentTarget,{label:"Operação",title:"Probe",kbd:"⌖",sub:"Inspeção e detecção.",meta:"abrir →"})} onMouseLeave={scheduleHideFlyout}>
+            <span className="zf-glyph">⌖</span><span>Probe</span>
+          </Link>
+          <Link to="/captura" className="zf-rail-item" aria-current={isActive("/captura") ? "page" : undefined} onMouseEnter={(e)=>showFlyout(e.currentTarget,{label:"Operação",title:"Captura",kbd:"⬢",sub:"Captura de páginas.",meta:"abrir →"})} onMouseLeave={scheduleHideFlyout}>
+            <span className="zf-glyph">⬢</span><span>Captura</span>
+          </Link>
+          <Link to="/workers" className="zf-rail-item" aria-current={isActive("/workers") ? "page" : undefined} onMouseEnter={(e)=>showFlyout(e.currentTarget,{label:"Operação",title:"Workers",kbd:"◈",sub:"Pool de workers.",meta:"abrir →"})} onMouseLeave={scheduleHideFlyout}>
+            <span className="zf-glyph">◈</span><span>Workers</span>
+          </Link>
+          <Link to="/fluxos" className="zf-rail-item" aria-current={isActive("/fluxos") ? "page" : undefined} onMouseEnter={(e)=>showFlyout(e.currentTarget,{label:"Operação",title:"Fluxos",kbd:"⧉",sub:"Orquestração de fluxos.",meta:"abrir →"})} onMouseLeave={scheduleHideFlyout}>
+            <span className="zf-glyph">⧉</span><span>Fluxos</span>
+          </Link>
+          <Link to="/qualidade" className="zf-rail-item" aria-current={isActive("/qualidade") ? "page" : undefined} onMouseEnter={(e)=>showFlyout(e.currentTarget,{label:"Operação",title:"Qualidade",kbd:"◎",sub:"Checks de qualidade.",meta:"abrir →"})} onMouseLeave={scheduleHideFlyout}>
+            <span className="zf-glyph">◎</span><span>Qualidade</span>
+          </Link>
+          <Link to="/revisao" className="zf-rail-item" aria-current={isActive("/revisao") ? "page" : undefined} onMouseEnter={(e)=>showFlyout(e.currentTarget,{label:"Operação",title:"Revisão",kbd:"✎",sub:"Fila de revisão humana.",meta:"abrir →"})} onMouseLeave={scheduleHideFlyout}>
+            <span className="zf-glyph">✎</span><span>Revisão</span>
+          </Link>
+          <Link to="/timeline" className="zf-rail-item" aria-current={isActive("/timeline") ? "page" : undefined} onMouseEnter={(e)=>showFlyout(e.currentTarget,{label:"Operação",title:"Timeline",kbd:"◷",sub:"Linha do tempo.",meta:"abrir →"})} onMouseLeave={scheduleHideFlyout}>
+            <span className="zf-glyph">◷</span><span>Timeline</span>
+          </Link>
+        </div>
+
+        <div className="zf-rail-group">
+          <div className="zf-micro zf-rail-label">Biblioteca</div>
+          <Link to="/colecao" className="zf-rail-item" aria-current={isActive("/colecao") ? "page" : undefined} onMouseEnter={(e)=>showFlyout(e.currentTarget,{label:"Biblioteca",title:"Coleção",kbd:"▤",sub:"Acervo curado.",meta:"abrir →"})} onMouseLeave={scheduleHideFlyout}>
+            <span className="zf-glyph">▤</span><span>Coleção</span>
+          </Link>
+          <Link to="/busca" className="zf-rail-item" aria-current={isActive("/busca") ? "page" : undefined} onMouseEnter={(e)=>showFlyout(e.currentTarget,{label:"Biblioteca",title:"Busca",kbd:"⌕",sub:"Busca semântica e fulltext.",meta:"abrir →"})} onMouseLeave={scheduleHideFlyout}>
+            <span className="zf-glyph">⌕</span><span>Busca</span>
+          </Link>
+          <Link to="/datasets" className="zf-rail-item" aria-current={isActive("/datasets") ? "page" : undefined} onMouseEnter={(e)=>showFlyout(e.currentTarget,{label:"Biblioteca",title:"Datasets",kbd:"◇",sub:"Conjuntos de dados.",meta:"abrir →"})} onMouseLeave={scheduleHideFlyout}>
+            <span className="zf-glyph">◇</span><span>Datasets</span>
+          </Link>
+          <Link to="/grafo" className="zf-rail-item" aria-current={isActive("/grafo") ? "page" : undefined} onMouseEnter={(e)=>showFlyout(e.currentTarget,{label:"Biblioteca",title:"Grafo",kbd:"⬡",sub:"Grafo de conhecimento.",meta:"abrir →"})} onMouseLeave={scheduleHideFlyout}>
+            <span className="zf-glyph">⬡</span><span>Grafo</span>
+          </Link>
+          <Link to="/precos" className="zf-rail-item" aria-current={isActive("/precos") ? "page" : undefined} onMouseEnter={(e)=>showFlyout(e.currentTarget,{label:"Biblioteca",title:"Preços",kbd:"◐",sub:"Monitor de preços.",meta:"abrir →"})} onMouseLeave={scheduleHideFlyout}>
+            <span className="zf-glyph">◐</span><span>Preços</span>
+          </Link>
+          <Link to="/snapshots" className="zf-rail-item" aria-current={isActive("/snapshots") ? "page" : undefined} onMouseEnter={(e)=>showFlyout(e.currentTarget,{label:"Biblioteca",title:"Snapshots",kbd:"◫",sub:"Snapshots do acervo.",meta:"abrir →"})} onMouseLeave={scheduleHideFlyout}>
+            <span className="zf-glyph">◫</span><span>Snapshots</span>
+          </Link>
+        </div>
+
+        <div className="zf-rail-group" style={{ marginTop: "auto" }}>
+          <Link to="/stats" className="zf-rail-item" aria-current={isActive("/stats") ? "page" : undefined} onMouseEnter={(e)=>showFlyout(e.currentTarget,{label:"Outros",title:"Stats",kbd:"◫",sub:"Métricas do sistema.",meta:"abrir →"})} onMouseLeave={scheduleHideFlyout}>
+            <span className="zf-glyph">◫</span><span>Stats</span>
+          </Link>
+          <Link to="/ajuda" className="zf-rail-item" aria-current={isActive("/ajuda") ? "page" : undefined} onMouseEnter={(e)=>showFlyout(e.currentTarget,{label:"Outros",title:"Voltar ao índice",kbd:"≡",sub:"Ajuda e índice de rotas.",meta:"abrir →"})} onMouseLeave={scheduleHideFlyout}>
+            <span className="zf-glyph">≡</span><span>Voltar ao índice</span>
+          </Link>
+        </div>
+      </nav>
 
       <SideFlyout
         data={flyoutData}

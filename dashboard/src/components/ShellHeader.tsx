@@ -46,70 +46,56 @@ export function ShellHeader({
   return (
     <header className="zf-topbar" data-od-id="topbar">
       <div className="zf-brand" data-od-id="brand">
-        <span className="zf-brand-mark">zf</span>
-        <span>zfrog</span>
-
-        <nav className="zf-topbar-nav" role="tablist" aria-label={t("a11y.sections")}>
-          <Link
-            to="/chat"
-            className={`zf-nav-pill ${isChat ? "active" : ""}`}
-            role="tab"
-            aria-selected={isChat}
-          >
-            {t("nav.chat")}
-          </Link>
-          <Link
-            to="/colecao"
-            className={`zf-nav-pill ${isBiblioteca ? "active" : ""}`}
-            role="tab"
-            aria-selected={isBiblioteca}
-          >
-            {t("nav.collection")}
-          </Link>
-          <Link
-            to="/"
-            search={{ view: "runs" }}
-            className={`zf-nav-pill ${isOperacao && !isChat ? "active" : ""}`}
-            role="tab"
-            aria-selected={isOperacao && !isChat}
-          >
-            {t("nav.runs")}
-          </Link>
-        </nav>
+        <div className="zf-brand-mark">▦</div>
+        <span className="zf-brand-name">zfrog</span>
+        <span className="zf-micro" style={{ marginLeft: "6px", opacity: .7 }}>
+          dashboard
+        </span>
       </div>
 
-      <div className="zf-topbar-right">
-        <span
-          className="zf-meta"
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: "11px",
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "10px",
-          }}
+      <nav className="zf-hubs" aria-label={t("a11y.sections")}>
+        <Link
+          to="/colecao"
+          className={`zf-pill ${isBiblioteca ? "is-active" : ""}`}
+          aria-current={isBiblioteca ? "page" : undefined}
         >
-          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-            <i className={`zf-dot ${apiOk ? "ok" : "err"}`} /> API
-          </span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-            <i className={`zf-dot ${workerOk ? "ok" : "warn"}`} /> worker
-          </span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-            <i className={`zf-dot ${redisOk ? "ok" : "off"}`} /> redis
-          </span>
+          {t("nav.collection")}
+        </Link>
+        <Link
+          to="/"
+          className={`zf-pill ${isOperacao && !isChat ? "is-active" : ""}`}
+          aria-current={isOperacao && !isChat ? "page" : undefined}
+        >
+          {t("nav.runs")}
+        </Link>
+        <Link
+          to="/chat"
+          className={`zf-pill ${isChat ? "is-active" : ""}`}
+          aria-current={isChat ? "page" : undefined}
+        >
+          {t("nav.chat")}
+        </Link>
+      </nav>
+
+      <div className="zf-tools">
+        <span className="zf-svc">
+          <i className={`zf-dot ${apiOk ? "" : "zf-dot--err"}`} /> api
+        </span>
+        <span className="zf-svc">
+          <i className={`zf-dot ${workerOk ? "" : "zf-dot--idle"}`} /> worker
+        </span>
+        <span className="zf-svc">
+          <i className={`zf-dot ${redisOk ? "" : "zf-dot--idle"}`} /> redis
         </span>
 
         <button
           type="button"
-          className="zf-kbd-hint"
+          className="zf-btn zf-btn--ghost"
+          style={{ height: "30px", paddingInline: "10px" }}
           onClick={onOpenPalette}
-          style={{ cursor: "pointer", border: "1px solid var(--line)" }}
           aria-label={t("palette.label")}
         >
-          <span>⌘</span>
-          <span>K</span>
-          <span style={{ color: "var(--fg-dim)" }}>· paleta</span>
+          ⌘K
         </button>
 
         <button
@@ -119,16 +105,7 @@ export function ShellHeader({
           aria-label={t("nav.theme")}
           title={`Tema: ${theme}`}
         >
-          <svg
-            width="15"
-            height="15"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.6"
-          >
-            <path d="M12 3a6 6 0 0 0 9 9c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9Z" />
-          </svg>
+          ◐
         </button>
 
         <Link
@@ -136,19 +113,9 @@ export function ShellHeader({
           className="zf-icon-btn"
           aria-label={t("nav.help")}
           title={t("nav.help")}
+          style={{ display: "grid", placeItems: "center" }}
         >
-          <svg
-            width="15"
-            height="15"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.6"
-          >
-            <circle cx="12" cy="12" r="9" />
-            <path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 1.8-2.5 2-2.5 4" />
-            <path d="M12 17h.01" />
-          </svg>
+          ◎
         </Link>
       </div>
     </header>

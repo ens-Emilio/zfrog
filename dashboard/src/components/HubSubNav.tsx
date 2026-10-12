@@ -43,51 +43,42 @@ export function HubSubNav() {
   if (isBiblioteca) {
     return (
       <nav className="zf-subnav" aria-label="Biblioteca">
-        <span
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: "11px",
-            color: "var(--fg-dim)",
-            textTransform: "uppercase",
-            letterSpacing: ".05em",
-            marginRight: "4px",
-          }}
-        >
+        <span className="zf-micro zf-muted" style={{ textTransform: "uppercase", letterSpacing: ".05em", marginRight: "4px" }}>
           Biblioteca ›
         </span>
         <Link
           to="/colecao"
-          className={`zf-subnav-pill ${pathname === "/colecao" ? "active" : ""}`}
+          className={`zf-pill ${pathname === "/colecao" ? "is-active" : ""}`}
         >
           {t("nav.collection")}
         </Link>
         <Link
           to="/busca"
-          className={`zf-subnav-pill ${pathname === "/busca" ? "active" : ""}`}
+          className={`zf-pill ${pathname === "/busca" ? "is-active" : ""}`}
         >
           {t("nav.search")}
         </Link>
         <Link
           to="/datasets"
-          className={`zf-subnav-pill ${pathname === "/datasets" ? "active" : ""}`}
+          className={`zf-pill ${pathname === "/datasets" ? "is-active" : ""}`}
         >
           {t("nav.datasets")}
         </Link>
         <Link
           to="/grafo"
-          className={`zf-subnav-pill ${pathname === "/grafo" ? "active" : ""}`}
+          className={`zf-pill ${pathname === "/grafo" ? "is-active" : ""}`}
         >
           {t("nav.graph")}
         </Link>
         <Link
           to="/precos"
-          className={`zf-subnav-pill ${pathname === "/precos" ? "active" : ""}`}
+          className={`zf-pill ${pathname === "/precos" ? "is-active" : ""}`}
         >
           {t("nav.prices")}
         </Link>
         <Link
           to="/snapshots"
-          className={`zf-subnav-pill ${pathname === "/snapshots" ? "active" : ""}`}
+          className={`zf-pill ${pathname === "/snapshots" ? "is-active" : ""}`}
         >
           Snapshots
         </Link>
@@ -98,63 +89,54 @@ export function HubSubNav() {
   if (isOperacao) {
     return (
       <nav className="zf-subnav" aria-label="Operação">
-        <span
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: "11px",
-            color: "var(--fg-dim)",
-            textTransform: "uppercase",
-            letterSpacing: ".05em",
-            marginRight: "4px",
-          }}
-        >
+        <span className="zf-micro zf-muted" style={{ textTransform: "uppercase", letterSpacing: ".05em", marginRight: "4px" }}>
           Operação ›
         </span>
         <Link
           to="/"
-          className={`zf-subnav-pill ${pathname === "/" ? "active" : ""}`}
+          className={`zf-pill ${pathname === "/" ? "is-active" : ""}`}
         >
           {t("nav.runs")}
         </Link>
         <Link
           to="/probe"
-          className={`zf-subnav-pill ${pathname === "/probe" ? "active" : ""}`}
+          className={`zf-pill ${pathname === "/probe" ? "is-active" : ""}`}
         >
           {t("nav.extract")}
         </Link>
         <Link
           to="/captura"
-          className={`zf-subnav-pill ${pathname === "/captura" ? "active" : ""}`}
+          className={`zf-pill ${pathname === "/captura" ? "is-active" : ""}`}
         >
           Captura
         </Link>
         <Link
           to="/workers"
-          className={`zf-subnav-pill ${pathname === "/workers" ? "active" : ""}`}
+          className={`zf-pill ${pathname === "/workers" ? "is-active" : ""}`}
         >
           Workers
         </Link>
         <Link
           to="/fluxos"
-          className={`zf-subnav-pill ${pathname === "/fluxos" ? "active" : ""}`}
+          className={`zf-pill ${pathname === "/fluxos" ? "is-active" : ""}`}
         >
           Fluxos
         </Link>
         <Link
           to="/qualidade"
-          className={`zf-subnav-pill ${pathname === "/qualidade" ? "active" : ""}`}
+          className={`zf-pill ${pathname === "/qualidade" ? "is-active" : ""}`}
         >
           Qualidade
         </Link>
         <Link
           to="/revisao"
-          className={`zf-subnav-pill ${pathname === "/revisao" ? "active" : ""}`}
+          className={`zf-pill ${pathname === "/revisao" ? "is-active" : ""}`}
         >
           Revisão
         </Link>
         <Link
           to="/timeline"
-          className={`zf-subnav-pill ${pathname === "/timeline" ? "active" : ""}`}
+          className={`zf-pill ${pathname === "/timeline" ? "is-active" : ""}`}
         >
           Timeline
         </Link>
@@ -167,7 +149,7 @@ export function HubSubNav() {
       <nav className="zf-subnav" aria-label="Navegação secundária">
         <Link
           to="/chat"
-          className="zf-subnav-pill"
+          className="zf-pill"
           style={{ color: "var(--accent)", fontWeight: 500 }}
         >
           ← Voltar ao chat
@@ -176,7 +158,7 @@ export function HubSubNav() {
           style={{
             fontFamily: "var(--font-mono)",
             fontSize: "11px",
-            color: "var(--fg-dim)",
+            color: "var(--muted)",
             margin: "0 6px",
           }}
         >
@@ -184,55 +166,55 @@ export function HubSubNav() {
         </span>
         <Link
           to="/config"
-          className={`zf-subnav-pill ${pathname === "/config" ? "active" : ""}`}
+          className={`zf-pill ${pathname === "/config" ? "is-active" : ""}`}
         >
           {t("nav.config")}
         </Link>
         <Link
           to="/stats"
-          className={`zf-subnav-pill ${pathname === "/stats" ? "active" : ""}`}
+          className={`zf-pill ${pathname === "/stats" ? "is-active" : ""}`}
         >
           Stats
         </Link>
         <Link
           to="/analytics"
-          className={`zf-subnav-pill ${pathname === "/analytics" ? "active" : ""}`}
+          className={`zf-pill ${pathname === "/analytics" ? "is-active" : ""}`}
         >
           Analytics
         </Link>
         <Link
           to="/roi"
-          className={`zf-subnav-pill ${pathname === "/roi" ? "active" : ""}`}
+          className={`zf-pill ${pathname === "/roi" ? "is-active" : ""}`}
         >
           ROI
         </Link>
         <Link
           to="/webhooks"
-          className={`zf-subnav-pill ${pathname === "/webhooks" ? "active" : ""}`}
+          className={`zf-pill ${pathname === "/webhooks" ? "is-active" : ""}`}
         >
           Webhooks
         </Link>
         <Link
           to="/equipe"
-          className={`zf-subnav-pill ${pathname === "/equipe" ? "active" : ""}`}
+          className={`zf-pill ${pathname === "/equipe" ? "is-active" : ""}`}
         >
           Equipe
         </Link>
         <Link
           to="/marketplace"
-          className={`zf-subnav-pill ${pathname === "/marketplace" ? "active" : ""}`}
+          className={`zf-pill ${pathname === "/marketplace" ? "is-active" : ""}`}
         >
           Marketplace
         </Link>
         <Link
           to="/graphql"
-          className={`zf-subnav-pill ${pathname === "/graphql" ? "active" : ""}`}
+          className={`zf-pill ${pathname === "/graphql" ? "is-active" : ""}`}
         >
           {t("nav.graphql")}
         </Link>
         <Link
           to="/design"
-          className={`zf-subnav-pill ${pathname === "/design" ? "active" : ""}`}
+          className={`zf-pill ${pathname === "/design" ? "is-active" : ""}`}
         >
           Design System
         </Link>

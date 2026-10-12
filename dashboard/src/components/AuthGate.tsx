@@ -66,7 +66,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
   if (gate === "checking") {
     return (
-      <div className="tui-col" style={{ padding: "2lh 0", color: "var(--fg-dim)" }}>
+      <div className="zf-view" style={{ padding: "var(--s8) 0", color: "var(--muted)", textAlign: "center" }}>
         {t("auth.checking")}
       </div>
     )
@@ -77,21 +77,21 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="tui-col" style={{ maxWidth: "60ch", margin: "2lh auto" }}>
-      <div className="tui-panel">
-        <h2 style={{ fontSize: "14px", fontWeight: 500, marginBottom: "0.5lh" }}>{t("auth.title")}</h2>
-        <p style={{ color: "var(--fg-muted)", fontSize: "12px", marginBottom: "1lh", lineHeight: 1.5 }}>
+    <div className="zf-view" style={{ maxWidth: "56ch", margin: "var(--s8) auto" }}>
+      <div className="zf-panel" style={{ padding: "var(--s6)" }}>
+        <h2 style={{ fontSize: "14px", fontWeight: 600, marginBottom: "var(--s3)", letterSpacing: "-.02em" }}>{t("auth.title")}</h2>
+        <p style={{ color: "var(--muted)", fontSize: "var(--fs-meta)", marginBottom: "var(--s5)", lineHeight: 1.6 }}>
           {sso
             ? t("auth.ssoBody")
             : <>{t("auth.keyBody")} <code>zfrog key create painel -r operator</code> {t("auth.keyBodyAfter")}</>}
         </p>
 
         {sso && (
-          <div style={{ marginBottom: "1lh" }}>
+          <div style={{ marginBottom: "var(--s5)" }}>
             <button
               type="button"
-              className="tui-btn"
-              style={{ width: "100%", textAlign: "center" }}
+              className="zf-btn zf-btn--primary"
+              style={{ width: "100%", justifyContent: "center" }}
               onClick={() => {
                 window.location.href = `${API_URL}/auth/login`
               }}
@@ -101,9 +101,9 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           </div>
         )}
 
-        <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: "0.75lh" }}>
-          <div>
-            <label style={{ display: "block", color: "var(--fg-muted)", fontSize: "12px", marginBottom: "0.25lh" }}>
+        <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: "var(--s4)" }}>
+          <div className="zf-field">
+            <label className="zf-label">
               {sso ? t("auth.orKey") : t("auth.keyLabel")}
             </label>
             <input
@@ -111,31 +111,28 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
               autoFocus={!sso}
               placeholder="zk_…"
               value={draft}
-              className="tui-input"
-              style={{ width: "100%" }}
+              className="zf-input"
               onChange={(event) => setDraft(event.target.value)}
             />
             {error && (
-              <p style={{ color: "var(--error)", fontSize: "12px", marginTop: "0.25lh" }}>
+              <p className="zf-hint zf-hint--error">
                 {error}
               </p>
             )}
           </div>
 
-          <div style={{ display: "flex", gap: "1ch", alignItems: "baseline" }}>
+          <div style={{ display: "flex", gap: "var(--s2)", alignItems: "center" }}>
             <button
               type="submit"
-              className="tui-btn"
+              className="zf-btn zf-btn--primary"
               disabled={!draft.trim()}
-              style={{ opacity: draft.trim() ? 1 : 0.5 }}
             >
               {t("auth.keyButton")}
             </button>
             {hasStoredKey && (
               <button
                 type="button"
-                className="tui-btn"
-                style={{ color: "var(--fg-dim)" }}
+                className="zf-btn zf-btn--ghost"
                 onClick={() => {
                   clearApiKey()
                   setHasStoredKey(false)
