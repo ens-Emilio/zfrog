@@ -3,8 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "zfrog"
-version = "0.1.0"
+version = "0.1.4"
 description = "Design reference engine: capture, organize and adapt web design references"
 readme = "README.md"
 requires-python = ">=3.11"
