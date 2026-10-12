@@ -4,7 +4,7 @@ import { useState } from "react"
 import { api, CompetitiveComparison, TrendsResponse } from "@/lib/api"
 import { useToast } from "@/components/ToastRegion"
 import { useT } from "@/lib/i18n"
-import { SYM, Spinner, TuiPanel } from "@/components/ui/tui"
+import { Spinner, SYM } from "@/components/ui/tui"
 
 type ViewTab = "competitivo" | "tendencias"
 
@@ -13,22 +13,18 @@ function CompararPage() {
   const toast = useToast()
   const [tab, setTab] = useState<ViewTab>("competitivo")
 
-  // ── Competitive State ──
   const [siteInputs, setSiteInputs] = useState<string[]>(["", ""])
   const [compResult, setCompResult] = useState<CompetitiveComparison | null>(null)
 
-  // ── Trends State ──
   const [trendUrl, setTrendUrl] = useState("")
   const [trendTerms, setTrendTerms] = useState(t("comparar.defaultTerms"))
   const [trendResult, setTrendResult] = useState<TrendsResponse | null>(null)
 
-  // List of already catalogued sites for convenience
   const catalogSitesQuery = useQuery({
     queryKey: ["catalog-sites"],
     queryFn: () => api.getCatalogSites(),
   })
 
-  // Competitive benchmark mutation
   const compMutation = useMutation({
     mutationFn: async () => {
       const sitesMap: Record<string, string> = {}
@@ -40,11 +36,7 @@ function CompararPage() {
           : [trimmed.replace(/^output\//, ""), trimmed.startsWith("output/") ? trimmed : `output/${trimmed}`]
         sitesMap[label] = path
       }
-
-      if (Object.keys(sitesMap).length < 2) {
-        throw new Error(t("comparar.errorMinSites"))
-      }
-
+      if (Object.keys(sitesMap).length < 2) throw new Error(t("comparar.errorMinSites"))
       return api.compareSites(sitesMap)
     },
     onSuccess: (data) => {
@@ -57,17 +49,12 @@ function CompararPage() {
     },
   })
 
-  // Trends mutation
   const trendMutation = useMutation({
     mutationFn: async () => {
       const url = trendUrl.trim()
       if (!url) throw new Error(t("comparar.errorUrlRequired"))
-      const terms = trendTerms
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean)
+      const terms = trendTerms.split(",").map((x) => x.trim()).filter(Boolean)
       if (terms.length === 0) throw new Error(t("comparar.errorTermRequired"))
-
       return api.getTrends(url, terms)
     },
     onSuccess: (data) => {
@@ -80,279 +67,214 @@ function CompararPage() {
     },
   })
 
-  const addSiteField = () => {
-    if (siteInputs.length < 5) {
-      setSiteInputs([...siteInputs, ""])
-    }
-  }
-
+  const addSiteField = () => { if (siteInputs.length < 5) setSiteInputs([...siteInputs, ""]) }
   const updateSiteField = (idx: number, val: string) => {
     const next = [...siteInputs]
     next[idx] = val
     setSiteInputs(next)
   }
-
   const removeSiteField = (idx: number) => {
-    if (siteInputs.length > 2) {
-      setSiteInputs(siteInputs.filter((_, i) => i !== idx))
-    }
+    if (siteInputs.length > 2) setSiteInputs(siteInputs.filter((_, i) => i !== idx))
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      <TuiPanel
-        title={t("comparar.title")}
-        action={
-          <div className="toggles text-xs" role="group" aria-label={t("comparar.modeAria")}>
-            <button
-              type="button"
-              className="tgl"
-              aria-pressed={tab === "competitivo"}
-              onClick={() => setTab("competitivo")}
-            >
-              {t("comparar.tabCompetitive")}
-            </button>
-            <button
-              type="button"
-              className="tgl"
-              aria-pressed={tab === "tendencias"}
-              onClick={() => setTab("tendencias")}
-            >
-              {t("comparar.tabTrends")}
-            </button>
-          </div>
-        }
-      >
-        <p style={{ color: "var(--fg-muted)", fontSize: 13, marginBottom: "0.25lh" }}>
-          {t("comparar.intro")}
-        </p>
+    <>
+      <div className="zf-head">
+        <h1 className="zf-title">{t("comparar.title")}</h1>
+        <span className="zf-meta">{t("comparar.intro")}</span>
+        <span className="spacer" style={{ flex: 1 }} />
+      </div>
 
-        {tab === "competitivo" ? (
-          <div className="flex flex-col gap-3">
-            <div className="tui-panel" style={{ margin: "0.25lh 0" }}>
-              <div className="tui-panel-head">
-                <span className="tui-panel-title">{t("comparar.step1")}</span>
-              </div>
+      <div className="zf-tabs" role="tablist" aria-label={t("comparar.modeAria")}>
+        <button type="button" role="tab" className="zf-tab" aria-selected={tab === "competitivo"} onClick={() => setTab("competitivo")}>
+          {t("comparar.tabCompetitive")}
+        </button>
+        <button type="button" role="tab" className="zf-tab" aria-selected={tab === "tendencias"} onClick={() => setTab("tendencias")}>
+          {t("comparar.tabTrends")}
+        </button>
+      </div>
 
-            <div className="flex flex-col gap-2 max-w-2xl">
-              {siteInputs.map((siteVal, idx) => (
-                <div key={idx} className="flex items-center gap-2">
-                  <span className="w-16 text-[var(--fg-dim)]">{t("comparar.siteN").replace("{n}", String(idx + 1))}</span>
-                  <input
-                    type="text"
-                    className="tui-input flex-1"
-                    placeholder={t("comparar.sitePlaceholder")}
-                    value={siteVal}
-                    onChange={(e) => updateSiteField(idx, e.target.value)}
-                  />
-                  {catalogSitesQuery.data && catalogSitesQuery.data.length > 0 && (
-                    <select
-                      className="tui-select text-xs"
-                      value=""
-                      onChange={(e) => {
-                        if (e.target.value) updateSiteField(idx, e.target.value)
-                      }}
-                    >
-                      <option value="">{t("comparar.chooseFromCatalog")}</option>
-                      {catalogSitesQuery.data.map((s) => (
-                        <option key={s.site} value={s.site}>
-                          {s.site}
-                        </option>
-                      ))}
-                    </select>
+      {tab === "competitivo" ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--s5)" }}>
+          <div className="zf-panel">
+            <div className="zf-panel-hd"><span className="zf-micro">{t("comparar.step1")}</span></div>
+            <div className="zf-panel-bd">
+              <div style={{ display: "flex", flexDirection: "column", gap: "var(--s2)", maxWidth: "64ch" }}>
+                {siteInputs.map((siteVal, idx) => (
+                  <div key={idx} style={{ display: "flex", alignItems: "center", gap: "var(--s2)" }}>
+                    <span className="zf-meta" style={{ width: "6ch" }}>{t("comparar.siteN").replace("{n}", String(idx + 1))}</span>
+                    <input
+                      type="text"
+                      className="zf-input"
+                      style={{ flex: 1 }}
+                      placeholder={t("comparar.sitePlaceholder")}
+                      value={siteVal}
+                      onChange={(e) => updateSiteField(idx, e.target.value)}
+                    />
+                    {catalogSitesQuery.data && catalogSitesQuery.data.length > 0 && (
+                      <select
+                        className="zf-select"
+                        value=""
+                        onChange={(e) => { if (e.target.value) updateSiteField(idx, e.target.value) }}
+                        style={{ maxWidth: "22ch" }}
+                      >
+                        <option value="">{t("comparar.chooseFromCatalog")}</option>
+                        {catalogSitesQuery.data.map((s) => (
+                          <option key={s.site} value={s.site}>{s.site}</option>
+                        ))}
+                      </select>
+                    )}
+                    {siteInputs.length > 2 && (
+                      <button type="button" className="zf-icon-btn" onClick={() => removeSiteField(idx)} title={t("comparar.removeTitle")} aria-label={t("comparar.removeTitle")}>
+                        ✗
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <div style={{ display: "flex", gap: "var(--s2)", paddingTop: "var(--s2)", borderTop: "1px solid var(--border)", marginTop: "var(--s2)" }}>
+                  {siteInputs.length < 5 && (
+                    <button type="button" className="zf-btn" onClick={addSiteField}>{t("comparar.addSite")}</button>
                   )}
-                  {siteInputs.length > 2 && (
-                    <button
-                      type="button"
-                      className="tui-btn text-xs hover:border-[var(--error)]"
-                      onClick={() => removeSiteField(idx)}
-                      title={t("comparar.removeTitle")}
-                    >
-                      {SYM.fail}
-                    </button>
-                  )}
-                </div>
-              ))}
-
-              <div className="flex items-center gap-3 mt-2 pt-2 border-t border-[var(--line)]">
-                {siteInputs.length < 5 && (
-                  <button type="button" className="tui-btn text-xs" onClick={addSiteField}>
-                    {t("comparar.addSite")}
+                  <button type="button" className="zf-btn zf-btn--primary" onClick={() => compMutation.mutate()} disabled={compMutation.isPending}>
+                    {compMutation.isPending ? <Spinner /> : SYM.ok} {t("comparar.runBenchmark")}
                   </button>
-                )}
-                <button
-                  type="button"
-                  className="tui-btn accent text-xs"
-                  onClick={() => compMutation.mutate()}
-                  disabled={compMutation.isPending}
-                >
-                  {compMutation.isPending ? <Spinner /> : SYM.ok} {t("comparar.runBenchmark")}
-                </button>
+                </div>
               </div>
             </div>
           </div>
 
           {compResult && (
-            <div className="tui-panel p-4 flex flex-col gap-4 text-xs">
-              <div className="font-bold border-b border-[var(--line)] pb-1 flex justify-between">
-                <span>{t("comparar.resultTitle")}</span>
-                <span className="text-[var(--fg-dim)]">{t("comparar.sitesAnalyzed").replace("{count}", String(Object.keys(compResult.sites).length))}</span>
+            <div className="zf-panel">
+              <div className="zf-panel-hd">
+                <span className="zf-micro">{t("comparar.resultTitle")}</span>
+                <span className="zf-meta" style={{ marginLeft: "auto" }}>{t("comparar.sitesAnalyzed").replace("{count}", String(Object.keys(compResult.sites).length))}</span>
               </div>
+              <div className="zf-panel-bd">
+                {compResult.summary && (
+                  <div className="zf-pre" style={{ background: "var(--surface)" }}>
+                    <strong style={{ color: "var(--fg)" }}>{t("comparar.execSummary")}</strong>{"\n"}{compResult.summary}
+                  </div>
+                )}
 
-              {compResult.summary && (
-                <div className="p-3 bg-[var(--bg-raised)] border border-[var(--line)] leading-relaxed">
-                  <span className="font-bold block mb-1">{t("comparar.execSummary")}</span>
-                  {compResult.summary}
-                </div>
-              )}
-
-              {/* Side-by-side matrix */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {Object.entries(compResult.sites).map(([siteKey, details]) => (
-                  <div key={siteKey} className="border border-[var(--line)] p-3 rounded">
-                    <div className="font-bold text-sm text-[var(--accent)] border-b border-[var(--line)] pb-1 mb-2">
-                      {siteKey}
-                    </div>
-                    <div className="space-y-1.5">
-                      <div>
-                        <span className="text-[var(--fg-dim)]">{t("comparar.pages")}</span>
-                        <b>{details.pages_count ?? "—"}</b>
-                      </div>
-                      {details.sentiment && (
-                        <div>
-                          <span className="text-[var(--fg-dim)]">{t("comparar.sentiment")}</span>
-                          <span>
-                            {details.sentiment.label} ({details.sentiment.score > 0 ? "+" : ""}
-                            {details.sentiment.score.toFixed(2)})
-                          </span>
-                        </div>
-                      )}
-                      <div>
-                        <span className="text-[var(--fg-dim)] block mb-1">{t("comparar.technologies")}</span>
-                        <div className="flex flex-wrap gap-1">
-                          {details.technologies?.length ? (
-                            details.technologies.map((tech) => (
-                              <span key={tech} className="px-1.5 py-0.5 bg-[var(--bg-raised)] border border-[var(--line)] text-[10px]">
-                                {tech}
-                              </span>
-                            ))
-                          ) : (
-                            <span className="text-[var(--fg-dim)]">—</span>
+                <div className="zf-split zf-split--2">
+                  {Object.entries(compResult.sites).map(([siteKey, details]) => (
+                    <div key={siteKey} className="zf-pane">
+                      <div className="zf-pane-hd"><span className="zf-micro" style={{ color: "var(--accent)", fontWeight: 600 }}>{siteKey}</span></div>
+                      <div className="zf-pane-bd" style={{ display: "flex", flexDirection: "column", gap: "var(--s3)" }}>
+                        <dl className="zf-kv">
+                          <dt>{t("comparar.pages")}</dt><dd className="zf-num">{details.pages_count ?? "—"}</dd>
+                          {details.sentiment && (
+                            <>
+                              <dt>{t("comparar.sentiment")}</dt>
+                              <dd>{details.sentiment.label} ({details.sentiment.score > 0 ? "+" : ""}{details.sentiment.score.toFixed(2)})</dd>
+                            </>
                           )}
-                        </div>
-                      </div>
-                      {details.dominant_colors && details.dominant_colors.length > 0 && (
+                        </dl>
                         <div>
-                          <span className="text-[var(--fg-dim)] block mb-1">{t("comparar.colors")}</span>
-                          <div className="flex items-center gap-1">
-                            {details.dominant_colors.map((c, i) => (
-                              <span
-                                key={i}
-                                className="w-4 h-4 border border-[var(--line)] inline-block"
-                                style={{ backgroundColor: c }}
-                                title={c}
-                              />
-                            ))}
+                          <div className="zf-micro" style={{ marginBottom: 4 }}>{t("comparar.technologies")}</div>
+                          <div className="zf-chips">
+                            {details.technologies?.length ? details.technologies.map((tech) => (
+                              <span key={tech} className="zf-chip" style={{ cursor: "default" }}>{tech}</span>
+                            )) : <span className="zf-meta">—</span>}
                           </div>
                         </div>
-                      )}
+                        {details.dominant_colors && details.dominant_colors.length > 0 && (
+                          <div>
+                            <div className="zf-micro" style={{ marginBottom: 4 }}>{t("comparar.colors")}</div>
+                            <div style={{ display: "flex", gap: 4 }}>
+                              {details.dominant_colors.map((c, i) => (
+                                <span key={i} title={c} style={{ width: 16, height: 16, borderRadius: 3, background: c, border: "1px solid var(--border)", display: "inline-block" }} />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
+                  ))}
+                </div>
+
+                {compResult.matrix && (
+                  <div style={{ overflowX: "auto" }}>
+                    <table className="zf-table">
+                      <thead><tr><th>site</th>{Object.keys(compResult.matrix[Object.keys(compResult.matrix)[0]] ?? {}).map((k) => <th key={k}>{k}</th>)}</tr></thead>
+                      <tbody>
+                        {Object.entries(compResult.matrix).map(([row, cols]) => (
+                          <tr key={row}><td style={{ fontWeight: 600 }}>{row}</td>{Object.values(cols as Record<string, number>).map((v, i) => <td key={i} className="zf-num">{typeof v === "number" ? v.toFixed(2) : String(v)}</td>)}</tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                ))}
+                )}
               </div>
             </div>
           )}
         </div>
       ) : (
-        /* Trends tab */
-        <div className="flex flex-col gap-4">
-          <div className="tui-panel p-4 text-xs">
-            <div className="font-bold border-b border-[var(--line)] pb-2 mb-3">
-              {t("comparar.trendsHeader")}
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-3xl">
-              <div>
-                <label className="text-[var(--fg-dim)] block mb-1">{t("comparar.urlLabel")}</label>
-                <input
-                  type="text"
-                  className="tui-input w-full"
-                  placeholder="https://exemplo.com.br"
-                  value={trendUrl}
-                  onChange={(e) => setTrendUrl(e.target.value)}
-                />
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--s5)" }}>
+          <div className="zf-panel">
+            <div className="zf-panel-hd"><span className="zf-micro">{t("comparar.trendsHeader")}</span></div>
+            <div className="zf-panel-bd">
+              <div className="zf-split zf-split--2" style={{ maxWidth: "80ch" }}>
+                <div className="zf-field">
+                  <label className="zf-label">{t("comparar.urlLabel")}</label>
+                  <input type="text" className="zf-input" placeholder="https://exemplo.com.br" value={trendUrl} onChange={(e) => setTrendUrl(e.target.value)} />
+                </div>
+                <div className="zf-field">
+                  <label className="zf-label">{t("comparar.termsLabel")}</label>
+                  <input type="text" className="zf-input" placeholder={t("comparar.termsPlaceholder")} value={trendTerms} onChange={(e) => setTrendTerms(e.target.value)} />
+                </div>
               </div>
-              <div>
-                <label className="text-[var(--fg-dim)] block mb-1">{t("comparar.termsLabel")}</label>
-                <input
-                  type="text"
-                  className="tui-input w-full"
-                  placeholder={t("comparar.termsPlaceholder")}
-                  value={trendTerms}
-                  onChange={(e) => setTrendTerms(e.target.value)}
-                />
+              <div style={{ display: "flex", justifyContent: "flex-end", borderTop: "1px solid var(--border)", paddingTop: "var(--s3)", marginTop: "var(--s2)" }}>
+                <button type="button" className="zf-btn zf-btn--primary" onClick={() => trendMutation.mutate()} disabled={trendMutation.isPending}>
+                  {trendMutation.isPending ? <Spinner /> : SYM.ok} {t("comparar.calcTrends")}
+                </button>
               </div>
-            </div>
-            <div className="mt-3 pt-2 border-t border-[var(--line)]">
-              <button
-                type="button"
-                className="tui-btn accent text-xs"
-                onClick={() => trendMutation.mutate()}
-                disabled={trendMutation.isPending}
-              >
-                {trendMutation.isPending ? <Spinner /> : SYM.ok} {t("comparar.calcTrends")}
-              </button>
             </div>
           </div>
 
           {trendResult && (
-            <div className="tui-panel p-4 flex flex-col gap-4 text-xs">
-              <div className="font-bold border-b border-[var(--line)] pb-1 flex justify-between">
-                <span>{t("comparar.trendReport").replace("{url}", trendResult.url)}</span>
-                <span className="text-[var(--fg-dim)]">{t("comparar.termsAnalyzed").replace("{count}", String(trendResult.trends.length))}</span>
+            <div className="zf-panel">
+              <div className="zf-panel-hd">
+                <span className="zf-micro">{t("comparar.trendReport").replace("{url}", trendResult.url)}</span>
+                <span className="zf-meta" style={{ marginLeft: "auto" }}>{t("comparar.termsAnalyzed").replace("{count}", String(trendResult.trends.length))}</span>
               </div>
-
-              {trendResult.summary && (
-                <div className="p-3 bg-[var(--bg-raised)] border border-[var(--line)] leading-relaxed">
-                  <span className="font-bold block mb-1">{t("comparar.evolutionSummary")}</span>
-                  {trendResult.summary}
-                </div>
-              )}
-
-              <div className="flex flex-col gap-3">
-                {trendResult.trends.map((item) => (
-                  <div key={item.term} className="border border-[var(--line)] p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-bold text-sm">
-                        “{item.term}”
-                      </span>
-                      <span className="px-2 py-0.5 border border-[var(--line)] text-[10px] uppercase font-semibold">
-                        {t("comparar.trendLabel").replace("{trend}", item.trend)}
-                      </span>
-                    </div>
-
-                    <div className="space-y-1">
-                      {item.counts.map((c, i) => {
-                        const maxCount = Math.max(...item.counts.map((x) => x.count), 1)
-                        const barLen = Math.round((c.count / maxCount) * 20)
-                        const bar = "█".repeat(barLen) + "░".repeat(Math.max(0, 20 - barLen))
-                        return (
-                          <div key={i} className="flex items-center gap-3 font-mono text-[11px]">
-                            <span className="w-24 text-[var(--fg-dim)]">{c.date}</span>
-                            <span className="text-[var(--accent)]">{bar}</span>
-                            <span>{t("comparar.occurrences").replace("{count}", String(c.count))}</span>
-                          </div>
-                        )
-                      })}
-                    </div>
+              <div className="zf-panel-bd">
+                {trendResult.summary && (
+                  <div className="zf-pre" style={{ background: "var(--surface)" }}>
+                    <strong style={{ color: "var(--fg)" }}>{t("comparar.evolutionSummary")}</strong>{"\n"}{trendResult.summary}
                   </div>
-                ))}
+                )}
+                <div style={{ display: "flex", flexDirection: "column", gap: "var(--s4)" }}>
+                  {trendResult.trends.map((item) => (
+                    <div key={item.term} className="zf-pane">
+                      <div className="zf-pane-hd">
+                        <span style={{ fontWeight: 600 }}>“{item.term}”</span>
+                        <span className="zf-chip" style={{ marginLeft: "auto", cursor: "default" }}>{t("comparar.trendLabel").replace("{trend}", item.trend)}</span>
+                      </div>
+                      <div className="zf-pane-bd" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        {item.counts.map((c, i) => {
+                          const maxCount = Math.max(...item.counts.map((x) => x.count), 1)
+                          const pct = Math.max(4, Math.round((c.count / maxCount) * 100))
+                          return (
+                            <div key={i} style={{ display: "flex", alignItems: "center", gap: "var(--s3)", fontFamily: "var(--font-mono)", fontSize: 11 }}>
+                              <span style={{ width: "10ch", color: "var(--muted)" }}>{c.date}</span>
+                              <div className="zf-bars" style={{ flex: 1, height: 18 }}>
+                                <i style={{ width: `${pct}%`, flex: `0 0 ${pct}%` }} />
+                              </div>
+                              <span className="zf-num" style={{ width: "14ch", textAlign: "right" }}>{t("comparar.occurrences").replace("{count}", String(c.count))}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}
         </div>
       )}
-      </TuiPanel>
-    </div>
+    </>
   )
 }
 
