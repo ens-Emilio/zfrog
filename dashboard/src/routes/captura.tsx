@@ -4,7 +4,7 @@ import { useRef, useState } from "react"
 import { api, ExtractPage, ExtractPreview, TotpAccount } from "@/lib/api"
 import { useToast } from "@/components/ToastRegion"
 import { useT } from "@/lib/i18n"
-import { Spinner, SYM, TuiPanel } from "@/components/ui/tui"
+import { Spinner } from "@/components/ui/tui"
 
 function escapeIdent(value: string): string {
   return value.replace(/[^a-zA-Z0-9_-]/g, (char) => `\\${char}`)
@@ -17,16 +17,13 @@ function cssPath(element: Element): string {
     const self: Element = node
     const tag = self.tagName.toLowerCase()
     if (tag === "html") break
-
     if (self.id) {
       segments.unshift(`#${escapeIdent(self.id)}`)
       break
     }
-
     let segment = tag
     const classes: string[] = Array.from(self.classList).slice(0, 2)
     if (classes.length > 0) segment += "." + classes.map(escapeIdent).join(".")
-
     if (tag !== "body") {
       const parent: Element | null = self.parentElement
       if (parent !== null) {
@@ -36,7 +33,6 @@ function cssPath(element: Element): string {
         if (siblings.length > 1) segment += `:nth-of-type(${siblings.indexOf(self) + 1})`
       }
     }
-
     segments.unshift(segment)
     if (tag === "body") break
     node = self.parentElement
@@ -86,25 +82,18 @@ function CapturaPage() {
   const toast = useToast()
   const queryClient = useQueryClient()
   const [tab, setTab] = useState<"blocos" | "totp">("blocos")
-
-  // ── Block capture state ──
   const [url, setUrl] = useState("")
   const [loading, setLoading] = useState(false)
   const [page, setPage] = useState<ExtractPage | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [frameReady, setFrameReady] = useState(false)
-
   const [blocks, setBlocks] = useState<string[]>(BLOCKS.map((b) => b.id))
   const [presetId, setPresetId] = useState("full")
-
   const [selector, setSelector] = useState(() => blocksToSelector(BLOCKS.map((b) => b.id)))
   const [previewing, setPreviewing] = useState(false)
   const [preview, setPreview] = useState<ExtractPreview | null>(null)
   const [previewError, setPreviewError] = useState<string | null>(null)
-
   const iframeRef = useRef<HTMLIFrameElement | null>(null)
-
-  // ── TOTP vault & sessions state ──
   const [totpName, setTotpName] = useState("")
   const [totpSecret, setTotpSecret] = useState("")
   const [totpIssuer, setTotpIssuer] = useState("")
@@ -115,13 +104,11 @@ function CapturaPage() {
     queryFn: () => api.getTotpAccounts(),
     enabled: tab === "totp",
   })
-
   const sessionsQuery = useQuery({
     queryKey: ["sessions"],
     queryFn: () => api.getSessions(),
     enabled: tab === "totp",
   })
-
   const totpCodeQuery = useQuery({
     queryKey: ["totp-code", selectedTotp],
     queryFn: () => (selectedTotp ? api.getTotpCode(selectedTotp) : null),
@@ -148,7 +135,6 @@ function CapturaPage() {
       toast(t("captura.totpAddError").replace("{error}", msg), "err")
     },
   })
-
   const deleteTotpMutation = useMutation({
     mutationFn: (name: string) => api.deleteTotpAccount(name),
     onSuccess: (data) => {
@@ -161,7 +147,6 @@ function CapturaPage() {
       toast(t("captura.totpRemoveError").replace("{error}", msg), "err")
     },
   })
-
   const deleteSessionMutation = useMutation({
     mutationFn: (dom: string) => api.deleteSession(dom),
     onSuccess: (data) => {
@@ -180,13 +165,11 @@ function CapturaPage() {
     setPreview(null)
     setPreviewError(null)
   }
-
   const handlePreset = (id: string) => {
     setPresetId(id)
     const preset = PRESETS.find((p) => p.id === id)
     if (preset) applyBlocks(preset.blocks)
   }
-
   const handleLoad = async () => {
     const target = url.trim()
     if (!target) return
@@ -204,66 +187,45 @@ function CapturaPage() {
       setLoading(false)
     }
   }
-
   const handleFrameLoad = () => {
     const frame = iframeRef.current
     if (!frame) return
     try {
       const doc = frame.contentDocument
       if (!doc) return
-
       const style = doc.createElement("style")
       style.textContent = `
         .__zf_hover { outline: 2px dashed #00e5a3 !important; outline-offset: -2px !important; cursor: crosshair !important; }
         .__zf_selected { outline: 2px solid #00e5a3 !important; outline-offset: -2px !important; background: rgba(0, 229, 163, 0.1) !important; }
       `
       doc.head.appendChild(style)
-
       let currentHover: Element | null = null
-      doc.addEventListener(
-        "mouseover",
-        (e) => {
-          const target = e.target as Element | null
-          if (!target || target === doc.body || target === doc.documentElement) return
-          if (currentHover && currentHover !== target) {
-            currentHover.classList.remove("__zf_hover")
-          }
-          currentHover = target
-          target.classList.add("__zf_hover")
-        },
-        true,
-      )
-
-      doc.addEventListener(
-        "mouseout",
-        (e) => {
-          const target = e.target as Element | null
-          if (target) target.classList.remove("__zf_hover")
-        },
-        true,
-      )
-
-      doc.addEventListener(
-        "click",
-        (e) => {
-          e.preventDefault()
-          e.stopPropagation()
-          const target = e.target as Element | null
-          if (!target) return
-          const path = cssPath(target)
-          setSelector(path)
-          setPresetId("custom")
-          void handlePreview(path)
-        },
-        true,
-      )
-
+      doc.addEventListener("mouseover", (e) => {
+        const target = e.target as Element | null
+        if (!target || target === doc.body || target === doc.documentElement) return
+        if (currentHover && currentHover !== target) currentHover.classList.remove("__zf_hover")
+        currentHover = target
+        target.classList.add("__zf_hover")
+      }, true)
+      doc.addEventListener("mouseout", (e) => {
+        const target = e.target as Element | null
+        if (target) target.classList.remove("__zf_hover")
+      }, true)
+      doc.addEventListener("click", (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        const target = e.target as Element | null
+        if (!target) return
+        const path = cssPath(target)
+        setSelector(path)
+        setPresetId("custom")
+        void handlePreview(path)
+      }, true)
       setFrameReady(true)
     } catch {
-      // cross-origin frame fallback
+      // cross-origin fallback
     }
   }
-
   const handlePreview = async (override?: string) => {
     const target = url.trim()
     const value = (override ?? selector).trim()
@@ -285,367 +247,173 @@ function CapturaPage() {
   const currentCode = totpCodeQuery.data
 
   return (
-    <TuiPanel
-      title={t("captura.title")}
-      action={
-        <div className="toggles text-xs" role="group" aria-label={t("captura.sectionAria")}>
-          <button
-            type="button"
-            className="tgl"
-            aria-pressed={tab === "blocos"}
-            onClick={() => setTab("blocos")}
-          >
-            {t("captura.tabBlocks")}
-          </button>
-          <button
-            type="button"
-            className="tgl"
-            aria-pressed={tab === "totp"}
-            onClick={() => setTab("totp")}
-          >
-            {t("captura.tabTotp")}
-          </button>
-        </div>
-      }
-    >
-      <div className="text-xs text-[var(--fg-dim)] border-b border-[var(--line)] pb-2 mb-3">
-        {tab === "blocos" ? t("captura.blocksHint") : t("captura.totpHint")}
+    <div className="zf-view">
+      <div className="zf-head">
+        <h1 className="zf-title">{t("captura.title")}</h1>
+        <span className="zf-meta">{tab === "blocos" ? t("captura.blocksHint") : t("captura.totpHint")}</span>
+      </div>
+
+      <div className="zf-tabs" role="tablist" aria-label={t("captura.sectionAria")}>
+        <button type="button" role="tab" className="zf-tab" aria-selected={tab === "blocos"} onClick={() => setTab("blocos")}>{t("captura.tabBlocks")}</button>
+        <button type="button" role="tab" className="zf-tab" aria-selected={tab === "totp"} onClick={() => setTab("totp")}>{t("captura.tabTotp")}</button>
       </div>
 
       {tab === "blocos" ? (
-        <>
-          {/* Preset and blocks */}
-          <div className="tui-panel" style={{ marginTop: "0.5lh" }}>
-            <div className="tui-panel-head">
-              <span className="tui-label">{t("captura.blocksToExtract")}</span>
-              <div className="flex gap-2">
+        <div className="zf-stack">
+          <div className="zf-panel">
+            <div className="zf-panel-hd">
+              <span className="zf-label">{t("captura.blocksToExtract")}</span>
+              <span style={{ flex: 1 }} />
+              <div className="zf-row" style={{ gap: "var(--s1)" }}>
                 {PRESETS.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    className={`tui-btn${presetId === p.id ? " accent" : ""}`}
-                    onClick={() => handlePreset(p.id)}
-                    style={{ fontSize: 11 }}
-                  >
-                    {t(p.labelKey)}
-                  </button>
+                  <button key={p.id} type="button" className="zf-btn" style={presetId === p.id ? { background: "var(--accent)", color: "white", borderColor: "var(--accent)" } : undefined} onClick={() => handlePreset(p.id)}>{t(p.labelKey)}</button>
                 ))}
               </div>
             </div>
-
-            <div className="tui-tags" style={{ marginTop: "0.25lh" }}>
-              {BLOCKS.map((b) => {
-                const active = blocks.includes(b.id)
-                return (
-                  <button
-                    key={b.id}
-                    type="button"
-                    className={`tui-tag${active ? " active" : ""}`}
-                    onClick={() => {
-                      setPresetId("custom")
-                      applyBlocks(active ? blocks.filter((id) => id !== b.id) : [...blocks, b.id])
-                    }}
-                  >
-                    {t(b.labelKey)}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Load page for interactive clicking */}
-          <div className="tui-field" style={{ marginTop: "0.5lh" }}>
-            <label className="tui-label" htmlFor="page-url">
-              {t("captura.urlLabel")}
-            </label>
-            <div className="flex gap-2">
-              <input
-                id="page-url"
-                className="tui-input"
-                style={{ flex: 1 }}
-                type="url"
-                placeholder="https://exemplo.com/pagina"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") void handleLoad()
-                }}
-              />
-              <button
-                type="button"
-                className="tui-btn accent"
-                onClick={() => void handleLoad()}
-                disabled={loading || !url.trim()}
-              >
-                {loading ? <Spinner /> : t("captura.loadPage")}
-              </button>
-            </div>
-          </div>
-
-          {loadError && (
-            <p className="empty" style={{ color: "var(--error)" }}>
-              {SYM.fail} {t("captura.loadError").replace("{error}", loadError)}
-            </p>
-          )}
-
-          {/* Editable CSS selector */}
-          <div className="tui-field" style={{ marginTop: "0.5lh" }}>
-            <label className="tui-label" htmlFor="custom-selector">
-              {t("captura.selectorLabel")}
-            </label>
-            <div className="flex gap-2">
-              <input
-                id="custom-selector"
-                className="tui-input"
-                style={{ flex: 1, fontFamily: "inherit" }}
-                type="text"
-                value={selector}
-                onChange={(e) => {
-                  setSelector(e.target.value)
-                  setPresetId("custom")
-                }}
-              />
-              <button
-                type="button"
-                className="tui-btn"
-                onClick={() => void handlePreview()}
-                disabled={previewing || !url.trim() || !selector.trim()}
-              >
-                {previewing ? <Spinner /> : t("captura.testSelector")}
-              </button>
-            </div>
-          </div>
-
-          {/* Interactive selection frame */}
-          {page && (
-            <div className="tui-panel" style={{ marginTop: "0.5lh" }}>
-              <div className="tui-panel-head">
-                <span className="tui-label">{t("captura.interactiveInspection")}</span>
-                <span style={{ fontSize: 11, color: "var(--fg-dim)" }}>
-                  {frameReady ? t("captura.frameActive") : t("captura.frameLoading")}
-                </span>
+            <div className="zf-panel-bd">
+              <div className="zf-chips">
+                {BLOCKS.map((b) => {
+                  const active = blocks.includes(b.id)
+                  return (
+                    <button key={b.id} type="button" className="zf-chip" aria-pressed={active} onClick={() => { setPresetId("custom"); applyBlocks(active ? blocks.filter((id) => id !== b.id) : [...blocks, b.id]) }}>{t(b.labelKey)}</button>
+                  )
+                })}
               </div>
-              <iframe
-                ref={iframeRef}
-                title={t("captura.frameTitle")}
-                srcDoc={page.html}
-                onLoad={handleFrameLoad}
-                style={{
-                  width: "100%",
-                  height: "460px",
-                  border: "1px solid var(--line)",
-                  background: "var(--bg)",
-                  marginTop: "0.25lh",
-                }}
-                sandbox="allow-same-origin"
-              />
+            </div>
+          </div>
+
+          <div className="zf-field">
+            <label className="zf-label" htmlFor="page-url">{t("captura.urlLabel")}</label>
+            <div className="zf-row">
+              <input id="page-url" className="zf-input" style={{ flex: 1 }} type="url" placeholder="https://exemplo.com/pagina" value={url} onChange={(e) => setUrl(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void handleLoad() }} />
+              <button type="button" className="zf-btn zf-btn--primary" onClick={() => void handleLoad()} disabled={loading || !url.trim()}>{loading ? <Spinner /> : t("captura.loadPage")}</button>
+            </div>
+          </div>
+
+          {loadError && <p className="zf-hint zf-hint--error">✗ {t("captura.loadError").replace("{error}", loadError)}</p>}
+
+          <div className="zf-field">
+            <label className="zf-label" htmlFor="custom-selector">{t("captura.selectorLabel")}</label>
+            <div className="zf-row">
+              <input id="custom-selector" className="zf-input" style={{ flex: 1 }} type="text" value={selector} onChange={(e) => { setSelector(e.target.value); setPresetId("custom") }} />
+              <button type="button" className="zf-btn" onClick={() => void handlePreview()} disabled={previewing || !url.trim() || !selector.trim()}>{previewing ? <Spinner /> : t("captura.testSelector")}</button>
+            </div>
+          </div>
+
+          {page && (
+            <div className="zf-panel">
+              <div className="zf-panel-hd">
+                <span className="zf-label">{t("captura.interactiveInspection")}</span>
+                <span className="zf-meta" style={{ marginLeft: "auto" }}>{frameReady ? t("captura.frameActive") : t("captura.frameLoading")}</span>
+              </div>
+              <div className="zf-panel-bd" style={{ padding: "var(--s3)" }}>
+                <iframe ref={iframeRef} title={t("captura.frameTitle")} srcDoc={page.html} onLoad={handleFrameLoad} style={{ width: "100%", height: "460px", border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--bg)" }} sandbox="allow-same-origin" />
+              </div>
             </div>
           )}
 
-          {/* Preview of selected elements */}
-          {previewError && (
-            <p className="empty" style={{ color: "var(--error)", marginTop: "0.5lh" }}>
-              {SYM.fail} {t("captura.previewError").replace("{error}", previewError)}
-            </p>
-          )}
+          {previewError && <p className="zf-hint zf-hint--error">✗ {t("captura.previewError").replace("{error}", previewError)}</p>}
 
           {preview && (
-            <div className="tui-panel" style={{ marginTop: "0.5lh" }}>
-              <div className="tui-panel-head">
-                <span className="tui-label">{t("captura.elementsFound").replace("{count}", String(preview.count))}</span>
-                <span style={{ fontSize: 11, color: "var(--ok)" }}>
-                  {SYM.ok} {t("captura.selectorValid")}
-                </span>
+            <div className="zf-panel">
+              <div className="zf-panel-hd">
+                <span className="zf-label">{t("captura.elementsFound").replace("{count}", String(preview.count))}</span>
+                <span className="zf-flag zf-flag--ok" style={{ marginLeft: "auto" }}>✓ {t("captura.selectorValid")}</span>
               </div>
-
-              <div style={{ maxHeight: "260px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "0.25lh" }}>
-                {preview.elements.slice(0, 50).map((el) => (
-                  <div key={el.index} style={{ borderBottom: "1px solid var(--line)", padding: "0.25lh 0" }}>
-                    <span style={{ color: "var(--accent)", fontWeight: 500 }}>&lt;{el.tag}&gt;</span>{" "}
-                    <span style={{ color: "var(--fg)" }}>{el.text || t("captura.noVisibleText")}</span>
-                    <details style={{ marginTop: "0.125lh" }}>
-                      <summary style={{ color: "var(--fg-dim)", cursor: "pointer", fontSize: 11 }}>{t("captura.viewHtml")}</summary>
-                      <pre
-                        style={{
-                          fontFamily: "inherit",
-                          fontSize: 11,
-                          color: "var(--fg-muted)",
-                          background: "var(--sel-bg)",
-                          padding: "0.25lh 0.5ch",
-                          overflowX: "auto",
-                          whiteSpace: "pre-wrap",
-                        }}
-                      >
-                        {el.html}
-                      </pre>
-                    </details>
-                  </div>
-                ))}
+              <div className="zf-panel-bd" style={{ padding: 0 }}>
+                <div style={{ maxHeight: "260px", overflowY: "auto", display: "flex", flexDirection: "column" }}>
+                  {preview.elements.slice(0, 50).map((el) => (
+                    <div key={el.index} style={{ borderBottom: "1px solid var(--border)", padding: "var(--s2) var(--s4)" }}>
+                      <span style={{ color: "var(--accent)", fontWeight: 550 }}>&lt;{el.tag}&gt;</span>{" "}
+                      <span style={{ color: "var(--fg)", fontSize: "var(--fs-meta)" }}>{el.text || t("captura.noVisibleText")}</span>
+                      <details style={{ marginTop: 4 }}>
+                        <summary style={{ color: "var(--muted)", cursor: "pointer", fontSize: "var(--fs-micro)" }}>{t("captura.viewHtml")}</summary>
+                        <pre className="zf-pre" style={{ marginTop: 6 }}>{el.html}</pre>
+                      </details>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}
-        </>
+        </div>
       ) : (
-        /* TOTP (2FA) vault and saved sessions tab */
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 text-xs" style={{ marginTop: "0.5lh" }}>
-          {/* Column 1: TOTP management */}
-          <div className="tui-panel p-4 flex flex-col gap-4">
-            <div className="font-bold border-b border-[var(--line)] pb-1 flex justify-between">
-              <span>{t("captura.totpVaultTitle")}</span>
-              <span className="text-[var(--fg-dim)]">{t("captura.accountsCount").replace("{count}", String(totpAccounts.length))}</span>
+        <div className="zf-split zf-split--2" style={{ gap: "var(--s5)" }}>
+          <div className="zf-panel">
+            <div className="zf-panel-hd">
+              <span className="zf-label">{t("captura.totpVaultTitle")}</span>
+              <span className="zf-meta" style={{ marginLeft: "auto" }}>{t("captura.accountsCount").replace("{count}", String(totpAccounts.length))}</span>
             </div>
-
-            {/* New account registration */}
-            <div className="border border-[var(--line)] p-3 bg-[var(--bg-raised)] flex flex-col gap-2">
-              <span className="font-bold text-[10px] uppercase text-[var(--fg-dim)]">{t("captura.addSecret")}</span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <input
-                  type="text"
-                  className="tui-input"
-                  placeholder={t("captura.namePlaceholder")}
-                  value={totpName}
-                  onChange={(e) => setTotpName(e.target.value)}
-                />
-                <input
-                  type="text"
-                  className="tui-input"
-                  placeholder={t("captura.issuerPlaceholder")}
-                  value={totpIssuer}
-                  onChange={(e) => setTotpIssuer(e.target.value)}
-                />
-              </div>
-              <input
-                type="password"
-                className="tui-input font-mono"
-                placeholder={t("captura.secretPlaceholder")}
-                value={totpSecret}
-                onChange={(e) => setTotpSecret(e.target.value)}
-              />
-              <button
-                type="button"
-                className="tui-btn accent w-full mt-1"
-                onClick={() => addTotpMutation.mutate()}
-                disabled={addTotpMutation.isPending || !totpName.trim() || !totpSecret.trim()}
-              >
-                {addTotpMutation.isPending ? <Spinner /> : SYM.ok} {t("captura.saveToVault")}
-              </button>
-            </div>
-
-            {/* TOTP accounts list and live generator */}
-            <div className="space-y-1.5 max-h-[300px] overflow-y-auto">
-              {totpAccountsQuery.isLoading && (
-                <p className="text-[var(--fg-dim)]"><Spinner /> {t("captura.loadingVault")}</p>
-              )}
-              {!totpAccountsQuery.isLoading && totpAccounts.length === 0 && (
-                <p className="text-[var(--fg-dim)] py-4 text-center">{t("captura.noAccounts")}</p>
-              )}
-              {totpAccounts.map((acc) => {
-                const isSelected = selectedTotp === acc.name
-                return (
-                  <div
-                    key={acc.name}
-                    className={`p-2 border flex items-center justify-between ${
-                      isSelected
-                        ? "border-[var(--accent)] bg-[var(--bg-raised)]"
-                        : "border-[var(--line)] hover:border-[var(--line)]"
-                    }`}
-                  >
-                    <div>
-                      <div className="font-bold flex items-center gap-1.5">
-                        <span>{acc.name}</span>
-                        {acc.issuer && (
-                          <span className="text-[10px] text-[var(--fg-dim)] uppercase">({acc.issuer})</span>
-                        )}
-                      </div>
-                      <div className="text-[10px] text-[var(--fg-dim)]">{acc.created_at || "—"}</div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        className="tui-btn text-[11px]"
-                        onClick={() => setSelectedTotp(acc.name)}
-                      >
-                        {t("captura.generateCode")}
-                      </button>
-                      <button
-                        type="button"
-                        className="tui-btn text-[11px] hover:border-[var(--error)]"
-                        onClick={() => deleteTotpMutation.mutate(acc.name)}
-                        title={t("captura.deleteTitle")}
-                      >
-                        {SYM.fail}
-                      </button>
-                    </div>
+            <div className="zf-panel-bd">
+              <div className="zf-panel" style={{ background: "var(--bg)" }}>
+                <div className="zf-panel-bd" style={{ gap: "var(--s3)" }}>
+                  <span className="zf-micro" style={{ letterSpacing: ".06em" }}>{t("captura.addSecret")}</span>
+                  <div className="zf-split zf-split--2">
+                    <input type="text" className="zf-input" placeholder={t("captura.namePlaceholder")} value={totpName} onChange={(e) => setTotpName(e.target.value)} />
+                    <input type="text" className="zf-input" placeholder={t("captura.issuerPlaceholder")} value={totpIssuer} onChange={(e) => setTotpIssuer(e.target.value)} />
                   </div>
-                )
-              })}
-            </div>
-
-            {/* Active code */}
-            {selectedTotp && currentCode && (
-              <div className="border border-[var(--accent)] p-3 bg-[var(--bg-raised)] text-center">
-                <div className="text-[10px] text-[var(--fg-dim)] uppercase mb-1">
-                  {t("captura.currentCode").split("<b>")[0]}
-                  <b>{selectedTotp}</b>:
-                </div>
-                <div className="text-2xl font-mono font-bold tracking-widest text-[var(--accent)]">
-                  {currentCode.code}
-                </div>
-                <div className="text-[10px] text-[var(--fg-dim)] mt-1">
-                  {t("captura.renewsIn")
-                    .replace("<b>", "")
-                    .replace("</b>", "")
-                    .replace("{seconds}", String(currentCode.seconds_remaining))}
+                  <input type="password" className="zf-input" placeholder={t("captura.secretPlaceholder")} value={totpSecret} onChange={(e) => setTotpSecret(e.target.value)} />
+                  <button type="button" className="zf-btn zf-btn--primary" style={{ width: "100%" }} onClick={() => addTotpMutation.mutate()} disabled={addTotpMutation.isPending || !totpName.trim() || !totpSecret.trim()}>{addTotpMutation.isPending ? <Spinner /> : "✓"} {t("captura.saveToVault")}</button>
                 </div>
               </div>
-            )}
+
+              <div style={{ maxHeight: 300, overflowY: "auto", display: "flex", flexDirection: "column", gap: 1 }}>
+                {totpAccountsQuery.isLoading && <p className="zf-meta"><Spinner /> {t("captura.loadingVault")}</p>}
+                {!totpAccountsQuery.isLoading && totpAccounts.length === 0 && <p className="zf-meta" style={{ textAlign: "center", padding: "var(--s4)" }}>{t("captura.noAccounts")}</p>}
+                {totpAccounts.map((acc) => {
+                  const isSelected = selectedTotp === acc.name
+                  return (
+                    <div key={acc.name} style={{ padding: "var(--s3) var(--s4)", border: "1px solid var(--border)", borderRadius: "var(--radius)", display: "flex", alignItems: "center", justifyContent: "space-between", background: isSelected ? "var(--sel-bg)" : "var(--surface)", borderColor: isSelected ? "var(--accent)" : "var(--border)" }}>
+                      <div>
+                        <div style={{ fontWeight: 550, display: "flex", gap: 6, alignItems: "center" }}><span>{acc.name}</span>{acc.issuer && <span className="zf-micro">({acc.issuer})</span>}</div>
+                        <div className="zf-micro">{acc.created_at || "—"}</div>
+                      </div>
+                      <div className="zf-row">
+                        <button type="button" className="zf-btn" onClick={() => setSelectedTotp(acc.name)}>{t("captura.generateCode")}</button>
+                        <button type="button" className="zf-btn zf-btn--danger" onClick={() => deleteTotpMutation.mutate(acc.name)} title={t("captura.deleteTitle")}>✗</button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {selectedTotp && currentCode && (
+                <div className="zf-panel" style={{ borderColor: "var(--accent)", textAlign: "center" }}>
+                  <div className="zf-panel-bd">
+                    <div className="zf-micro">{t("captura.currentCode").split("<b>")[0]}<b>{selectedTotp}</b>:</div>
+                    <div style={{ fontFamily: "var(--font-mono)", fontSize: 24, fontWeight: 700, letterSpacing: ".2em", color: "var(--accent)" }}>{currentCode.code}</div>
+                    <div className="zf-micro">{t("captura.renewsIn").replace("<b>", "").replace("</b>", "").replace("{seconds}", String(currentCode.seconds_remaining))}</div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Column 2: saved login sessions */}
-          <div className="tui-panel p-4 flex flex-col gap-4">
-            <div className="font-bold border-b border-[var(--line)] pb-1 flex justify-between">
-              <span>{t("captura.sessionsTitle")}</span>
-              <span className="text-[var(--fg-dim)]">{t("captura.domainsCount").replace("{count}", String(sessions.length))}</span>
+          <div className="zf-panel">
+            <div className="zf-panel-hd">
+              <span className="zf-label">{t("captura.sessionsTitle")}</span>
+              <span className="zf-meta" style={{ marginLeft: "auto" }}>{t("captura.domainsCount").replace("{count}", String(sessions.length))}</span>
             </div>
-
-            <p className="text-[var(--fg-dim)]">
-              {t("captura.sessionsHint")}
-            </p>
-
-            <div className="space-y-1.5 max-h-[380px] overflow-y-auto">
-              {sessionsQuery.isLoading && (
-                <p className="text-[var(--fg-dim)]"><Spinner /> {t("captura.loadingSessions")}</p>
-              )}
-              {!sessionsQuery.isLoading && sessions.length === 0 && (
-                <p className="text-[var(--fg-dim)] py-6 text-center">
-                  {t("captura.noSessions")}
-                </p>
-              )}
-              {sessions.map((s) => (
-                <div
-                  key={s.domain}
-                  className="p-2 border border-[var(--line)] bg-[var(--bg-raised)] flex items-center justify-between"
-                >
-                  <div className="truncate mr-2 font-mono">
-                    <div className="font-bold">{s.domain}</div>
-                    <div className="text-[10px] text-[var(--fg-dim)]">
-                      {t("captura.cookieCount").replace("{count}", String(s.cookies)).replace("{savedAt}", s.saved_at)}
+            <div className="zf-panel-bd">
+              <p className="zf-meta">{t("captura.sessionsHint")}</p>
+              <div style={{ maxHeight: 380, overflowY: "auto", display: "flex", flexDirection: "column", gap: 1 }}>
+                {sessionsQuery.isLoading && <p className="zf-meta"><Spinner /> {t("captura.loadingSessions")}</p>}
+                {!sessionsQuery.isLoading && sessions.length === 0 && <p className="zf-meta" style={{ textAlign: "center", padding: "var(--s4)" }}>{t("captura.noSessions")}</p>}
+                {sessions.map((s) => (
+                  <div key={s.domain} style={{ padding: "var(--s3) var(--s4)", border: "1px solid var(--border)", borderRadius: "var(--radius)", display: "flex", alignItems: "center", justifyContent: "space-between", background: "var(--surface)" }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: 550, fontFamily: "var(--font-mono)" }}>{s.domain}</div>
+                      <div className="zf-micro">{t("captura.cookieCount").replace("{count}", String(s.cookies)).replace("{savedAt}", s.saved_at)}</div>
                     </div>
+                    <button type="button" className="zf-btn zf-btn--danger" onClick={() => deleteSessionMutation.mutate(s.domain)}>{t("captura.revokeSession")}</button>
                   </div>
-                  <button
-                    type="button"
-                    className="tui-btn text-[11px] hover:border-[var(--error)]"
-                    onClick={() => deleteSessionMutation.mutate(s.domain)}
-                  >
-                    {t("captura.revokeSession")}
-                  </button>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         </div>
       )}
-    </TuiPanel>
+    </div>
   )
 }
 

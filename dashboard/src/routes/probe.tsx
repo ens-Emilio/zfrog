@@ -3,7 +3,7 @@ import { useEffect, useState } from "react"
 import { api, JobMode, ProbeResult } from "@/lib/api"
 import { useToast } from "@/components/ToastRegion"
 import { useT, type I18nKey } from "@/lib/i18n"
-import { Spinner, SYM, TuiPanel } from "@/components/ui/tui"
+import { Spinner } from "@/components/ui/tui"
 
 const engineToMode: Record<ProbeResult["suggested_engine"], JobMode> = {
   wget: "mirror",
@@ -18,81 +18,21 @@ interface ModeDef {
 }
 
 const MODES: ModeDef[] = [
-  {
-    mode: "jump",
-    short: "jump",
-    category: "visual",
-  },
-  {
-    mode: "tongue",
-    short: "tongue",
-    category: "visual",
-  },
-  {
-    mode: "auto",
-    short: "auto",
-    category: "visual",
-  },
-  {
-    mode: "scrape",
-    short: "scrape",
-    category: "visual",
-  },
-  {
-    mode: "mirror",
-    short: "mirror",
-    category: "visual",
-  },
-  {
-    mode: "singlepage",
-    short: "singlepage",
-    category: "visual",
-  },
-  {
-    mode: "pdf",
-    short: "pdf",
-    category: "visual",
-  },
-  {
-    mode: "video",
-    short: "video",
-    category: "visual",
-  },
-  {
-    mode: "summarize",
-    short: "summarize",
-    category: "ai",
-  },
-  {
-    mode: "sentiment",
-    short: "sentiment",
-    category: "ai",
-  },
-  {
-    mode: "translate",
-    short: "translate",
-    category: "ai",
-  },
-  {
-    mode: "entities",
-    short: "entities",
-    category: "ai",
-  },
-  {
-    mode: "tags",
-    short: "tags",
-    category: "ai",
-  },
-  {
-    mode: "api_discovery",
-    short: "api discovery",
-    category: "ai",
-  },
-  {
-    mode: "delta",
-    short: "delta",
-    category: "ai",
-  },
+  { mode: "jump", short: "jump", category: "visual" },
+  { mode: "tongue", short: "tongue", category: "visual" },
+  { mode: "auto", short: "auto", category: "visual" },
+  { mode: "scrape", short: "scrape", category: "visual" },
+  { mode: "mirror", short: "mirror", category: "visual" },
+  { mode: "singlepage", short: "singlepage", category: "visual" },
+  { mode: "pdf", short: "pdf", category: "visual" },
+  { mode: "video", short: "video", category: "visual" },
+  { mode: "summarize", short: "summarize", category: "ai" },
+  { mode: "sentiment", short: "sentiment", category: "ai" },
+  { mode: "translate", short: "translate", category: "ai" },
+  { mode: "entities", short: "entities", category: "ai" },
+  { mode: "tags", short: "tags", category: "ai" },
+  { mode: "api_discovery", short: "api discovery", category: "ai" },
+  { mode: "delta", short: "delta", category: "ai" },
 ]
 
 function validateUrl(value: string, t: (k: I18nKey) => string): string {
@@ -115,11 +55,9 @@ function ProbePage() {
 
   const [url, setUrl] = useState(search.url ?? "")
   const [urlError, setUrlError] = useState("")
-
   const [probing, setProbing] = useState(false)
   const [probeResult, setProbeResult] = useState<ProbeResult | null>(null)
   const [probeError, setProbeError] = useState<string | null>(null)
-
   const [mode, setMode] = useState<JobMode>("jump")
   const [depth, setDepth] = useState(1)
   const [pdfName, setPdfName] = useState("")
@@ -129,15 +67,12 @@ function ProbePage() {
   const [imageFormat, setImageFormat] = useState("png")
   const [tags, setTags] = useState("")
   const [advancedOpen, setAdvancedOpen] = useState(false)
-
   const [creating, setCreating] = useState(false)
   const [createdJob, setCreatedJob] = useState<string | null>(null)
   const [createError, setCreateError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (search.url) {
-      setUrl(search.url)
-    }
+    if (search.url) setUrl(search.url)
   }, [search.url])
 
   const handleAnalyze = async () => {
@@ -153,9 +88,8 @@ function ProbePage() {
     try {
       const result = await api.probe(url.trim())
       setProbeResult(result)
-      const recommended = engineToMode[result.suggested_engine] ?? "jump"
-      setMode(recommended)
-      toast(`${t("probe.probeDone")} ${recommended}`, "ok")
+      setMode(engineToMode[result.suggested_engine] ?? "jump")
+      toast(`${t("probe.probeDone")} ${engineToMode[result.suggested_engine] ?? "jump"}`, "ok")
     } catch (e) {
       setProbeError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -171,12 +105,10 @@ function ProbePage() {
       toast(problem, "err")
       return
     }
-
     if (mode === "tongue" && !selector.trim()) {
       toast(t("probe.selectorRequired"), "err")
       return
     }
-
     setCreating(true)
     setCreatedJob(null)
     setCreateError(null)
@@ -190,7 +122,7 @@ function ProbePage() {
         token_breakpoint: breakpointName,
         screenshot_full_page: fullPage,
         screenshot_format: imageFormat,
-        card_tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
+        card_tags: tags.split(",").map((v) => v.trim()).filter(Boolean),
       })
       setCreatedJob(job.id)
       toast(mode === "jump" ? t("probe.jumpStarted") : t("probe.genericStarted"), "ok")
@@ -204,319 +136,190 @@ function ProbePage() {
   const activeMode = MODES.find((m) => m.mode === mode) ?? MODES[0]
 
   return (
-    <div className="flex flex-col gap-3">
-      <TuiPanel
-        title={t("probe.title")}
-        action={
-          <span style={{ color: "var(--fg-dim)", fontSize: 12 }}>
-            {t("probe.modesAvailable")}
-          </span>
-        }
-      >
-        <p style={{ color: "var(--fg-muted)", fontSize: 13, marginBottom: "0.25lh" }}>
-          {t("probe.intro")}
-        </p>
+    <div className="zf-view">
+      <div className="zf-head">
+        <h1 className="zf-title">{t("probe.title")}</h1>
+        <span className="zf-meta">{t("probe.modesAvailable")}</span>
+      </div>
+      <p className="zf-meta" style={{ marginBottom: "var(--s5)" }}>{t("probe.intro")}</p>
 
-        {createdJob && (
-          <div className="tui-panel" style={{ borderColor: "var(--ok)", background: "var(--bg)", margin: "0.5lh 0" }}>
-            <p style={{ color: "var(--ok)" }}>
-              {SYM.ok} {t("probe.jobCreated")} <code>{createdJob}</code>
-            </p>
-            <div className="flex gap-2" style={{ marginTop: "0.5lh" }}>
-              <Link to="/" className="tui-btn" style={{ textDecoration: "none" }}>
-                {t("probe.viewRuns")}
-              </Link>
-              {mode === "jump" && (
-                <Link to="/colecao" className="tui-btn" style={{ textDecoration: "none" }}>
-                  {t("probe.openLibrary")}
-                </Link>
-              )}
-              <button type="button" className="tui-btn" onClick={() => setCreatedJob(null)}>
-                {t("probe.captureAnother")}
-              </button>
+      {createdJob && (
+        <div className="zf-panel" style={{ borderColor: "var(--ok)", marginBottom: "var(--s5)" }}>
+          <div className="zf-panel-bd">
+            <p style={{ color: "var(--ok)", fontSize: "var(--fs-meta)" }}>✓ {t("probe.jobCreated")} <code className="zf-code" style={{ padding: "0 4px" }}>{createdJob}</code></p>
+            <div className="zf-row" style={{ marginTop: "var(--s3)" }}>
+              <Link to="/" className="zf-btn" style={{ textDecoration: "none" }}>{t("probe.viewRuns")}</Link>
+              {mode === "jump" && <Link to="/colecao" className="zf-btn" style={{ textDecoration: "none" }}>{t("probe.openLibrary")}</Link>}
+              <button type="button" className="zf-btn zf-btn--ghost" onClick={() => setCreatedJob(null)}>{t("probe.captureAnother")}</button>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {createError && (
-          <div className="tui-panel" style={{ borderColor: "var(--error)", margin: "0.5lh 0" }}>
-            <p style={{ color: "var(--error)" }}>{SYM.fail} {t("probe.createFailed")} {createError}</p>
+      {createError && (
+        <div className="zf-panel" style={{ borderColor: "var(--error)", marginBottom: "var(--s5)" }}>
+          <div className="zf-panel-bd">
+            <p style={{ color: "var(--error)", fontSize: "var(--fs-meta)" }}>✗ {t("probe.createFailed")} {createError}</p>
           </div>
-        )}
+        </div>
+      )}
 
-        <form onSubmit={handleSubmit} style={{ marginTop: "0.5lh" }}>
-          {/* Main URL field */}
-          <div className="tui-field">
-            <label className="tui-label" htmlFor="probe-url">
-              {t("probe.urlLabel")}
-            </label>
-            <div className="flex gap-1">
+      <form onSubmit={handleSubmit}>
+        <div id="probe-url" className="zf-panel" style={{ marginBottom: "var(--s5)" }}>
+          <div className="zf-panel-hd">
+            <label className="zf-label" htmlFor="probe-url-input">{t("probe.urlLabel")}</label>
+          </div>
+          <div className="zf-panel-bd">
+            <div className="zf-row">
               <input
-                id="probe-url"
-                className="tui-input"
+                id="probe-url-input"
+                className="zf-input"
                 type="text"
                 value={url}
                 placeholder="https://exemplo.com.br"
-                onChange={(e) => {
-                  setUrl(e.target.value)
-                  if (urlError) setUrlError("")
-                }}
+                onChange={(e) => { setUrl(e.target.value); if (urlError) setUrlError("") }}
                 style={{ flex: 1 }}
                 autoFocus
+                aria-invalid={Boolean(urlError)}
               />
-              <button
-                type="button"
-                className="tui-btn"
-                onClick={() => void handleAnalyze()}
-                disabled={probing || !url.trim()}
-                title={t("probe.analyzeTitle")}
-              >
+              <button type="button" className="zf-btn" onClick={() => void handleAnalyze()} disabled={probing || !url.trim()} title={t("probe.analyzeTitle")}>
                 {probing ? <Spinner /> : t("probe.analyze")}
               </button>
             </div>
-            {urlError && <span style={{ color: "var(--error)", fontSize: 12 }}>{urlError}</span>}
+            {urlError && <span className="zf-hint zf-hint--error">{urlError}</span>}
           </div>
+        </div>
 
-          {/* Diagnosis result */}
-          {probeResult && (
-            <div className="tui-panel" style={{ margin: "0.5lh 0" }}>
-              <div className="tui-panel-head">
-                <span className="tui-panel-title">{t("probe.diagnosisTitle")}</span>
-                <span style={{ color: "var(--fg-dim)", fontSize: 12 }}>
-                  {t("probe.statusCode")} {probeResult.status_code ?? "200"} · {probeResult.content_type}
-                </span>
-              </div>
-              <dl className="tui-kv" style={{ marginTop: "0.25lh" }}>
-                <dt>{t("probe.suggestedMode")}</dt>
-                <dd style={{ color: "var(--accent)", fontWeight: 500 }}>{probeResult.suggested_engine} {t("probe.adjustedBelow")}</dd>
-                <dt>{t("probe.finalUrl")}</dt>
-                <dd>{probeResult.final_url || probeResult.url}</dd>
-                <dt>{t("probe.needsJs")}</dt>
-                <dd>{probeResult.is_spa ? t("probe.jsSpa") : probeResult.has_js_rendering ? t("probe.jsRendering") : t("probe.jsNo")}</dd>
-                <dt>{t("probe.techDetected")}</dt>
-                <dd>{probeResult.framework || t("probe.techHtml")}</dd>
-                <dt>{t("probe.accessPermission")}</dt>
-                <dd>{probeResult.robots_restricted ? t("probe.robotsRestricted") : t("probe.accessFree")}</dd>
+        {probeResult && (
+          <div className="zf-panel" style={{ marginBottom: "var(--s5)" }}>
+            <div className="zf-panel-hd">
+              <span className="zf-label">{t("probe.diagnosisTitle")}</span>
+              <span className="zf-meta" style={{ marginLeft: "auto" }}>{t("probe.statusCode")} {probeResult.status_code ?? "200"} · {probeResult.content_type}</span>
+            </div>
+            <div className="zf-panel-bd">
+              <dl className="zf-kv">
+                <dt>{t("probe.suggestedMode")}</dt><dd style={{ color: "var(--accent)", fontWeight: 550 }}>{probeResult.suggested_engine} {t("probe.adjustedBelow")}</dd>
+                <dt>{t("probe.finalUrl")}</dt><dd>{probeResult.final_url || probeResult.url}</dd>
+                <dt>{t("probe.needsJs")}</dt><dd>{probeResult.is_spa ? t("probe.jsSpa") : probeResult.has_js_rendering ? t("probe.jsRendering") : t("probe.jsNo")}</dd>
+                <dt>{t("probe.techDetected")}</dt><dd>{probeResult.framework || t("probe.techHtml")}</dd>
+                <dt>{t("probe.accessPermission")}</dt><dd>{probeResult.robots_restricted ? t("probe.robotsRestricted") : t("probe.accessFree")}</dd>
               </dl>
             </div>
-          )}
+          </div>
+        )}
 
-          {probeError && (
-            <p style={{ color: "var(--error)", fontSize: 12, margin: "0.25lh 0" }}>
-              {SYM.fail} {t("probe.probeFailed")} {probeError}
-            </p>
-          )}
+        {probeError && <p className="zf-hint zf-hint--error" style={{ marginBottom: "var(--s4)" }}>✗ {t("probe.probeFailed")} {probeError}</p>}
 
-          {/* Categorized mode selection */}
-          <div style={{ marginTop: "0.75lh" }}>
-            <span className="tui-panel-title" style={{ fontSize: 12, display: "block", marginBottom: "0.25lh" }}>
-              {t("probe.visualSection")}
-            </span>
-            <div className="tui-tags" style={{ marginBottom: "0.75lh" }}>
+        <div id="probe-modes" className="zf-panel" style={{ marginBottom: "var(--s5)" }}>
+          <div className="zf-panel-hd"><span className="zf-label">{t("probe.visualSection")}</span></div>
+          <div className="zf-panel-bd" style={{ gap: "var(--s3)" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: "var(--s2)" }}>
               {MODES.filter((m) => m.category === "visual").map((m) => (
-                <button
-                  key={m.mode}
-                  type="button"
-                  className={`tui-tag${mode === m.mode ? " active" : ""}`}
-                  onClick={() => setMode(m.mode)}
-                >
+                <button key={m.mode} type="button" className="zf-btn" aria-pressed={mode === m.mode} onClick={() => setMode(m.mode)} style={mode === m.mode ? { background: "var(--accent-soft)", borderColor: "var(--accent)", color: "var(--accent)" } : undefined}>
                   {t(`probe.mode.${m.mode}.name` as I18nKey)}
                 </button>
               ))}
             </div>
-
-            <span className="tui-panel-title" style={{ fontSize: 12, display: "block", marginBottom: "0.25lh" }}>
-              {t("probe.aiSection")}
-            </span>
-            <div className="tui-tags">
+            <div className="zf-panel-hd" style={{ padding: "0", borderBottom: 0, marginTop: "var(--s2)" }}><span className="zf-label">{t("probe.aiSection")}</span></div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: "var(--s2)" }}>
               {MODES.filter((m) => m.category === "ai").map((m) => (
-                <button
-                  key={m.mode}
-                  type="button"
-                  className={`tui-tag${mode === m.mode ? " active" : ""}`}
-                  onClick={() => setMode(m.mode)}
-                >
+                <button key={m.mode} type="button" className="zf-btn" aria-pressed={mode === m.mode} onClick={() => setMode(m.mode)} style={mode === m.mode ? { background: "var(--accent-soft)", borderColor: "var(--accent)", color: "var(--accent)" } : undefined}>
                   {t(`probe.mode.${m.mode}.name` as I18nKey)}
                 </button>
               ))}
             </div>
           </div>
+        </div>
 
-          {/* Selected mode explainer box */}
-          <div className="tui-panel" style={{ marginTop: "0.5lh", background: "var(--bg)" }}>
-            <div className="flex items-baseline justify-between">
-              <span className="font-semibold" style={{ color: "var(--fg)" }}>
-                {t("probe.activeMode")} <code>{activeMode.short}</code> — {t(`probe.mode.${activeMode.mode}.name` as I18nKey)}
-              </span>
-            </div>
-            <p style={{ color: "var(--fg-muted)", fontSize: 12, marginTop: "0.25lh" }}>
-              {t(`probe.mode.${activeMode.mode}.desc` as I18nKey)}
-            </p>
+        <div className="zf-panel" style={{ marginBottom: "var(--s5)", background: "var(--bg)" }}>
+          <div className="zf-panel-bd">
+            <span style={{ fontWeight: 550 }}>{t("probe.activeMode")} <code className="zf-code" style={{ padding: "0 4px" }}>{activeMode.short}</code> — {t(`probe.mode.${activeMode.mode}.name` as I18nKey)}</span>
+            <p className="zf-meta" style={{ marginTop: "var(--s2)" }}>{t(`probe.mode.${activeMode.mode}.desc` as I18nKey)}</p>
           </div>
+        </div>
 
-          {/* Per-mode fields */}
+        <div id="probe-fields" style={{ display: "flex", flexDirection: "column", gap: "var(--s5)", marginBottom: "var(--s5)" }}>
           {mode === "jump" && (
-            <div className="tui-panel" style={{ marginTop: "0.5lh" }}>
-              <span className="tui-label">{t("probe.jump.settings")}</span>
-              <div className="flex gap-3 flex-wrap" style={{ marginTop: "0.25lh" }}>
-                <label className="flex items-center gap-1 text-[12px]">
-                  {t("probe.jump.device")}
-                  <select
-                    className="tui-select"
-                    value={breakpointName}
-                    onChange={(e) => setBreakpointName(e.target.value)}
-                    style={{ width: "auto" }}
-                  >
-                    <option value="desktop">{t("probe.jump.desktop")}</option>
-                    <option value="tablet">{t("probe.jump.tablet")}</option>
-                    <option value="mobile">{t("probe.jump.mobile")}</option>
-                  </select>
+            <div className="zf-panel">
+              <div className="zf-panel-hd"><span className="zf-label">{t("probe.jump.settings")}</span></div>
+              <div className="zf-panel-bd">
+                <div className="zf-row">
+                  <label className="zf-field" style={{ minWidth: 140 }}>
+                    <span className="zf-label">{t("probe.jump.device")}</span>
+                    <select className="zf-select" value={breakpointName} onChange={(e) => setBreakpointName(e.target.value)}>
+                      <option value="desktop">{t("probe.jump.desktop")}</option>
+                      <option value="tablet">{t("probe.jump.tablet")}</option>
+                      <option value="mobile">{t("probe.jump.mobile")}</option>
+                    </select>
+                  </label>
+                  <label className="zf-field" style={{ minWidth: 120 }}>
+                    <span className="zf-label">{t("probe.jump.imageFormat")}</span>
+                    <select className="zf-select" value={imageFormat} onChange={(e) => setImageFormat(e.target.value)}>
+                      <option value="png">{t("probe.jump.png")}</option>
+                      <option value="webp">{t("probe.jump.webp")}</option>
+                    </select>
+                  </label>
+                  <label className="zf-field" style={{ minWidth: 140 }}>
+                    <span className="zf-label">{t("probe.jump.shotSize")}</span>
+                    <select className="zf-select" value={fullPage ? "true" : "false"} onChange={(e) => setFullPage(e.target.value === "true")}>
+                      <option value="true">{t("probe.jump.fullPage")}</option>
+                      <option value="false">{t("probe.jump.firstFold")}</option>
+                    </select>
+                  </label>
+                </div>
+                <label className="zf-field">
+                  <span className="zf-label">{t("probe.jump.tagsLabel")}</span>
+                  <input id="jump-tags" className="zf-input" value={tags} placeholder={t("probe.jump.tagsPlaceholder")} onChange={(e) => setTags(e.target.value)} />
                 </label>
-
-                <label className="flex items-center gap-1 text-[12px]">
-                  {t("probe.jump.imageFormat")}
-                  <select
-                    className="tui-select"
-                    value={imageFormat}
-                    onChange={(e) => setImageFormat(e.target.value)}
-                    style={{ width: "auto" }}
-                  >
-                    <option value="png">{t("probe.jump.png")}</option>
-                    <option value="webp">{t("probe.jump.webp")}</option>
-                  </select>
-                </label>
-
-                <label className="flex items-center gap-1 text-[12px]">
-                  {t("probe.jump.shotSize")}
-                  <select
-                    className="tui-select"
-                    value={fullPage ? "true" : "false"}
-                    onChange={(e) => setFullPage(e.target.value === "true")}
-                    style={{ width: "auto" }}
-                  >
-                    <option value="true">{t("probe.jump.fullPage")}</option>
-                    <option value="false">{t("probe.jump.firstFold")}</option>
-                  </select>
-                </label>
-              </div>
-
-              <div className="tui-field" style={{ marginTop: "0.5lh" }}>
-                <label className="tui-label" htmlFor="jump-tags">
-                  {t("probe.jump.tagsLabel")}
-                </label>
-                <input
-                  id="jump-tags"
-                  className="tui-input"
-                  value={tags}
-                  placeholder={t("probe.jump.tagsPlaceholder")}
-                  onChange={(e) => setTags(e.target.value)}
-                />
               </div>
             </div>
           )}
 
           {mode === "tongue" && (
-            <div className="tui-panel" style={{ marginTop: "0.5lh" }}>
-              <span className="tui-label">{t("probe.tongue.question")}</span>
-              <div className="tui-field" style={{ marginTop: "0.25lh" }}>
-                <input
-                  className="tui-input"
-                  value={selector}
-                  placeholder={t("probe.tongue.selectorPlaceholder")}
-                  onChange={(e) => setSelector(e.target.value)}
-                  autoFocus
-                />
-                <span className="tui-hint">
-                  {t("probe.tongue.hint")}
-                </span>
+            <div className="zf-panel">
+              <div className="zf-panel-hd"><span className="zf-label">{t("probe.tongue.question")}</span></div>
+              <div className="zf-panel-bd">
+                <label className="zf-field">
+                  <input className="zf-input" value={selector} placeholder={t("probe.tongue.selectorPlaceholder")} onChange={(e) => setSelector(e.target.value)} autoFocus />
+                  <span className="zf-hint">{t("probe.tongue.hint")}</span>
+                </label>
               </div>
             </div>
           )}
 
-          {/* Depth for crawlers */}
           {(mode === "mirror" || mode === "scrape" || mode === "auto") && (
-            <div className="tui-field" style={{ marginTop: "0.5lh" }}>
-              <label className="tui-label" htmlFor="depth-input">
-                {t("probe.depthLabel")}
-              </label>
-              <input
-                id="depth-input"
-                type="number"
-                min={1}
-                max={5}
-                className="tui-input"
-                value={depth}
-                onChange={(e) => setDepth(Number(e.target.value))}
-                style={{ width: "14ch" }}
-              />
-              <span className="tui-hint">{t("probe.depthHint")}</span>
-            </div>
+            <label className="zf-field" style={{ maxWidth: 220 }}>
+              <span className="zf-label">{t("probe.depthLabel")}</span>
+              <input id="depth-input" type="number" min={1} max={5} className="zf-input" value={depth} onChange={(e) => setDepth(Number(e.target.value))} />
+              <span className="zf-hint">{t("probe.depthHint")}</span>
+            </label>
           )}
 
-          {/* PDF name */}
           {mode === "pdf" && (
-            <div className="tui-field" style={{ marginTop: "0.5lh" }}>
-              <label className="tui-label" htmlFor="pdf-name">
-                {t("probe.pdfNameLabel")}
-              </label>
-              <input
-                id="pdf-name"
-                className="tui-input"
-                value={pdfName}
-                placeholder="documento-pagina"
-                onChange={(e) => setPdfName(e.target.value)}
-                style={{ maxWidth: "32ch" }}
-              />
-            </div>
+            <label className="zf-field" style={{ maxWidth: 320 }}>
+              <span className="zf-label">{t("probe.pdfNameLabel")}</span>
+              <input id="pdf-name" className="zf-input" value={pdfName} placeholder="documento-pagina" onChange={(e) => setPdfName(e.target.value)} />
+            </label>
           )}
+        </div>
 
-          {/* Advanced options toggle */}
-          <div style={{ margin: "0.5lh 0" }}>
-            <button
-              type="button"
-              className="tui-btn"
-              onClick={() => setAdvancedOpen((v) => !v)}
-              style={{ fontSize: 12 }}
-            >
-              {advancedOpen ? t("probe.tipsLess") : t("probe.tipsMore")}
-            </button>
-          </div>
-
-          {advancedOpen && (
-            <div className="tui-panel text-[12px]">
-              <p style={{ color: "var(--fg-dim)" }}>
-                {t("probe.tipsIntro")}
-              </p>
-              <p style={{ marginTop: "0.25lh" }}>
-                <code>jump https://exemplo.com</code> {t("probe.tipsJump")} <code>tongue https://exemplo.com .hero</code> {t("probe.tipsTongue")}
-              </p>
+        <div style={{ marginBottom: "var(--s4)" }}>
+          <button type="button" className="zf-btn zf-btn--ghost" onClick={() => setAdvancedOpen((v) => !v)}>{advancedOpen ? t("probe.tipsLess") : t("probe.tipsMore")}</button>
+        </div>
+        {advancedOpen && (
+          <div className="zf-panel" style={{ marginBottom: "var(--s5)" }}>
+            <div className="zf-panel-bd">
+              <p className="zf-meta">{t("probe.tipsIntro")}</p>
+              <p className="zf-meta" style={{ marginTop: "var(--s2)" }}><code className="zf-code" style={{ padding: "0 3px" }}>jump https://exemplo.com</code> {t("probe.tipsJump")} <code className="zf-code" style={{ padding: "0 3px" }}>tongue https://exemplo.com .hero</code> {t("probe.tipsTongue")}</p>
             </div>
-          )}
-
-          {/* Submit button */}
-          <div className="flex gap-2" style={{ marginTop: "1lh" }}>
-            <button
-              type="submit"
-              className="tui-btn"
-              disabled={creating || !url.trim()}
-              style={{ fontWeight: 500 }}
-            >
-              {creating ? <Spinner /> : t("probe.submit")}
-            </button>
-            <button
-              type="button"
-              className="tui-btn"
-              onClick={() => {
-                setUrl("")
-                setProbeResult(null)
-                setCreatedJob(null)
-              }}
-            >
-              {t("probe.clear")}
-            </button>
           </div>
-        </form>
-      </TuiPanel>
+        )}
+
+        <div className="zf-row">
+          <button type="submit" className="zf-btn zf-btn--primary" disabled={creating || !url.trim()}>{creating ? <Spinner /> : t("probe.submit")}</button>
+          <button type="button" className="zf-btn zf-btn--ghost" onClick={() => { setUrl(""); setProbeResult(null); setCreatedJob(null) }}>{t("probe.clear")}</button>
+        </div>
+      </form>
     </div>
   )
 }
