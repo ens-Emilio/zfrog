@@ -408,14 +408,13 @@ function ChatPage() {
                 sem ruído. Digite <span className="inline-code">/</span> para ver comandos.
               </p>
 
-              {/* Context Selector */}
               <div
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
                   gap: "8px",
                   fontSize: "12px",
-                  color: "var(--fg-muted)",
+                  color: "var(--muted)",
                 }}
                 ref={comboboxRef}
               >
@@ -437,8 +436,8 @@ function ChatPage() {
                     style={{
                       position: "absolute",
                       marginTop: "140px",
-                      background: "var(--bg-raised)",
-                      border: "1px solid var(--line)",
+                      background: "var(--surface)",
+                      border: "1px solid var(--border)",
                       zIndex: 30,
                       minWidth: "220px",
                       padding: "6px",
@@ -446,7 +445,7 @@ function ChatPage() {
                   >
                     <input
                       type="text"
-                      className="tui-input"
+                      className="zf-input"
                       placeholder="Filtrar sites..."
                       value={comboboxFilter}
                       autoFocus
@@ -455,7 +454,8 @@ function ChatPage() {
                     />
                     <button
                       type="button"
-                      className={`tui-combobox-item ${!selectedSite ? "selected" : ""}`}
+                      className="zf-btn"
+                      style={{ width: "100%", justifyContent: "flex-start", background: !selectedSite ? "var(--sel-bg)" : undefined, borderColor: !selectedSite ? "var(--border)" : undefined }}
                       onClick={() => {
                         setSelectedSite("")
                         setComboboxOpen(false)
@@ -467,14 +467,15 @@ function ChatPage() {
                       <button
                         key={s.site}
                         type="button"
-                        className={`tui-combobox-item ${selectedSite === s.site ? "selected" : ""}`}
+                        className="zf-btn"
+                        style={{ width: "100%", justifyContent: "space-between", background: selectedSite === s.site ? "var(--sel-bg)" : undefined }}
                         onClick={() => {
                           setSelectedSite(s.site)
                           setComboboxOpen(false)
                         }}
                       >
                         <span>{s.site}</span>
-                        <span style={{ color: "var(--fg-dim)", fontSize: "11px" }}>
+                        <span style={{ color: "var(--muted)", fontSize: "11px" }}>
                           ({s.count} págs)
                         </span>
                       </button>
@@ -573,8 +574,8 @@ function ChatPage() {
 
                   {/* Sources citation chips */}
                   {m.sources && m.sources.length > 0 && (
-                    <div style={{ marginTop: "10px", fontSize: "12px", color: "var(--fg-dim)" }}>
-                      <span style={{ color: "var(--fg-muted)" }}>{SYM.sub} Fontes citadas:</span>
+                    <div style={{ marginTop: "10px", fontSize: "12px", color: "var(--muted)" }}>
+                      <span style={{ color: "var(--muted)" }}>{SYM.sub} Fontes citadas:</span>
                       <div className="chips" style={{ marginTop: "4px" }}>
                         {m.sources.map((s, i) => (
                           <span key={i} className="chip">

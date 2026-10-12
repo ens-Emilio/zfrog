@@ -87,143 +87,110 @@ function EquipePage() {
 
   return (
     <>
-      <div className="flex items-baseline justify-between">
-        <h1>{t("equipe.title")}</h1>
-        <button type="button" className="tui-btn" onClick={() => void load()}>
+      <div className="zf-head">
+        <h1 className="zf-title">{t("equipe.title")}</h1>
+        <span className="spacer" style={{ flex: 1 }} />
+        <button type="button" className="zf-btn" onClick={() => void load()}>
           {t("equipe.refresh")}
         </button>
       </div>
 
       {error && (
-        <div className="tui-panel" style={{ borderColor: "var(--error)" }}>
-          <p style={{ color: "var(--error)" }}>{SYM.fail} {t("equipe.error")}{error}</p>
+        <div className="zf-panel" style={{ borderColor: "var(--error)", padding: "var(--s4)", marginBottom: "var(--s4)" }}>
+          <p style={{ color: "var(--error)", margin: 0 }}>{SYM.fail} {t("equipe.error")}{error}</p>
         </div>
       )}
 
       {loading ? (
-        <p className="empty"><Spinner /> {t("equipe.loading")}</p>
+        <div className="zf-empty"><Spinner /> {t("equipe.loading")}</div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: "1.5lh", marginTop: "0.5lh" }}>
-          {/* Users section */}
-          <div>
-            <div className="flex items-baseline justify-between">
-              <span className="tui-label">{t("equipe.usersLabel")} ({users.length})</span>
-            </div>
-
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--s5)" }}>
+          {/* Users */}
+          <div className="zf-panel">
+            <div className="zf-panel-hd"><span className="zf-micro">{t("equipe.usersLabel")} · {users.length}</span></div>
             {users.length === 0 ? (
-              <p className="empty">{t("equipe.emptyUsers")}</p>
+              <div className="zf-panel-bd"><p className="zf-meta" style={{ margin: 0 }}>{t("equipe.emptyUsers")}</p></div>
             ) : (
-              <table className="tui-table">
-                <thead>
-                  <tr>
-                    <th>{t("equipe.thName")}</th>
-                    <th>{t("equipe.thEmail")}</th>
-                    <th>{t("equipe.thRole")}</th>
-                    <th>{t("equipe.thOrgs")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map((u) => (
-                    <tr key={u.id}>
-                      <td style={{ fontWeight: 500 }}>{u.name || "—"}</td>
-                      <td>{u.email}</td>
-                      <td>
-                        <span style={{ color: u.role === "admin" ? "var(--accent)" : "var(--fg-dim)" }}>
-                          [{u.role}]
-                        </span>
-                      </td>
-                      <td style={{ color: "var(--fg-dim)" }}>
-                        {u.orgs?.join(", ") || t("equipe.allOrgs")}
-                      </td>
+              <div style={{ overflowX: "auto" }}>
+                <table className="zf-table">
+                  <thead>
+                    <tr>
+                      <th>{t("equipe.thName")}</th>
+                      <th>{t("equipe.thEmail")}</th>
+                      <th>{t("equipe.thRole")}</th>
+                      <th>{t("equipe.thOrgs")}</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {users.map((u) => (
+                      <tr key={u.id}>
+                        <td style={{ fontWeight: 500 }}>{u.name || "—"}</td>
+                        <td>{u.email}</td>
+                        <td><span className="zf-chip" style={{ cursor: "default" }}>[{u.role}]</span></td>
+                        <td style={{ color: "var(--muted)" }}>{u.orgs?.join(", ") || t("equipe.allOrgs")}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
-
-            {/* New user form */}
-            <form onSubmit={handleCreateUser} className="tui-panel" style={{ marginTop: "0.75lh" }}>
-              <span className="tui-label">{t("equipe.addUser")}</span>
-              <div className="flex gap-2 flex-wrap items-baseline" style={{ marginTop: "0.25lh" }}>
-                <input
-                  className="tui-input"
-                  type="email"
-                  value={email}
-                  placeholder="email@company.com"
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  style={{ minWidth: "24ch" }}
-                />
-                <input
-                  className="tui-input"
-                  value={name}
-                  placeholder={t("equipe.namePlaceholder")}
-                  onChange={(e) => setName(e.target.value)}
-                  style={{ minWidth: "20ch" }}
-                />
-                <select
-                  className="tui-select"
-                  value={role}
-                  onChange={(e) => setRole(e.target.value)}
-                  style={{ width: "auto" }}
-                >
-                  {ROLES.map((r) => (
-                    <option key={r.value} value={r.value}>
-                      {t(r.key)}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  className="tui-input"
-                  type="password"
-                  value={password}
-                  placeholder={t("equipe.passwordPlaceholder")}
-                  onChange={(e) => setPassword(e.target.value)}
-                  style={{ width: "18ch" }}
-                />
-                <button type="submit" className="tui-btn accent" disabled={savingUser || !email.trim()}>
+            <div className="zf-panel-bd" style={{ borderTop: "1px solid var(--border)" }}>
+              <form onSubmit={handleCreateUser} style={{ display: "flex", gap: "var(--s2)", flexWrap: "wrap", alignItems: "flex-end" }}>
+                <div className="zf-field" style={{ minWidth: "22ch" }}>
+                  <label className="zf-label">email</label>
+                  <input className="zf-input" type="email" value={email} placeholder="email@company.com" onChange={(e) => setEmail(e.target.value)} required />
+                </div>
+                <div className="zf-field" style={{ minWidth: "18ch" }}>
+                  <label className="zf-label">{t("equipe.namePlaceholder")}</label>
+                  <input className="zf-input" value={name} placeholder={t("equipe.namePlaceholder")} onChange={(e) => setName(e.target.value)} />
+                </div>
+                <div className="zf-field">
+                  <label className="zf-label">{t("equipe.thRole")}</label>
+                  <select className="zf-select" value={role} onChange={(e) => setRole(e.target.value)}>
+                    {ROLES.map((r) => (
+                      <option key={r.value} value={r.value}>{t(r.key)}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="zf-field" style={{ width: "18ch" }}>
+                  <label className="zf-label">{t("equipe.passwordPlaceholder")}</label>
+                  <input className="zf-input" type="password" value={password} placeholder={t("equipe.passwordPlaceholder")} onChange={(e) => setPassword(e.target.value)} />
+                </div>
+                <button type="submit" className="zf-btn zf-btn--primary" disabled={savingUser || !email.trim()}>
                   {savingUser ? <Spinner /> : t("equipe.addBtn")}
                 </button>
-              </div>
-            </form>
+              </form>
+            </div>
           </div>
 
-          {/* Organizations section */}
-          <div>
-            <span className="tui-label">{t("equipe.orgsLabel")} ({orgs.length})</span>
+          {/* Organizations */}
+          <div className="zf-panel">
+            <div className="zf-panel-hd"><span className="zf-micro">{t("equipe.orgsLabel")} · {orgs.length}</span></div>
             {orgs.length === 0 ? (
-              <p className="empty">{t("equipe.emptyOrgs")}</p>
+              <div className="zf-panel-bd"><p className="zf-meta" style={{ margin: 0 }}>{t("equipe.emptyOrgs")}</p></div>
             ) : (
-              <div className="rows" style={{ marginTop: "0.25lh" }}>
+              <div className="zf-list">
                 {orgs.map((o) => (
-                  <div key={o.id} className="runrow" style={{ gridTemplateColumns: "2ch 20ch 1fr auto" }}>
-                    <span style={{ color: "var(--accent)" }}>{SYM.sub}</span>
+                  <div key={o.id} style={{ display: "flex", alignItems: "baseline", gap: "var(--s3)", flexWrap: "wrap" }}>
+                    <span style={{ color: "var(--accent)", fontFamily: "var(--font-mono)" }}>{SYM.sub}</span>
                     <span style={{ fontWeight: 500 }}>{o.name}</span>
-                    <span style={{ color: "var(--fg-dim)", fontSize: 12 }}>id: {o.id}</span>
-                    <span style={{ color: "var(--fg-dim)", fontSize: 12 }}>
-                      {Object.keys(o.members || {}).length} {t("equipe.members")}
-                    </span>
+                    <span className="zf-meta">id: {o.id}</span>
+                    <span className="zf-meta" style={{ marginLeft: "auto" }}>{Object.keys(o.members || {}).length} {t("equipe.members")}</span>
                   </div>
                 ))}
               </div>
             )}
-
-            {/* New organization */}
-            <form onSubmit={handleCreateOrg} className="tui-panel" style={{ marginTop: "0.75lh" }}>
-              <span className="tui-label">{t("equipe.createOrg")}</span>
-              <div className="flex gap-2 items-baseline" style={{ marginTop: "0.25lh" }}>
-                <input
-                  className="tui-input"
-                  value={orgName}
-                  placeholder={t("equipe.orgNamePlaceholder")}
-                  onChange={(e) => setOrgName(e.target.value)}
-                  style={{ maxWidth: "32ch" }}
-                />
-                <button type="submit" className="tui-btn accent" disabled={savingOrg || !orgName.trim()}>
+            <div className="zf-panel-bd" style={{ borderTop: "1px solid var(--border)" }}>
+              <form onSubmit={handleCreateOrg} style={{ display: "flex", gap: "var(--s2)", alignItems: "flex-end", flexWrap: "wrap" }}>
+                <div className="zf-field" style={{ maxWidth: "32ch", flex: 1 }}>
+                  <label className="zf-label">{t("equipe.orgNamePlaceholder")}</label>
+                  <input className="zf-input" value={orgName} placeholder={t("equipe.orgNamePlaceholder")} onChange={(e) => setOrgName(e.target.value)} />
+                </div>
+                <button type="submit" className="zf-btn zf-btn--primary" disabled={savingOrg || !orgName.trim()}>
                   {savingOrg ? <Spinner /> : t("equipe.createBtn")}
                 </button>
-              </div>
-            </form>
+              </form>
+            </div>
           </div>
         </div>
       )}

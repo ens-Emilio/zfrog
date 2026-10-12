@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query"
 import { useState } from "react"
 import { api, GraphQLResult } from "@/lib/api"
 import { useToast } from "@/components/ToastRegion"
-import { SYM, Spinner, CodeBlock } from "@/components/ui/tui"
+import { Spinner, SYM } from "@/components/ui/tui"
 import { useT } from "@/lib/i18n"
 
 const SNIPPETS: { key: "graphql.snippetJobsLabel" | "graphql.snippetCatalogLabel" | "graphql.snippetStatsLabel" | "graphql.snippetEnginesLabel"; descKey: "graphql.snippetJobsDesc" | "graphql.snippetCatalogDesc" | "graphql.snippetStatsDesc" | "graphql.snippetEnginesDesc"; query: string }[] = [
@@ -38,14 +38,12 @@ function GraphQLPage() {
   const [result, setResult] = useState<GraphQLResult | null>(null)
   const [elapsedMs, setElapsedMs] = useState<number | null>(null)
 
-  // Schema SDL query
   const schemaQuery = useQuery({
     queryKey: ["graphql-schema"],
     queryFn: () => api.getGraphQLSchema(),
     enabled: tab === "schema",
   })
 
-  // Mutation to run the query
   const queryMutation = useMutation({
     mutationFn: async () => {
       let varsObj: Record<string, unknown> | undefined
@@ -56,7 +54,6 @@ function GraphQLPage() {
           throw new Error(t("graphql.invalidVars"))
         }
       }
-
       const start = performance.now()
       const res = await api.executeGraphQL(queryText.trim(), varsObj)
       const duration = Math.round(performance.now() - start)
@@ -80,147 +77,107 @@ function GraphQLPage() {
   const schemaSDL = schemaQuery.data?.sdl ?? ""
 
   return (
-    <div>
-      <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-[var(--line)] pb-2 mb-4">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight">{t("graphql.title")}</h1>
-          <span className="text-xs text-[var(--fg-dim)]">
-            {t("graphql.subtitle")}
-          </span>
-        </div>
-        <div className="toggles text-xs" role="group" aria-label={t("graphql.modeAria")}>
-          <button
-            type="button"
-            className="tgl"
-            aria-pressed={tab === "query"}
-            onClick={() => setTab("query")}
-          >
-            {t("graphql.tabQuery")}
-          </button>
-          <button
-            type="button"
-            className="tgl"
-            aria-pressed={tab === "schema"}
-            onClick={() => setTab("schema")}
-          >
-            {t("graphql.tabSchema")}
-          </button>
-        </div>
+    <>
+      <div className="zf-head">
+        <h1 className="zf-title">{t("graphql.title")}</h1>
+        <span className="zf-meta">{t("graphql.subtitle")}</span>
+        <span className="spacer" style={{ flex: 1 }} />
+      </div>
+
+      <div className="zf-tabs" role="tablist" aria-label={t("graphql.modeAria")}>
+        <button type="button" role="tab" className="zf-tab" aria-selected={tab === "query"} onClick={() => setTab("query")}>
+          {t("graphql.tabQuery")}
+        </button>
+        <button type="button" role="tab" className="zf-tab" aria-selected={tab === "schema"} onClick={() => setTab("schema")}>
+          {t("graphql.tabSchema")}
+        </button>
       </div>
 
       {tab === "query" ? (
-        <div className="flex flex-col gap-4 text-xs">
-          {/* Quick snippets bar */}
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[var(--fg-dim)]">{t("graphql.readyExamples")}</span>
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--s5)" }}>
+          <div className="zf-filters" style={{ padding: 0, border: 0, background: "transparent" }}>
+            <span className="zf-meta">{t("graphql.readyExamples")}</span>
             {SNIPPETS.map((s) => (
-              <button
-                key={s.key}
-                type="button"
-                className="tui-btn text-[11px]"
-                onClick={() => setQueryText(s.query)}
-                title={t(s.descKey)}
-              >
+              <button key={s.key} type="button" className="zf-btn" style={{ fontSize: 11 }} onClick={() => setQueryText(s.query)} title={t(s.descKey)}>
                 {t(s.key)}
               </button>
             ))}
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Query editor */}
-            <div className="tui-panel p-4 flex flex-col gap-3">
-              <div className="font-bold border-b border-[var(--line)] pb-1 flex justify-between">
-                <span>{t("graphql.editorTitle")}</span>
-                <span className="text-[var(--fg-dim)]">{t("graphql.ctrlHint")}</span>
+          <div className="zf-split zf-split--2">
+            <div className="zf-pane" style={{ display: "flex", flexDirection: "column" }}>
+              <div className="zf-pane-hd">
+                <span className="zf-micro">{t("graphql.editorTitle")}</span>
+                <span className="zf-meta" style={{ marginLeft: "auto" }}>{t("graphql.ctrlHint")}</span>
               </div>
-
-              <textarea
-                className="tui-input font-mono text-[11px] h-64 p-2 w-full leading-relaxed"
-                value={queryText}
-                onChange={(e) => setQueryText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-                    e.preventDefault()
-                    queryMutation.mutate()
-                  }
-                }}
-                placeholder="query { ... }"
-              />
-
-              <div>
-                <label className="text-[var(--fg-dim)] block mb-1">{t("graphql.varsLabel")}</label>
+              <div className="zf-pane-bd" style={{ display: "flex", flexDirection: "column", gap: "var(--s3)" }}>
                 <textarea
-                  className="tui-input font-mono text-[11px] h-20 p-2 w-full"
-                  value={variablesText}
-                  onChange={(e) => setVariablesText(e.target.value)}
-                  placeholder="{}"
+                  className="zf-textarea"
+                  style={{ fontFamily: "var(--font-mono)", fontSize: 11, minHeight: 220, lineHeight: 1.6 }}
+                  value={queryText}
+                  onChange={(e) => setQueryText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                      e.preventDefault()
+                      queryMutation.mutate()
+                    }
+                  }}
+                  placeholder="query { ... }"
                 />
-              </div>
-
-              <div className="flex justify-between items-center pt-2 border-t border-[var(--line)]">
-                <span className="text-[var(--fg-dim)] text-[10px]">
-                  {t("graphql.endpoint")}<code>POST /graphql</code>
-                </span>
-                <button
-                  type="button"
-                  className="tui-btn accent text-xs"
-                  onClick={() => queryMutation.mutate()}
-                  disabled={queryMutation.isPending || !queryText.trim()}
-                >
-                  {queryMutation.isPending ? <Spinner /> : SYM.ok} {t("graphql.runBtn")}
-                </button>
+                <div className="zf-field">
+                  <label className="zf-label">{t("graphql.varsLabel")}</label>
+                  <textarea
+                    className="zf-textarea"
+                    style={{ fontFamily: "var(--font-mono)", fontSize: 11, minHeight: 72 }}
+                    value={variablesText}
+                    onChange={(e) => setVariablesText(e.target.value)}
+                    placeholder="{}"
+                  />
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--border)", paddingTop: "var(--s3)" }}>
+                  <span className="zf-meta">{t("graphql.endpoint")}<code>POST /graphql</code></span>
+                  <button type="button" className="zf-btn zf-btn--primary" onClick={() => queryMutation.mutate()} disabled={queryMutation.isPending || !queryText.trim()}>
+                    {queryMutation.isPending ? <Spinner /> : SYM.ok} {t("graphql.runBtn")}
+                  </button>
+                </div>
               </div>
             </div>
 
-            {/* Results panel */}
-            <div className="tui-panel p-4 flex flex-col gap-3">
-              <div className="font-bold border-b border-[var(--line)] pb-1 flex justify-between">
-                <span>{t("graphql.resultTitle")}</span>
-                {elapsedMs !== null && (
-                  <span className="text-[var(--fg-dim)]">{elapsedMs}ms</span>
+            <div className="zf-pane" style={{ display: "flex", flexDirection: "column" }}>
+              <div className="zf-pane-hd">
+                <span className="zf-micro">{t("graphql.resultTitle")}</span>
+                {elapsedMs !== null && <span className="zf-meta" style={{ marginLeft: "auto" }}>{elapsedMs}ms</span>}
+              </div>
+              <div className="zf-pane-bd" style={{ minHeight: 260 }}>
+                {queryMutation.isPending ? (
+                  <div className="zf-empty"><Spinner /> {t("graphql.processing")}</div>
+                ) : result ? (
+                  <pre className="zf-pre" style={{ maxHeight: 420, overflow: "auto" }}>{JSON.stringify(result, null, 2)}</pre>
+                ) : (
+                  <div className="zf-empty">{t("graphql.emptyResult")}</div>
                 )}
               </div>
-
-              {queryMutation.isPending ? (
-                <div className="py-20 text-center text-[var(--fg-dim)]">
-                  <Spinner /> {t("graphql.processing")}
-                </div>
-              ) : result ? (
-                <div className="overflow-y-auto max-h-[420px]">
-                  <CodeBlock
-                    code={JSON.stringify(result, null, 2).split("\n")}
-                  />
-                </div>
-              ) : (
-                <div className="py-20 text-center text-[var(--fg-dim)]">
-                  {t("graphql.emptyResult")}
-                </div>
-              )}
             </div>
           </div>
         </div>
       ) : (
-        /* Schema SDL tab */
-        <div className="tui-panel p-4 flex flex-col gap-3 text-xs">
-          <div className="font-bold border-b border-[var(--line)] pb-1 flex justify-between">
-            <span>{t("graphql.schemaTitle")}</span>
-            <span className="text-[var(--fg-dim)]">{t("graphql.schemaHint")}</span>
+        <div className="zf-pane">
+          <div className="zf-pane-hd">
+            <span className="zf-micro">{t("graphql.schemaTitle")}</span>
+            <span className="zf-meta" style={{ marginLeft: "auto" }}>{t("graphql.schemaHint")}</span>
           </div>
-
-          {schemaQuery.isLoading ? (
-            <div className="py-12 text-center text-[var(--fg-dim)]">
-              <Spinner /> {t("graphql.loadingSchema")}
-            </div>
-          ) : schemaSDL ? (
-            <div className="overflow-y-auto max-h-[550px]">
-              <CodeBlock code={schemaSDL.split("\n")} />
-            </div>
-          ) : (
-            <p className="text-[var(--fg-dim)] py-6 text-center">{t("graphql.schemaEmpty")}</p>
-          )}
+          <div className="zf-pane-bd">
+            {schemaQuery.isLoading ? (
+              <div className="zf-empty"><Spinner /> {t("graphql.loadingSchema")}</div>
+            ) : schemaSDL ? (
+              <pre className="zf-pre" style={{ maxHeight: 550, overflow: "auto" }}>{schemaSDL}</pre>
+            ) : (
+              <p className="zf-meta" style={{ textAlign: "center", padding: "var(--s5) 0", margin: 0 }}>{t("graphql.schemaEmpty")}</p>
+            )}
+          </div>
         </div>
       )}
-    </div>
+    </>
   )
 }
 

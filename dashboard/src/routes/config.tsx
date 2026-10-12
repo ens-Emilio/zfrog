@@ -4,7 +4,7 @@ import { api, type AppConfig } from "@/lib/api"
 import { useMotion, useTheme } from "@/lib/prefs"
 import { useToast } from "@/components/ToastRegion"
 import { useT } from "@/lib/i18n"
-import { Spinner, SYM, TuiPanel } from "@/components/ui/tui"
+import { Spinner, SYM } from "@/components/ui/tui"
 
 const LOCAL_KEY = "zfrog-config-local"
 
@@ -109,142 +109,96 @@ function ConfigPage() {
   }
 
   return (
-    <TuiPanel
-      title={t("config.title")}
-      action={
-        <span style={{ color: "var(--fg-dim)", fontSize: 11 }}>
-          {t("config.subtitle")}
-        </span>
-      }
-    >
+    <>
+      <div className="zf-head">
+        <h1 className="zf-title">{t("config.title")}</h1>
+        <span className="zf-meta">{t("config.subtitle")}</span>
+        <span className="spacer" style={{ flex: 1 }} />
+      </div>
+
       {error && (
-        <div className="tui-panel" style={{ borderColor: "var(--error)", marginTop: "0.5lh" }}>
-          <p style={{ color: "var(--error)" }}>{SYM.fail} {t("config.readError")} {error}</p>
+        <div className="zf-panel" style={{ borderColor: "var(--error)", padding: "var(--s4)", marginBottom: "var(--s5)" }}>
+          <p style={{ color: "var(--error)", margin: 0 }}>{SYM.fail} {t("config.readError")} {error}</p>
         </div>
       )}
 
       {loading ? (
-        <p className="empty"><Spinner /> {t("config.loading")}</p>
+        <div className="zf-empty"><Spinner /> {t("config.loading")}</div>
       ) : (
-        <form onSubmit={handleSave} style={{ display: "flex", flexDirection: "column", gap: "1lh", marginTop: "0.5lh" }}>
-          {/* Appearance & accessibility */}
-          <div className="tui-panel">
-            <span className="tui-label">{t("config.appearanceSection")}</span>
-            <dl className="tui-kv">
-              <dt>{t("config.theme")}</dt>
-              <dd>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    className="tui-btn"
-                    onClick={toggleTheme}
-                  >
-                    {t("config.toggleTheme.before")}<b>{theme}</b>)
-                  </button>
-                  <span className="tui-hint" style={{ alignSelf: "center" }}>
-                    {t("config.themeHint")}
-                  </span>
-                </div>
-              </dd>
-              <dt>{t("config.motion")}</dt>
-              <dd>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    className="tui-btn"
-                    onClick={() => setMotion(motion === "full" ? "reduced" : "full")}
-                  >
-                    {motion === "reduced" ? t("config.motionReduced") : t("config.motionFull")}
-                  </button>
-                  <span className="tui-hint" style={{ alignSelf: "center" }}>
-                    {t("config.motionHint")}
-                  </span>
-                </div>
-              </dd>
-            </dl>
-          </div>
-
-          {/* API limits */}
-          <div className="tui-panel">
-            <span className="tui-label">{t("config.limitsSection")}</span>
-            <div className="tui-field" style={{ marginTop: "0.25lh" }}>
-              <label className="tui-label" htmlFor="rps-input">
-                {t("config.rpsLabel")}
-              </label>
-              <input
-                id="rps-input"
-                type="number"
-                min={1}
-                max={32}
-                className="tui-input"
-                value={rps}
-                onChange={(e) => setRps(Number(e.target.value))}
-                style={{ width: "12ch" }}
-              />
-              <span className="tui-hint">
-                {t("config.rpsHint")}
-              </span>
-            </div>
-
-            {config && (
-              <dl className="tui-kv" style={{ marginTop: "0.5lh" }}>
-                <dt>redis</dt>
-                <dd><code>{config.redis_url}</code></dd>
-                <dt>{t("config.workers")}</dt>
-                <dd>{config.worker_concurrency} {t("config.workersUnit")}</dd>
-                <dt>{t("config.timeout")}</dt>
-                <dd>{config.http_timeout_read}s</dd>
+        <form onSubmit={handleSave} style={{ display: "flex", flexDirection: "column", gap: "var(--s5)" }}>
+          <div className="zf-panel">
+            <div className="zf-panel-hd"><span className="zf-micro">{t("config.appearanceSection")}</span></div>
+            <div className="zf-panel-bd">
+              <dl className="zf-kv">
+                <dt>{t("config.theme")}</dt>
+                <dd>
+                  <div style={{ display: "flex", gap: "var(--s2)", alignItems: "center", flexWrap: "wrap" }}>
+                    <button type="button" className="zf-btn" onClick={toggleTheme}>
+                      {t("config.toggleTheme.before")}<b>{theme}</b>)
+                    </button>
+                    <span className="zf-hint">{t("config.themeHint")}</span>
+                  </div>
+                </dd>
+                <dt>{t("config.motion")}</dt>
+                <dd>
+                  <div style={{ display: "flex", gap: "var(--s2)", alignItems: "center", flexWrap: "wrap" }}>
+                    <button type="button" className="zf-btn" onClick={() => setMotion(motion === "full" ? "reduced" : "full")}>
+                      {motion === "reduced" ? t("config.motionReduced") : t("config.motionFull")}
+                    </button>
+                    <span className="zf-hint">{t("config.motionHint")}</span>
+                  </div>
+                </dd>
               </dl>
-            )}
+            </div>
           </div>
 
-          {/* Local client preferences */}
-          <div className="tui-panel">
-            <span className="tui-label">{t("config.clientSection")}</span>
-            <div className="tui-field" style={{ marginTop: "0.25lh" }}>
-              <label className="tui-label" htmlFor="ua-input">{t("config.uaLabel")}</label>
-              <input
-                id="ua-input"
-                className="tui-input"
-                value={userAgent}
-                onChange={(e) => setUserAgent(e.target.value)}
-              />
+          <div className="zf-panel">
+            <div className="zf-panel-hd"><span className="zf-micro">{t("config.limitsSection")}</span></div>
+            <div className="zf-panel-bd">
+              <div className="zf-field" style={{ maxWidth: "22ch" }}>
+                <label className="zf-label" htmlFor="rps-input">{t("config.rpsLabel")}</label>
+                <input id="rps-input" type="number" min={1} max={32} className="zf-input" value={rps} onChange={(e) => setRps(Number(e.target.value))} />
+                <span className="zf-hint">{t("config.rpsHint")}</span>
+              </div>
+              {config && (
+                <dl className="zf-kv" style={{ marginTop: "var(--s2)" }}>
+                  <dt>redis</dt>
+                  <dd><code>{config.redis_url}</code></dd>
+                  <dt>{t("config.workers")}</dt>
+                  <dd>{config.worker_concurrency} {t("config.workersUnit")}</dd>
+                  <dt>{t("config.timeout")}</dt>
+                  <dd>{config.http_timeout_read}s</dd>
+                </dl>
+              )}
             </div>
+          </div>
 
-            <div className="tui-field">
-              <label className="tui-label" htmlFor="headers-input">
-                {t("config.headersLabel")}
-              </label>
-              <textarea
-                id="headers-input"
-                className="tui-textarea"
-                value={headers}
-                placeholder='{"Authorization": "Bearer ...", "Accept-Language": "pt-BR"}'
-                onChange={(e) => setHeaders(e.target.value)}
-                rows={2}
-              />
-            </div>
-
-            <div className="flex gap-2 items-center" style={{ marginTop: "0.25lh" }}>
-              <label className="flex items-center gap-1 text-[12px]">
-                <input
-                  type="checkbox"
-                  checked={robots}
-                  onChange={(e) => setRobots(e.target.checked)}
-                />
+          <div className="zf-panel">
+            <div className="zf-panel-hd"><span className="zf-micro">{t("config.clientSection")}</span></div>
+            <div className="zf-panel-bd">
+              <div className="zf-field">
+                <label className="zf-label" htmlFor="ua-input">{t("config.uaLabel")}</label>
+                <input id="ua-input" className="zf-input" value={userAgent} onChange={(e) => setUserAgent(e.target.value)} />
+              </div>
+              <div className="zf-field">
+                <label className="zf-label" htmlFor="headers-input">{t("config.headersLabel")}</label>
+                <textarea id="headers-input" className="zf-textarea" value={headers} placeholder='{"Authorization": "Bearer ...", "Accept-Language": "pt-BR"}' onChange={(e) => setHeaders(e.target.value)} rows={2} />
+              </div>
+              <label className="zf-check">
+                <input type="checkbox" checked={robots} onChange={(e) => setRobots(e.target.checked)} />
                 {t("config.robotsLabel")}
               </label>
             </div>
           </div>
 
-          <div className="flex justify-end gap-2">
-            <button type="submit" className="tui-btn accent" disabled={saving}>
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <button type="submit" className="zf-btn zf-btn--primary" disabled={saving}>
               {saving ? <Spinner /> : SYM.ok} {t("config.save")}
             </button>
           </div>
         </form>
       )}
-    </TuiPanel>
+    </>
   )
 }
 

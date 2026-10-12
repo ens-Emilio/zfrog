@@ -2,7 +2,6 @@ import { createFileRoute } from "@tanstack/react-router"
 import { MODES, MODE_ORDER } from "@/lib/labels"
 import { useToast } from "@/components/ToastRegion"
 import { useT } from "@/lib/i18n"
-import { TuiPanel } from "@/components/ui/tui"
 
 const SHORTCUTS = [
   { key: "j / ↓", desc: "down" },
@@ -41,79 +40,63 @@ function AjudaPage() {
   }
 
   return (
-    <TuiPanel
-      title={t("ajuda.title")}
-      action={
-        <span style={{ color: "var(--fg-dim)", fontSize: 11 }}>
-          {t("ajuda.subtitle")}
-        </span>
-      }
-    >
-      <div style={{ display: "flex", flexDirection: "column", gap: "1.5lh", marginTop: "0.5lh" }}>
-        {/* Keyboard shortcuts */}
-        <div className="tui-panel">
-          <div className="tui-panel-head">
-            <span className="tui-panel-title">{t("ajuda.shortcutsTitle")}</span>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.25lh", padding: "0.5lh 1ch" }}>
-            {SHORTCUTS.map((s) => (
-              <div key={s.key} className="flex items-baseline text-[12px]">
-                <code style={{ minWidth: "14ch", color: "var(--fg)", fontWeight: 600 }}>{s.key}</code>
-                <span style={{ color: "var(--fg-muted)" }}>{t(`ajuda.shortcut.${s.desc}`)}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+    <>
+      <div className="zf-head">
+        <h1 className="zf-title">{t("ajuda.title")}</h1>
+        <span className="zf-meta">{t("ajuda.subtitle")}</span>
+      </div>
 
-        {/* Command line */}
-        <div className="tui-panel">
-          <div className="tui-panel-head">
-            <span className="tui-panel-title">{t("ajuda.cliTitle")}</span>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.5lh", padding: "0.5lh 1ch" }}>
-            {CLI.map((c) => (
-              <div key={c.cmd} className="flex justify-between items-baseline text-[12px] border-b border-[var(--line)] pb-2">
-                <div>
-                  <code style={{ color: "var(--fg)", fontWeight: 600 }}>{c.cmd}</code>
-                  <p style={{ color: "var(--fg-dim)", marginTop: "0.125lh" }}>{t(`ajuda.cli.${c.desc}`)}</p>
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--s5)" }}>
+        <div className="zf-panel">
+          <div className="zf-panel-hd"><span className="zf-micro">{t("ajuda.shortcutsTitle")}</span></div>
+          <div className="zf-panel-bd" style={{ padding: 0 }}>
+            <div className="zf-list">
+              {SHORTCUTS.map((s) => (
+                <div key={s.key} style={{ display: "flex", alignItems: "baseline", gap: "var(--s3)" }}>
+                  <kbd style={{ minWidth: "14ch" }}>{s.key}</kbd>
+                  <span className="zf-meta">{t(`ajuda.shortcut.${s.desc}`)}</span>
                 </div>
-                <button
-                  type="button"
-                  className="tui-btn"
-                  onClick={() => void copy(c.cmd)}
-                  style={{ fontSize: 11 }}
-                >
-                  {t("ajuda.copy")}
-                </button>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* Modes guide */}
-        <div className="tui-panel">
-          <div className="tui-panel-head">
-            <span className="tui-panel-title">{t("ajuda.modesTitle.before")}{MODE_ORDER.length}{t("ajuda.modesTitle.after")}</span>
+        <div className="zf-panel">
+          <div className="zf-panel-hd"><span className="zf-micro">{t("ajuda.cliTitle")}</span></div>
+          <div className="zf-panel-bd" style={{ padding: 0 }}>
+            <div className="zf-list">
+              {CLI.map((c) => (
+                <div key={c.cmd} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--s3)" }}>
+                  <div style={{ minWidth: 0 }}>
+                    <code style={{ color: "var(--fg)", fontWeight: 600 }}>{c.cmd}</code>
+                    <div className="zf-meta" style={{ marginTop: 2 }}>{t(`ajuda.cli.${c.desc}`)}</div>
+                  </div>
+                  <button type="button" className="zf-btn" onClick={() => void copy(c.cmd)}>{t("ajuda.copy")}</button>
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="overflow-x-auto p-2">
-            <table className="tui-table w-full text-xs">
+        </div>
+
+        <div className="zf-panel">
+          <div className="zf-panel-hd"><span className="zf-micro">{t("ajuda.modesTitle.before")}{MODE_ORDER.length}{t("ajuda.modesTitle.after")}</span></div>
+          <div style={{ overflowX: "auto" }}>
+            <table className="zf-table">
               <thead>
-                <tr className="border-b border-[var(--line)] text-[var(--fg-dim)] uppercase text-[10px]">
-                  <th className="p-1 text-left">{t("ajuda.colMode")}</th>
-                  <th className="p-1 text-left">{t("ajuda.colWhen")}</th>
-                  <th className="p-1 text-left">{t("ajuda.colOutput")}</th>
+                <tr>
+                  <th>{t("ajuda.colMode")}</th>
+                  <th>{t("ajuda.colWhen")}</th>
+                  <th>{t("ajuda.colOutput")}</th>
                 </tr>
               </thead>
               <tbody>
                 {MODE_ORDER.map((id) => {
                   const mode = MODES[id]
                   return (
-                    <tr key={id} className="border-b border-[var(--line)]">
-                      <td style={{ fontWeight: 600, color: "var(--fg)", whiteSpace: "nowrap" }} className="p-1">
-                        {t(mode.label)}
-                      </td>
-                      <td className="p-1">{t(mode.when)}</td>
-                      <td style={{ color: "var(--fg-dim)" }} className="p-1">{t(mode.output)}</td>
+                    <tr key={id}>
+                      <td style={{ fontWeight: 600, color: "var(--fg)", whiteSpace: "nowrap" }}>{t(mode.label)}</td>
+                      <td>{t(mode.when)}</td>
+                      <td className="zf-muted">{t(mode.output)}</td>
                     </tr>
                   )
                 })}
@@ -122,7 +105,7 @@ function AjudaPage() {
           </div>
         </div>
       </div>
-    </TuiPanel>
+    </>
   )
 }
 

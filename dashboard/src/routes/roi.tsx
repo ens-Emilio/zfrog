@@ -45,26 +45,27 @@ function RoiPage() {
 
   return (
     <>
-      <div className="flex items-baseline justify-between">
-        <h1>{t("roi.title")}</h1>
-        <button type="button" className="tui-btn" onClick={() => void load()}>
+      <div className="zf-head">
+        <h1 className="zf-title">{t("roi.title")}</h1>
+        <span className="spacer" style={{ flex: 1 }} />
+        <button type="button" className="zf-btn" onClick={() => void load()}>
           {t("roi.refresh")}
         </button>
       </div>
 
       {error && (
-        <div className="tui-panel" style={{ borderColor: "var(--error)" }}>
-          <p style={{ color: "var(--error)" }}>{SYM.fail} {t("roi.loadError")}{error}</p>
+        <div className="zf-panel" style={{ borderColor: "var(--error)", padding: "var(--s4)", marginBottom: "var(--s4)" }}>
+          <p style={{ color: "var(--error)", margin: 0 }}>{SYM.fail} {t("roi.loadError")}{error}</p>
         </div>
       )}
 
       {loading ? (
-        <p className="empty"><Spinner /> {t("roi.loading")}</p>
+        <div className="zf-empty"><Spinner /> {t("roi.loading")}</div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: "1lh", marginTop: "0.5lh" }}>
-          <div className="tui-panel">
-            <span className="tui-label">{t("roi.estimateLabel")}</span>
-            <dl className="tui-kv">
+        <div className="zf-panel">
+          <div className="zf-panel-hd"><span className="zf-micro">{t("roi.estimateLabel")}</span></div>
+          <div className="zf-panel-bd">
+            <dl className="zf-kv">
               <dt>{t("roi.totalTime")}</dt>
               <dd style={{ color: "var(--ok)", fontWeight: 500 }}>
                 {roi?.duration_s != null ? `${(roi.duration_s / 3600).toFixed(1)} ${t("roi.hours")}` : "—"}
@@ -74,11 +75,9 @@ function RoiPage() {
                 {formatMoney(roi?.net ?? null, roi?.currency || "BRL")}
               </dd>
               <dt>{t("roi.pagesCaptured")}</dt>
-              <dd>{formatNumber(roi?.pages ?? jobs.length)}</dd>
+              <dd className="zf-num">{formatNumber(roi?.pages ?? jobs.length)}</dd>
               <dt>{t("roi.basis")}</dt>
-              <dd style={{ color: "var(--fg-dim)" }}>
-                {t("roi.basisDesc")}
-              </dd>
+              <dd style={{ color: "var(--muted)" }}>{t("roi.basisDesc")}</dd>
             </dl>
           </div>
         </div>
